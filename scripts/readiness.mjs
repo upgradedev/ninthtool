@@ -398,7 +398,12 @@ async function driveLivePage() {
       document.querySelector('[data-el="run"]').click();
       while (Date.now() - started < 60000) {
         const s = document.querySelector('[data-el="status"]').textContent;
-        if (/Done\.|did not finish/.test(s)) break;
+        // EVERY TERMINAL STATE, not just the happy one. The run state machine added PARTIAL and
+        // "Nothing could be measured", and this loop did not know them, so a run that finished in
+        // about five seconds sat here until the sixty second cap and reported 60210 ms. The
+        // counts were right and the timing was fiction, which is the kind of number this
+        // repository exists to refuse.
+        if (/Done\.|did not finish|PARTIAL|Nothing could be measured/.test(s)) break;
         await new Promise(r => setTimeout(r, 300));
       }
       out.elapsedMs = Date.now() - started;
