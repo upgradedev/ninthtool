@@ -25,15 +25,29 @@
  * observation degrades every row to not-applicable, which quietly moves the run into the error
  * branch and would leave the weaker assertions green.
  *
- * WATCHED FAILING. Sixteen deliberate breakages of app.js were run against this file in a scratch
- * copy of the tree. Twelve turn it red, including both measured defects: moving
- * `withdrawFindingsTool()` below the first await, and letting a failed run keep the previous
- * answer. Four do not, and all four are the same shape. The entry block at the top of `runAudit`
- * and the `catch` each clear the previous answer on their own, so removing either half alone
- * changes nothing observable and only removing BOTH reproduces the defect. That combination is
- * covered. The redundancy is deliberate in the module and is recorded here rather than papered
- * over, because a reader who mutates one line, sees green, and concludes the test is worthless
- * would be drawing the wrong conclusion from the right observation.
+ * WATCHED FAILING. Every test below has been turned red by at least one deliberate breakage of
+ * app.js, run in a scratch copy of the tree, including both measured defects: moving
+ * `withdrawFindingsTool()` below the first await reddens the ordering test, and letting a failed
+ * run keep the previous answer reddens the stale-result test.
+ *
+ * WHAT SURVIVES, AND WHY IT IS THE MODULE RATHER THAN THIS FILE. Two classes of single-line
+ * breakage change nothing any surface can observe, so no test can catch them.
+ *
+ * The entry block at the top of `runAudit` does three things the `catch` then does again: clearing
+ * `lastResult`, withdrawing the findings tool, and hiding the summary. Remove any one of those from
+ * the `catch` alone and nothing moves, because the entry block already did it and nothing
+ * republished in between. Only removing BOTH halves of the clearing reproduces the measured defect,
+ * and that combination is covered.
+ *
+ * Both guards in `publishFindingsTool` are unreachable from `runAudit`. It is only ever called
+ * after the error branch has returned, so `!lastResult` cannot be true there, and a run where total
+ * equals notApplicable is classified `error` and returns before publishing. Delete either guard on
+ * its own and this file stays green. What is covered behaviourally is the early return in the error
+ * branch: publish from there with the second guard also gone and the nothing-measured test reddens.
+ *
+ * A reader who mutates one of those lines, sees green and concludes this file is worthless would be
+ * drawing the wrong conclusion from the right observation. Two assertions that genuinely could not
+ * fail were found in review and are marked where they were replaced.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -325,7 +339,13 @@ test('with no host object the control is disabled and the reason is rendered bes
   assert.equal(page.el('blocker').hidden, false, 'a disabled control with no reason is a gate to null');
   assert.match(page.el('blocker').textContent, /chrome:\/\/flags\/#enable-webmcp-testing/);
   assert.ok(page.el('blocker').textContent.includes(MEASURED_AGAINST));
-  assert.equal(page.tools.size, 0);
+  // THIS LINE REPLACES `assert.equal(page.tools.size, 0)`, WHICH COULD NOT FAIL. With no host
+  // object the double's context is never attached to the document or the navigator, so app.js holds
+  // no reference to it and nothing the page could do would ever put an entry in that map. It was an
+  // assertion about an object the module under test cannot reach. What can fail is whether boot
+  // stopped at the guard: run on past it and publishStandingTools is handed a null context, and the
+  // status line says so instead.
+  assert.equal(page.el('status').textContent, 'The audit cannot run here.');
   // The page is never blank. A judge on a browser without the flag still sees what this is.
   assert.equal(verdictCards(page.el('groups')).total, BEHAVIOURS.length);
 });
@@ -402,7 +422,10 @@ test('a partial run publishes the findings tool and never uses success wording',
 
   const status = page.el('status').textContent;
   assert.match(status, /^PARTIAL\./);
-  assert.ok(!status.startsWith('Done.'), 'an incomplete run must not read as a finished one');
+  // NOT `startsWith('Done.')`, which the line above already settles and which therefore could not
+  // fail on its own. Success wording anywhere in the line is what would mislead a reader who skims
+  // to the end of it, so the whole line is checked.
+  assert.ok(!/\bDone\b/.test(status), `an incomplete run read as a finished one: ${status}`);
   assert.match(status, /1 could not be observed/);
   assert.match(page.el('env').textContent, /INCOMPLETE: everySelectedObserved/);
 
@@ -591,7 +614,11 @@ test('a run is repeatable and each one gets an identity nothing else can be mist
   assert.equal(two.run.catalogueMeasuredAgainst, MEASURED_AGAINST);
   assert.deepEqual(two.counts, one.counts, 'the same transcript must judge the same way twice');
 
-  // The findings tool follows the current run, not the one that published it first.
+  // Both surfaces report the same run identity. That is all this line pins, and the weaker claim is
+  // the honest one: capturing `lastRun` at publish time instead of reading it at call time is
+  // indistinguishable here, because the tool is withdrawn and re-registered on every publish, so
+  // the closure and the module variable cannot drift apart on any path a caller can reach. What it
+  // does catch is the findings tool dropping or renaming the field, which turns this line red.
   assert.equal(payload(await page.call('nt_get_findings', {})).run.id, two.run.id);
 });
 

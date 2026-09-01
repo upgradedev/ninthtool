@@ -165,7 +165,6 @@ export async function launchWithWebMCP({ url, port = 9411, chrome, timeoutMs = 3
  * @returns {Promise<{ok: boolean, url: (string|null), seen: string[], waitedMs: number}>}
  */
 export async function waitForPageTarget(port, url, timeoutMs = 30000) {
-  const wanted = String(url).replace(/#.*$/, '');
   const started = Date.now();
   let seen = [];
   while (Date.now() - started < timeoutMs) {
@@ -246,7 +245,6 @@ export function targetFor(url) {
  * @returns {Promise<{ok: boolean, url: string, readyState: string, waitedMs: number}>}
  */
 export async function waitForDocument(session, url, timeoutMs = 30000) {
-  const wanted = String(url).replace(/#.*$/, '');
   const started = Date.now();
   let last = { url: '', readyState: '' };
   while (Date.now() - started < timeoutMs) {
