@@ -73,10 +73,31 @@ jobs:
             echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Which install form actually works
+        id: form
+        run: |
+          SHA="${{ steps.ref.outputs.sha }}"
+          echo "npm $(npm --version), node $(node --version)"
+          try () {
+            echo "--- trying: $1"
+            if timeout 240 npx --yes "$1" --help > help.txt 2>err.txt; then
+              if grep -q "behavioural conformance suite for WebMCP" help.txt; then
+                echo "WORKS: $1"; echo "spec=$1" >> "$GITHUB_OUTPUT"; return 0
+              fi
+              echo "ran but the help text was not ours"
+            fi
+            sed -n '1,4p' err.txt || true
+            return 1
+          }
+          try "github:upgradedev/ninthtool#$SHA" && exit 0
+          try "https://github.com/upgradedev/ninthtool/tarball/$SHA" && exit 0
+          try "git+https://github.com/upgradedev/ninthtool.git#$SHA" && exit 0
+          echo "no install form worked, so the README cannot promise one"
+          exit 1
+
       - name: It installs and starts
         run: |
           set -e
-          npx --yes "github:upgradedev/ninthtool#${{ steps.ref.outputs.sha }}" --help > help.txt
           grep -q "behavioural conformance suite for WebMCP" help.txt
           grep -q -- "--allow-fixture-forms" help.txt
           echo "the bin resolved, every import loaded, and the help text is the shipped one."
@@ -84,7 +105,7 @@ jobs:
       - name: It refuses bad arguments before launching anything
         run: |
           set +e
-          npx --yes "github:upgradedev/ninthtool#${{ steps.ref.outputs.sha }}" --fail-on wrong > out.txt 2>&1
+          npx --yes "${{ steps.form.outputs.spec }}" --fail-on wrong > out.txt 2>&1
           code=$?
           set -e
           [ "$code" = "2" ] || { echo "expected exit 2 for a bad --fail-on, got $code"; cat out.txt; exit 1; }
@@ -102,7 +123,7 @@ jobs:
       - name: It audits the live page, one behaviour, and touches nothing
         run: |
           set -e
-          npx --yes "github:upgradedev/ninthtool#${{ steps.ref.outputs.sha }}"             https://upgradedev.github.io/ninthtool/ --behaviour A1 > audit.txt 2>&1 || true
+          npx --yes "${{ steps.form.outputs.spec }}"             https://upgradedev.github.io/ninthtool/ --behaviour A1 > audit.txt 2>&1 || true
           cat audit.txt
           grep -q "scope   : A1" audit.txt
           grep -q "1 tested" audit.txt
