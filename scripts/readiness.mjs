@@ -35,9 +35,10 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
-  LIVE_URL, REPO, LIVE_PATHS, CLAIMED_TOOLS, FLAGSHIP,
+  LIVE_URL, REPO, LIVE_PATHS, CLAIMED_TOOLS, FLAGSHIP, MANIFEST_PATH,
   MANDATORY_PASS_RATE, OVERALL_PASS_RATE, VIDEO_MAX_SECONDS, thresholdDrift,
 } from './readiness_config.mjs';
+import { buildManifest, readManifest, manifestDrift, hashOf } from './build_manifest.mjs';
 import { OTHER_COMPETITIONS, JUDGE_FACING_FILES, SIBLING_ENTRY, SIBLING_MAY_BE_NAMED_IN,
   SIBLING_MUST_BE_NAMED_IN } from './style_config.mjs';
 import { BEHAVIOURS } from '../src/judge/behaviours.js';
@@ -160,17 +161,20 @@ const ROWS = [
   },
   {
     id: 'M6', kind: 'mandatory', network: true,
-    title: 'Every asset the live page needs answers 200',
+    title: 'Every file the page loads answers 200, taken from the manifest not from a list',
     run: async () => {
+      const fresh = buildManifest(ROOT);
+      const wanted = [...LIVE_PATHS, ...Object.keys(fresh.files)];
       const bad = [];
-      for (const suffix of LIVE_PATHS) {
-        const url = new URL(suffix, LIVE_URL).href;
-        const response = await get(url);
+      for (const suffix of wanted) {
+        const response = await get(new URL(suffix, LIVE_URL).href);
         if (response.status !== 200) bad.push(`${suffix || '/'} -> ${response.status || response.error}`);
       }
       return {
         ok: bad.length === 0,
-        evidence: bad.length ? `not 200: ${bad.join(', ')}` : `all ${LIVE_PATHS.length} paths answered 200`,
+        evidence: bad.length
+          ? `not 200: ${bad.join(', ')}`
+          : `all ${wanted.length} paths answered 200, ${fresh.fileCount} of them from the module graph`,
       };
     },
   },
@@ -289,19 +293,60 @@ const ROWS = [
     },
   },
   {
-    id: 'R5', kind: 'recommended', network: true,
-    title: 'The deployed page is built from the current head',
+    id: 'R5', kind: 'mandatory', network: true,
+    title: 'Every runtime file the page loads is byte identical to this tree',
     run: async () => {
+      /*
+       * THREE DIRECTIONS, BECAUSE ONE WAS NOT ENOUGH.
+       *
+       * This row used to fetch `behaviours.js` and compare it, while eight other files the page
+       * loads were served unverified. It reported the deployment as current on the strength of one
+       * ninth of it.
+       *
+       *   1. the committed manifest matches this tree
+       *   2. the served manifest matches the committed one, which is the deployment identity
+       *   3. every file the manifest lists is served and hashes the same
+       *
+       * A missing or unreadable served manifest is a failure, not an excuse: an unknown deployment
+       * identity is exactly the state this row exists to refuse.
+       */
       const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
-      const served = await get(new URL('src/judge/behaviours.js', LIVE_URL).href);
-      if (served.status !== 200) throw new Error(`the deployed catalogue answered ${served.status || served.error}`);
-      const local = read('src/judge/behaviours.js');
-      const same = flat(served.body) === flat(local);
+      const fresh = buildManifest(ROOT);
+
+      const localDrift = manifestDrift(fresh, readManifest(ROOT));
+      if (localDrift.length) {
+        throw new Error(`the committed manifest does not describe this tree, so there is nothing `
+          + `trustworthy to compare the deployment against: ${localDrift.slice(0, 3).join('; ')}`);
+      }
+
+      const servedManifest = await get(new URL(MANIFEST_PATH, LIVE_URL).href);
+      if (servedManifest.status !== 200) {
+        throw new Error(`the live origin does not serve ${MANIFEST_PATH} (${servedManifest.status
+          || servedManifest.error}), so the deployed identity is unknown`);
+      }
+      let deployed = null;
+      try { deployed = JSON.parse(servedManifest.body); } catch (error) {
+        throw new Error(`the served ${MANIFEST_PATH} did not parse, so the deployed identity is unknown`);
+      }
+      const deployedDrift = manifestDrift(fresh, deployed);
+
+      const mismatched = [];
+      for (const [relative, expected] of Object.entries(fresh.files)) {
+        const response = await get(new URL(relative, LIVE_URL).href);
+        if (response.status !== 200) { mismatched.push(`${relative}: ${response.status || response.error}`); continue; }
+        if (hashOf(response.body) !== expected) mismatched.push(`${relative}: served bytes differ`);
+      }
+
+      const ok = deployedDrift.length === 0 && mismatched.length === 0;
       return {
-        ok: same,
-        evidence: same
-          ? `the served catalogue is byte identical to the working tree at ${head.slice(0, 7)}`
-          : `the served catalogue DIFFERS from the working tree at ${head.slice(0, 7)}, so the deployment is behind`,
+        ok,
+        evidence: ok
+          ? `all ${fresh.fileCount} runtime files served identical to the tree at ${head.slice(0, 7)}`
+            + ', and the deployed manifest matches'
+          : [
+            deployedDrift.length ? `the deployed manifest differs: ${deployedDrift.slice(0, 3).join('; ')}` : '',
+            mismatched.length ? `${mismatched.length} of ${fresh.fileCount} files differ: ${mismatched.slice(0, 4).join('; ')}` : '',
+          ].filter(Boolean).join('. '),
       };
     },
   },
@@ -473,7 +518,11 @@ async function selftest() {
     ['R2 with failing tests', () => ({ ok: '3' === '0' })],
     ['R3 with a style gate that never proved itself', () => ({ ok: /style gate: PASS/.test('style gate: PASS') && false })],
     ['R4 with no falsification criterion', () => ({ ok: /falsif/i.test('a document with no such section') && true })],
-    ['R5 with a deployment behind the head', () => ({ ok: flat('old') === flat('new') })],
+    ['R5 with a deployment behind the head', () => ({ ok: ['app.js: served bytes differ'].length === 0 })],
+    ['R5 with no manifest served at all', () => ({ ok: 404 === 200 })],
+    ['R5 with a manifest that does not describe the tree', () => ({
+      ok: ['src/ui/app.js has changed since the manifest was written'].length === 0,
+    })],
   ];
   let broken = 0;
   for (const [label, judgement] of cases) {
