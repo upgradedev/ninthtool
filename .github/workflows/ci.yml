@@ -35,6 +35,12 @@ jobs:
       - name: node --test
         run: node --test tests/unit
 
+      # The manifest is the deployment's identity and readiness row R5 compares the live origin
+      # against it. A forgotten regeneration has to fail here, in CI, rather than at a deploy
+      # nobody is watching.
+      - name: The runtime manifest is current
+        run: node scripts/build_manifest.mjs --check
+
   style:
     name: Style gate
     runs-on: ubuntu-latest
