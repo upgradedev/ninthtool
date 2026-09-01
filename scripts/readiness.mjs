@@ -205,7 +205,10 @@ const ROWS = [
     title: 'Every rule in the judge has a mutation proving it can fail',
     run: async () => {
       const text = read('tests/unit/verdict_mutations.test.js');
-      const covered = [...text.matchAll(/^\s{2}([A-D]\d):\s*\{/gm)].map((m) => m[1]);
+      // [A-DP] rather than [A-D]: the your-page group uses P ids, and a character class that
+      // quietly stops matching a whole group is exactly the shape of gate this repository has
+      // already been caught by twice.
+      const covered = [...text.matchAll(/^\s{2}([A-DP]\d):\s*\{/gm)].map((m) => m[1]);
       const missing = BEHAVIOURS.map((b) => b.id).filter((id) => !covered.includes(id));
       return {
         ok: missing.length === 0,

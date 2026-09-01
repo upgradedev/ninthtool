@@ -32,8 +32,15 @@ import { BEHAVIOURS, behaviourById, MEASURED_AGAINST } from '../src/judge/behavi
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 
-/** Where the subject page lives when no URL is given. */
-const DEFAULT_SUBJECT = 'fixtures/subject.html';
+/**
+ * What a run with no arguments audits.
+ *
+ * The page itself, not the subject fixture. Same origin frames contribute their tools to the top
+ * document, so from here the surface carries this page's three script registered tools AND the
+ * subject frame's two form derived ones. That is the only place both halves of the standard are on
+ * one surface at once, which is what the your-page rows need in order to say anything.
+ */
+const DEFAULT_SUBJECT = 'index.html';
 
 /* ------------------------------------------------------------------ arguments */
 

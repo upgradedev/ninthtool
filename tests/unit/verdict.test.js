@@ -101,7 +101,7 @@ test('the headline counts are computed from the catalogue, never written down', 
   const counts = headlineCounts();
   assert.equal(counts.total, BEHAVIOURS.length);
   assert.equal(
-    counts.specDivergence + counts.standardGap + counts.silentTrap + counts.holds,
+    counts.yourPage + counts.specDivergence + counts.standardGap + counts.silentTrap + counts.holds,
     counts.total,
     'every behaviour belongs to exactly one group',
   );

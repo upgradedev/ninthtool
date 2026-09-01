@@ -21,6 +21,13 @@ const el = (name) => document.querySelector(`[data-el="${name}"]`);
 
 /** What each group is, in one sentence, because the difference between them is the whole argument. */
 const GROUP_COPY = {
+  'your-page': {
+    heading: 'Your page',
+    note: 'These read the tools this page publishes, snapshotted before the probe registered '
+      + 'anything of its own. They are the rows a build should go red on, because they are the ones '
+      + 'a page author can fix. Everything below them is the host, and is the same wherever you '
+      + 'point this.',
+  },
   'spec-divergence': {
     heading: 'The browser diverges from the specification it implements',
     note: 'The W3C draft and Chromium’s own IDL say one thing and the shipping build does '
@@ -44,6 +51,42 @@ const GROUP_COPY = {
 
 const VERDICT_CLASS = { pass: 'v-pass', fail: 'v-fail', 'not-applicable': 'v-na' };
 const VERDICT_WORD = { pass: 'HOLDS', fail: 'BROKEN', 'not-applicable': 'NOT RUN' };
+
+
+/**
+ * Refuse an argument object this page did not declare.
+ *
+ * WHY EVERY TOOL ON THIS PAGE CALLS THIS. Behaviour C3 measured that the browser enforces nothing
+ * at all on a script registered tool: a declared `required` is ignored and a declared string
+ * accepts 123. So the schema is documentation, and the only validation that exists is the one the
+ * page writes. Row P5 checks whether a page did, and this page failed its own row P5 on the first
+ * run that measured it: both read only tools accepted a property that was in nobody's schema.
+ *
+ * The refusal returns a normal result rather than throwing, because behaviour B1 measured that
+ * throwing erases the message. A caller gets the reason this way, and reads it as a result, which
+ * is the least bad of the two options the standard offers.
+ *
+ * @param {object} input whatever the caller sent
+ * @param {string[]} allowed the property names this tool declares
+ * @returns {{ok: true, value: object}|{ok: false, said: string}}
+ */
+function onlyDeclared(input, allowed) {
+  const given = input && typeof input === 'object' ? input : {};
+  const unknown = Object.keys(given).filter((key) => !allowed.includes(key));
+  if (unknown.length) {
+    return {
+      ok: false,
+      said: `Refused. This tool declares ${allowed.length ? allowed.join(', ') : 'no parameters'}`
+        + ` and was sent ${unknown.join(', ')}. Nothing was read and nothing changed.`,
+    };
+  }
+  return { ok: true, value: given };
+}
+
+/** The refusal shape every tool on this page uses, in one place. */
+function refuse(said) {
+  return { content: [{ type: 'text', text: said }] };
+}
 
 /** The last judged result, and the handle that withdraws the tool that reads it. */
 let lastResult = null;
@@ -111,9 +154,14 @@ function renderGroups(result) {
   for (const group of GROUPS) {
     const members = BEHAVIOURS.filter((b) => b.group === group);
     if (!members.length) continue;
+    // A group added to the catalogue with no copy here used to throw inside the render and leave
+    // the whole page blank, which is the worst possible failure for a page whose only job is to
+    // show you something. tests/unit/group_copy.test.js now fails at authoring time instead, and
+    // this fallback means even that mistake renders the group rather than nothing.
+    const copy = GROUP_COPY[group] || { heading: group, note: '' };
     const section = text('section', 'group');
-    section.append(text('h3', 'group-h', GROUP_COPY[group].heading));
-    section.append(text('p', 'group-note', GROUP_COPY[group].note));
+    section.append(text('h3', 'group-h', copy.heading));
+    if (copy.note) section.append(text('p', 'group-note', copy.note));
     const cards = text('div', 'cards');
     for (const behaviour of members) cards.append(renderCard(behaviour, byId.get(behaviour.id) || null));
     section.append(cards);
@@ -216,7 +264,9 @@ async function publishFindingsTool() {
       },
       annotations: { readOnlyHint: true, untrustedContentHint: false },
       async execute(input) {
-        const only = (input && input.only) || 'all';
+        const checked = onlyDeclared(input, ['only']);
+        if (!checked.ok) return refuse(checked.said);
+        const only = checked.value.only || 'all';
         const want = { broken: 'fail', kept: 'pass', 'not-run': 'not-applicable' }[only];
         const chosen = want ? lastResult.findings.filter((f) => f.verdict === want) : lastResult.findings;
         return {
@@ -264,7 +314,9 @@ async function publishStandingTools(ctx) {
     },
     annotations: { readOnlyHint: true, untrustedContentHint: false },
     async execute(input) {
-      const group = (input && input.group) || 'all';
+      const checked = onlyDeclared(input, ['group']);
+      if (!checked.ok) return refuse(checked.said);
+      const group = checked.value.group || 'all';
       const chosen = group === 'all' ? BEHAVIOURS : BEHAVIOURS.filter((b) => b.group === group);
       return {
         content: [{
@@ -301,7 +353,9 @@ async function publishStandingTools(ctx) {
     async execute(input) {
       // The browser enforces nothing on a script registered tool, which is behaviour C3, so this
       // handler validates its own argument. Every tool on this page does.
-      const wanted = String((input && input.id) || '').trim().toUpperCase();
+      const checked = onlyDeclared(input, ['id']);
+      if (!checked.ok) return refuse(checked.said);
+      const wanted = String(checked.value.id || '').trim().toUpperCase();
       const behaviour = BEHAVIOURS.find((b) => b.id === wanted);
       if (!behaviour) {
         return {
@@ -325,7 +379,9 @@ async function publishStandingTools(ctx) {
     // read only, and saying otherwise would be exactly the kind of dishonest annotation this
     // suite exists to catch.
     annotations: { readOnlyHint: false, untrustedContentHint: false },
-    async execute() {
+    async execute(input) {
+      const checked = onlyDeclared(input, []);
+      if (!checked.ok) return refuse(checked.said);
       await runAudit();
       if (!lastResult) return { content: [{ type: 'text', text: 'The audit did not finish.' }] };
       return {
@@ -346,12 +402,14 @@ async function publishStandingTools(ctx) {
 /* ------------------------------------------------------------------ boot */
 
 async function boot() {
+  const counts = headlineCounts();
   el('catalogue-lede').textContent =
-    `${headlineCounts().total} behaviours. ${headlineCounts().specDivergence} where the browser `
-    + `diverges from the specification, ${headlineCounts().standardGap} the standard cannot express `
-    + `at all, ${headlineCounts().silentTrap} that fail silently when written the obvious way, and `
-    + `${headlineCounts().holds} that hold. Run the audit above to replace the stored measurement `
-    + 'with what your own browser does.';
+    `${counts.total} behaviours. ${counts.yourPage} read the tools this page publishes and are the `
+    + `ones a page author can fix. The other ${counts.browserSubject} are the host: `
+    + `${counts.specDivergence} where the browser diverges from the specification it implements, `
+    + `${counts.standardGap} the standard cannot express at all, ${counts.silentTrap} that fail `
+    + `silently when written the obvious way, and ${counts.holds} that hold. Run the audit above to `
+    + 'replace the stored measurement with what your own browser does.';
 
   renderGroups(null);
 
