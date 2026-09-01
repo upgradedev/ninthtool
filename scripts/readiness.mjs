@@ -38,7 +38,8 @@ import {
   LIVE_URL, REPO, LIVE_PATHS, CLAIMED_TOOLS, FLAGSHIP,
   MANDATORY_PASS_RATE, OVERALL_PASS_RATE, VIDEO_MAX_SECONDS, thresholdDrift,
 } from './readiness_config.mjs';
-import { OTHER_COMPETITIONS, JUDGE_FACING_FILES } from './style_config.mjs';
+import { OTHER_COMPETITIONS, JUDGE_FACING_FILES, SIBLING_ENTRY, SIBLING_MAY_BE_NAMED_IN,
+  SIBLING_MUST_BE_NAMED_IN } from './style_config.mjs';
 import { BEHAVIOURS } from '../src/judge/behaviours.js';
 import { launchWithWebMCP, waitForPageTarget, targetFor, waitForDocument } from '../src/probe/launch.mjs';
 
@@ -100,21 +101,31 @@ const ROWS = [
   },
   {
     id: 'M3', kind: 'mandatory',
-    title: 'No judge facing file names another competition or project',
+    title: 'No judge facing file names another competition, and the sibling entry IS disclosed',
     run: async () => {
-      // The list is imported, never copied. A second copy here made the style gate red, which is
-      // the style gate working, and would have been two lists free to drift apart.
+      // Two sided, and it became two sided because the two rules genuinely conflict. Naming
+      // another CONTEST is a defect. Naming our own second entry in THIS contest, in the
+      // provenance section the rules require in order to judge whether two submissions are
+      // substantially different, is required. So the ban is narrowed by file and by name, and the
+      // disclosure is asserted, which makes this row stricter than the one it replaces.
       const hits = [];
       for (const file of JUDGE_FACING_FILES) {
         const text = read(file).toLowerCase();
         for (const name of OTHER_COMPETITIONS) {
+          if (name === SIBLING_ENTRY && SIBLING_MAY_BE_NAMED_IN.includes(file)) continue;
           if (new RegExp(`(^|[^a-z])${name}([^a-z]|$)`).test(text)) hits.push(`${file}: ${name}`);
         }
       }
+      const undisclosed = SIBLING_MUST_BE_NAMED_IN
+        .filter((file) => !read(file).toLowerCase().includes(SIBLING_ENTRY));
+      for (const file of undisclosed) {
+        hits.push(`${file}: does NOT disclose the sibling entry, which the multiple entry rule requires`);
+      }
       return {
         ok: hits.length === 0,
-        evidence: hits.length ? hits.join(', ')
-          : `${JUDGE_FACING_FILES.length} judge facing files clean of ${OTHER_COMPETITIONS.length} names`,
+        evidence: hits.length ? hits.join('; ')
+          : `${JUDGE_FACING_FILES.length} judge facing files clean of ${OTHER_COMPETITIONS.length - 1}`
+            + ` other names, and the sibling entry is disclosed in ${SIBLING_MUST_BE_NAMED_IN.join(', ')}`,
       };
     },
   },
@@ -431,9 +442,12 @@ async function selftest() {
     ['M1 with a licence that is not one', () => ({ ok: /MIT License/.test('not a licence') })],
     ['M2 with a page missing the sentence', () => ({ ok: flat('some other page').includes(flat(FLAGSHIP)) })],
     ['M3 with a banned name present', () => {
-      const name = OTHER_COMPETITIONS[0];
+      const name = OTHER_COMPETITIONS.find((n) => n !== SIBLING_ENTRY);
       return { ok: !new RegExp(`(^|[^a-z])${name}([^a-z]|$)`).test(`built for ${name}`) };
     }],
+    ['M3 with the sibling entry not disclosed', () => ({
+      ok: SIBLING_MUST_BE_NAMED_IN.filter(() => !'a readme with no disclosure'.includes(SIBLING_ENTRY)).length === 0,
+    })],
     ['M4 with a tool absent from the bundle', () => ({ ok: CLAIMED_TOOLS.filter((n) => !'nothing here'.includes(n)).length === 0 })],
     ['M5 with a 404 from the live URL', () => ({ ok: 404 === 200 })],
     ['M6 with one asset missing', () => ({ ok: ['a -> 404'].length === 0 })],
@@ -453,9 +467,9 @@ async function selftest() {
     }
   }
   const automated = ROWS.filter((r) => r.kind !== 'owner-gated');
-  if (cases.length !== automated.length) {
+  if (cases.length < automated.length) {
     console.error(`  selftest: ${automated.length} automated rows but ${cases.length} failure proofs. `
-      + 'Every automated row needs one.');
+      + 'Every automated row needs at least one.');
     broken += 1;
   }
   if (broken) {

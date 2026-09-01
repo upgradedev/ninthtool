@@ -49,3 +49,19 @@ export const OTHER_COMPETITIONS = [
 
 /** Judge facing files the readiness gate holds to that list. */
 export const JUDGE_FACING_FILES = ['README.md', 'index.html', 'docs/evidence.md', 'docs/prior-art.md'];
+
+/**
+ * Our own sibling entry, and the files the rules require it to be named in.
+ *
+ * THIS IS A NARROWING, NOT A WIDENING, AND THE DIFFERENCE MATTERS. The ban on naming other
+ * competitions exists so a judge never opens a file and finds themselves reading about somebody
+ * else's contest. Naming our OWN second entry in THIS contest, in the provenance section the rules
+ * require in order to judge whether two submissions are substantially different, is the opposite of
+ * that failure mode: leaving it out is what would be dishonest.
+ *
+ * So the name is permitted in exactly these files, and the readiness gate additionally REQUIRES it
+ * in the README, because a missing disclosure is a finding too. Everywhere else it stays banned.
+ */
+export const SIBLING_ENTRY = 'claimready';
+export const SIBLING_MAY_BE_NAMED_IN = ['README.md', 'docs/prior-art.md'];
+export const SIBLING_MUST_BE_NAMED_IN = ['README.md'];
