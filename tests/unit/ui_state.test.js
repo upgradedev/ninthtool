@@ -465,7 +465,64 @@ test('a host that measured nothing is not a host that found nothing', async (t) 
   assert.match(tiles, /unobserved, nothing measured/);
   assert.ok(!/promises broken/.test(tiles), `the tiles announced a count: ${tiles}`);
   assert.equal(page.el('blocker').hidden, false);
-  assert.match(page.el('blocker').textContent, /could not observe a single behaviour/);
+  // BOTH SCOPES ARE NAMED. The old text asserted "this browser exposed a WebMCP host object"
+  // without saying which document it meant, and printed that directly above "host object none".
+  const blocker = page.el('blocker').textContent;
+  assert.match(blocker, /The top document exposed /);
+  assert.match(blocker, /The subject frame at https:\/\/ninthtool\.invalid\/fixtures\/subject\.html/);
+  assert.ok(!/most common cause/.test(blocker),
+    `the page is guessing at a cause again: ${blocker}`);
+});
+
+/*
+ * THE SHAPE THE CHATGPT DESKTOP IN-APP BROWSER ACTUALLY RETURNED.
+ *
+ * Measured 2026-09-02 on the live URL, Chromium 151: the top document exposed
+ * `document.modelContext` and published three tools, while the same-origin subject frame exposed
+ * none at load time and again at click time. `fixtures/subject.html` therefore takes its early
+ * return, and the transcript carries `api: null`, no observations, and ONE error holding the
+ * reason. The suite's own page then threw that reason away and printed a guess instead.
+ *
+ * `nothingMeasured()` above could not catch it: it carries a full `META` and `errors: []`, so it
+ * never exercised the branch that matters. This is that branch.
+ */
+const hostObjectAbsentInFrame = () => ({
+  meta: {
+    api: null,
+    url: 'https://upgradedev.github.io/ninthtool/fixtures/subject.html',
+    userAgent: 'Chromium/151 in-app',
+  },
+  scope: { requestedBehaviours: ['A1', 'A2'] },
+  observations: {},
+  errors: ['This browser exposes no WebMCP host object. Chrome and Edge need the feature enabled '
+    + 'at chrome://flags/#enable-webmcp-testing, and the page must be a secure context and origin '
+    + 'isolated.'],
+});
+
+test('the reason on screen is the one the transcript measured, not a guess at a cause', async (t) => {
+  const page = await mount();
+  t.after(() => page.dispose());
+  const transcript = hostObjectAbsentInFrame();
+  page.subject.contentWindow = subjectFor(transcript);
+
+  const parsed = payload(await page.call('nt_run_audit', {}));
+  assert.equal(parsed.state, 'error');
+  assert.equal(page.tools.has('nt_get_findings'), false,
+    'a run that measured nothing must not publish findings');
+
+  const blocker = page.el('blocker').textContent;
+
+  // THE MEASURED REASON, VERBATIM. This is the assertion that fails if anyone goes back to
+  // narrating a cause: the string has to come from the transcript, so a hardcoded sentence
+  // cannot satisfy it.
+  assert.ok(blocker.includes(transcript.errors[0]),
+    `the measured reason was discarded. Blocker said: ${blocker}`);
+
+  // AND THE TWO SCOPES ARE DISTINGUISHED, which is what made the old screen self-contradictory.
+  assert.match(blocker, /The subject frame at https:\/\/upgradedev\.github\.io\/ninthtool\/fixtures\/subject\.html exposed no host object/);
+  assert.ok(!/most common cause/.test(blocker), `the page is guessing again: ${blocker}`);
+  assert.ok(!/does not implement the declarative half/.test(blocker),
+    'that clause asserted a mechanism this run never observed');
 });
 
 /* ------------------------------------------------------------------ the stale result */
