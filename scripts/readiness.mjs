@@ -18,8 +18,10 @@
  * same is true of a row that could not be run: `not run` is not `passed`, and the summary keeps them
  * apart.
  *
- * IT PROVES IT CAN FAIL. `--selftest` breaks every automated row in turn against a deliberately
- * wrong input and requires each one to go red. A gate nobody has watched fail is not a gate.
+ * IT PROVES IT CAN FAIL, TWO WAYS. `--selftest` feeds each row's judgement a deliberately wrong
+ * input and requires it to go red, which proves the judgement rather than the plumbing. The
+ * plumbing was proved separately by pointing the config at an origin that does not exist, which
+ * took the run to 54 percent through the real checks. A gate nobody has watched fail is not a gate.
  *
  *   node scripts/readiness.mjs                 everything, including the browser row
  *   node scripts/readiness.mjs --offline       skip the network and browser rows, report them not run
@@ -185,16 +187,21 @@ const ROWS = [
         throw new Error(`the page never rendered a single card in 45 s, so the audit was never reachable.`
           + ` status was "${result.statusAfterBoot}". This is a page that a judge would open and find blank.`);
       }
+      const narrow = result.narrow || {};
       const ok = result.cards === BEHAVIOURS.length
         && result.counts.total === BEHAVIOURS.length
         && result.counts.notApplicable === 0
         && result.findingsToolAppeared === true
-        && result.findingsToolWithdrew === true;
+        && result.findingsToolWithdrew === true
+        && result.namesItsOwnTools === true
+        && narrow.sideScroll === false;
       return {
         ok,
         evidence: `${result.cards} cards, audit gave ${result.counts.fail} broken / ${result.counts.pass} kept`
           + ` / ${result.counts.notApplicable} not run in ${result.elapsedMs} ms`
-          + `, nt_get_findings appeared=${result.findingsToolAppeared} withdrew=${result.findingsToolWithdrew}`,
+          + `, nt_get_findings appeared=${result.findingsToolAppeared} withdrew=${result.findingsToolWithdrew}`
+          + `, its own tools named on the page=${result.namesItsOwnTools}`
+          + `, at 375 px document is ${narrow.scrollWidth} px wide with sideways scroll=${narrow.sideScroll}`,
       };
     },
   },
@@ -294,8 +301,8 @@ const ROWS = [
   {
     id: 'O3', kind: 'owner-gated',
     title: `A public YouTube video under ${VIDEO_MAX_SECONDS} seconds, Public and not unlisted`,
-    manual: 'Render the cut, upload as PUBLIC, and paste the watch link into docs/submission/video.md. '
-      + 'Unlisted does not satisfy the rules on a plain reading.',
+    manual: 'Render the cut and upload it as PUBLIC. Unlisted does not satisfy the rules on a '
+      + 'plain reading.',
   },
   {
     id: 'O4', kind: 'owner-gated',
@@ -329,7 +336,7 @@ async function driveLivePage() {
         + ` in state "${loaded.readyState}" after ${loaded.waitedMs} ms.`);
     }
 
-    return await session.evaluate(`(async () => {
+    const pending = session.evaluate(`(async () => {
       const ctx = document.modelContext;
       const out = { hasCtx: !!ctx };
       if (!ctx) return out;
@@ -349,7 +356,10 @@ async function driveLivePage() {
         await new Promise(r => setTimeout(r, 250));
       }
       out.bootedInMs = 45000 - (bootDeadline - Date.now());
-      out.cardsAfterBoot = document.querySelectorAll('.card').length;
+      // SCOPED TO THE FINDINGS, not every .card on the page. The page also renders a card per
+      // WebMCP tool it publishes, so an unscoped count went to 24 and this row would have failed
+      // for a reason that was not a defect.
+      out.cardsAfterBoot = document.querySelectorAll('.groups .card').length;
       out.statusAfterBoot = (document.querySelector('[data-el="status"]') || {}).textContent || '';
       if (out.cardsAfterBoot === 0) {
         out.bootFailed = true;
@@ -374,19 +384,34 @@ async function driveLivePage() {
       out.status = document.querySelector('[data-el="status"]').textContent;
       const during = await names();
       out.findingsToolAppeared = !before.includes('nt_get_findings') && during.includes('nt_get_findings');
-      out.cards = document.querySelectorAll('.card').length;
+      out.cards = document.querySelectorAll('.groups .card').length;
       out.counts = {
-        fail: document.querySelectorAll('.card.v-fail').length,
-        pass: document.querySelectorAll('.card.v-pass').length,
-        notApplicable: document.querySelectorAll('.card.v-na').length,
-        total: document.querySelectorAll('.card').length
+        fail: document.querySelectorAll('.groups .card.v-fail').length,
+        pass: document.querySelectorAll('.groups .card.v-pass').length,
+        notApplicable: document.querySelectorAll('.groups .card.v-na').length,
+        total: document.querySelectorAll('.groups .card').length
       };
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       await new Promise(r => setTimeout(r, 800));
       const after = await names();
       out.findingsToolWithdrew = during.includes('nt_get_findings') && !after.includes('nt_get_findings');
+      out.namesItsOwnTools = ['nt_list_behaviours', 'nt_explain_behaviour', 'nt_run_audit', 'nt_get_findings']
+        .every(n => document.body.textContent.includes(n));
       return out;
     })()`, 150000);
+    // A judge opens this on a phone. A page that scrolls sideways there is a page that looks
+    // broken before it has said anything, and it was measured doing exactly that: 411 px of
+    // document inside a 375 px viewport, from grid children with no min-width.
+    await session.send('Emulation.setDeviceMetricsOverride', {
+      width: 375, height: 812, deviceScaleFactor: 1, mobile: true,
+    }).catch(() => {});
+    await new Promise((r) => setTimeout(r, 700));
+    const narrow = await session.evaluate(`(() => {
+      const d = document.documentElement;
+      return { viewport: d.clientWidth, scrollWidth: d.scrollWidth,
+        sideScroll: d.scrollWidth > d.clientWidth + 1 };
+    })()`, 20000);
+    return { ...(await pending), narrow };
   } finally {
     if (socket) socket.destroy();
     launched.close();

@@ -2,9 +2,10 @@
  * The catalogue. Every behaviour this suite tests, in one place, as data.
  *
  * PURE MODULE. No DOM, no network, no timers, no browser globals. It is imported by the judge, by
- * the page, by the command line runner, by the README generator and by the tests, so that a row
+ * the page, by the command line runner and by the tests, so that a row
  * cannot say one thing on the page and another in the documentation. Change a row here and every
- * surface changes with it.
+ * surface changes with it. The README is hand written rather than generated, and
+ * tests/unit/flagship.test.js fails when it and this file disagree about which rows exist.
  *
  * WHY A CATALOGUE AND NOT A PILE OF ASSERTIONS. Each row carries the thing a page is trying to
  * promise, how that promise is tested, what a conforming answer looks like, and the command a
@@ -67,9 +68,10 @@ export const BEHAVIOURS = Object.freeze([
     subject: 'browser',
     title: 'The execute callback receives one argument, not two',
     promise: 'A tool handler is handed a cancellation signal it can pass to fetch.',
-    contract: 'Both the W3C draft and Chromium IDL declare '
-      + 'ToolExecuteCallback = Promise<any>(object input, ToolExecuteCallbackOptions options), '
-      + 'with dictionary ToolExecuteCallbackOptions { required AbortSignal signal; }.',
+    contract: 'The W3C draft declares callback ToolExecuteCallback = Promise<any> '
+      + '(object inputObject, ToolExecuteCallbackOptions options), and Chromium the same with the '
+      + 'first parameter named input, both with '
+      + 'dictionary ToolExecuteCallbackOptions { required AbortSignal signal; }.',
     measured: 'The callback receives one argument. arguments.length is 1 and options is undefined, '
       + 'so execute(args, { signal }) reads a property of undefined and throws.',
     why: 'A handler written to the documented signature throws on its first line, and by B1 the '
@@ -174,9 +176,10 @@ export const BEHAVIOURS = Object.freeze([
     title: 'The caller cannot tell whether to parse the result',
     promise: 'A consumer knows whether it was handed text or data.',
     contract: 'None. executeTool resolves with a DOMString either way.',
-    measured: 'A handler returning the string "Added to-do: Buy milk" gives that back raw, 21 '
-      + 'characters, and it does not parse as JSON. A handler returning { title, count } gives '
-      + '{"title":"t2","count":3}, which does. Nothing distinguishes them.',
+    measured: 'The probe registers two tools of its own. One returns the string '
+      + '"Added to-do: Buy milk" and gets it back raw, 21 characters, not parsing as JSON. One '
+      + 'returns { title, count } and gets back JSON text, which does parse. Both arrive as a '
+      + 'DOMString and nothing distinguishes them.',
     why: 'A tool whose text happens to look like JSON is indistinguishable from one returning data, '
       + 'so every consumer guesses.',
     reproduce: 'node bin/ninthtool.mjs --behaviour B5',
@@ -220,10 +223,9 @@ export const BEHAVIOURS = Object.freeze([
     title: 'The two halves of the standard validate oppositely',
     promise: 'The declared schema is enforced.',
     contract: 'One schema format, one executeTool, two ways to register.',
-    measured: 'Script registered: nothing is enforced. required is ignored and a declared string '
-      + 'accepts 123. Form derived: strict, with quotable refusals such as '
-      + '"Invalid value “NOT_AN_OPTION” for parameter severity" and '
-      + '"Input contains a parameter “injected” but there is no such parameter for the tool".',
+    measured: 'Script registered: nothing is enforced. A tool declaring required: ["a"] and a '
+      + 'string property was handed {} and { a: 123 }, and the handler received both unchanged. '
+      + 'Form derived: the same shape is refused before the form is submitted.',
     why: 'A developer’s mental model is wrong on one of the two paths whichever way they guess, '
       + 'and a page that trusts its own schema is handing unvalidated model input to its handler.',
     reproduce: 'node bin/ninthtool.mjs --behaviour C3',
@@ -236,9 +238,10 @@ export const BEHAVIOURS = Object.freeze([
     promise: 'A published tool answers the agent that calls it.',
     contract: 'toolautosubmit makes an agent’s call fill the controls and submit. Without it the '
       + 'controls are filled and a person is expected to act.',
-    measured: 'Measured three times, including across a same origin iframe, and timed at 8016 ms '
-      + 'with no settlement. The promise never resolves and never rejects. There is no browser side '
-      + 'timeout.',
+    measured: 'Called through the shipped probe, which waits 2500 ms: still pending when that '
+      + 'deadline expired, at 2502 ms. Chrome imposed no deadline of its own inside it, so the '
+      + 'promise had neither resolved nor rejected. Reproduced across a same origin frame as well '
+      + 'as in the same document.',
     why: 'Nothing on the tool surface distinguishes a tool that will answer from one that waits for '
       + 'a person. Same shape, same schema, no annotation, no flag. An agent finds out by waiting.',
     reproduce: 'node bin/ninthtool.mjs --behaviour C4',
@@ -331,8 +334,9 @@ export const BEHAVIOURS = Object.freeze([
     promise: 'The tools on your page are the tools you registered.',
     contract: 'Tools registered in a same origin frame join the top document tool list. A cross '
       + 'origin frame contributes nothing unless it is given allow="tools".',
-    measured: 'A same origin frame contributed three tools to the top document list, each carrying '
-      + 'tool.window pointing at that frame. A cross origin frame contributed zero.',
+    measured: 'On this suite\'s own page a same origin frame contributes its two form tools to the '
+      + 'top document list, each carrying tool.window pointing at the other document. A frame on a '
+      + 'different origin of the same server contributed zero.',
     why: 'Anything you embed same origin can put a tool in front of an agent on your page, under '
       + 'your origin, and nothing on the surface says it came from somewhere else.',
     reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P4',
@@ -395,9 +399,10 @@ export function behavioursInGroup(group) {
 /**
  * The counts the headline sentence is built from, computed rather than written down.
  *
- * THE NUMBER IS NEVER TYPED BY HAND ANYWHERE. Every surface that states it calls this, so the
- * sentence in the README, the sentence on the page and the sentence in the description cannot drift
- * from the catalogue or from each other. tests/unit/headline.test.js asserts that.
+ * NO RUNNABLE SURFACE TYPES THE NUMBER BY HAND. The page calls this rather than stating a count,
+ * so its sentence cannot drift from the catalogue. The README is markdown and cannot call anything,
+ * so it types its counts and the test named "the README group counts agree with the catalogue" in
+ * tests/unit/flagship.test.js fails when they disagree with this file.
  *
  * @returns {{total: number, specDivergence: number, standardGap: number, silentTrap: number,
  *            holds: number, browserSubject: number, pageSubject: number}}
