@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ninth Tool subject page</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 0; padding: 12px; color: #222; background: #fff; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  p  { margin: 0 0 10px; color: #555; }
+  fieldset { border: 1px solid #d5d5d5; border-radius: 6px; margin: 0 0 10px; padding: 8px 10px; }
+  legend { font-weight: 600; font-size: 12px; padding: 0 4px; }
+  label { display: block; font-size: 12px; margin: 6px 0 2px; color: #444; }
+  input, select { font: inherit; padding: 4px 6px; border: 1px solid #bbb; border-radius: 4px; width: 100%; box-sizing: border-box; }
+  button { font: inherit; margin-top: 8px; padding: 5px 10px; border: 1px solid #888; border-radius: 4px; background: #f4f4f4; cursor: pointer; }
+  pre { background: #f6f6f6; padding: 6px; border-radius: 4px; font-size: 11px; white-space: pre-wrap; margin: 8px 0 0; max-height: 90px; overflow: auto; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e6e6e6; background: #16181c; }
+    p, label { color: #a8adb8; }
+    fieldset { border-color: #333842; }
+    input, select { background: #1e2128; color: #e6e6e6; border-color: #3a404b; }
+    button { background: #262a32; color: #e6e6e6; border-color: #444b57; }
+    pre { background: #1b1e24; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Subject page</h1>
+<p>An ordinary page with two forms promoted to tools by HTML attributes. Ninth Tool drives this page
+so the declarative half of the standard is measured against real markup rather than described.</p>
+
+<!--
+  THE FORM THAT ANSWERS. toolautosubmit is the switch: with it, an agent's call fills these controls
+  and submits, the submit handler below sees agentInvoked and answers through respondWith. Without
+  it, the call fills the controls and waits for a person, which is what nt_form_silent shows.
+
+  The browser synthesises the schema from this markup. The required attribute joins the required
+  array, min and max become numeric bounds, the select becomes an enum, and each
+  toolparamdescription becomes that property's description. Nothing here writes a schema.
+-->
+<form id="answers"
+      toolname="nt_form_answers"
+      tooldescription="Record a witness on this draft. Returns what it stored."
+      toolautosubmit>
+  <fieldset>
+    <legend>nt_form_answers</legend>
+    <label for="w">Name of the witness (required)</label>
+    <input id="w" name="witness_name" required
+           toolparamdescription="Full name of the witness to the incident.">
+    <label for="a">Age</label>
+    <input id="a" name="age" type="number" min="18" max="120"
+           toolparamdescription="Age of the witness in years.">
+    <label for="s">Severity</label>
+    <select id="s" name="severity" toolparamdescription="How bad the damage is.">
+      <option value="dent">dent</option>
+      <option value="write_off">write_off</option>
+    </select>
+    <button type="submit">Record</button>
+  </fieldset>
+</form>
+
+<!--
+  THE FORM THAT NEVER ANSWERS. Identical but for the missing toolautosubmit. It publishes a real
+  tool with a real schema, and an agent that calls it waits for ever. Nothing on the tool surface
+  says so.
+-->
+<form id="silent"
+      toolname="nt_form_silent"
+      tooldescription="Looks exactly like a tool that answers.">
+  <fieldset>
+    <legend>nt_form_silent</legend>
+    <label for="x">Anything</label>
+    <input id="x" name="anything" toolparamdescription="Any value at all.">
+    <button type="submit">Send</button>
+  </fieldset>
+</form>
+
+<pre id="log">waiting</pre>
+
+<script type="module">
+import { observeAll, findModelContext } from '../src/probe/observe.js';
+
+const log = (line) => {
+  const el = document.getElementById('log');
+  el.textContent = `${line}\n${el.textContent}`.split('\n').slice(0, 8).join('\n');
+};
+
+/**
+ * The submit handler, and the whole of the declarative contract on this page.
+ *
+ * preventDefault always, on both paths, because this page commits nothing and never navigates.
+ * respondWith only when the browser set agentInvoked, and only after checking it is a function, so
+ * on a browser with no declarative API this stays an ordinary form that a person fills in.
+ *
+ * IT ECHOES WHAT THE CONTROLS HELD, DELIBERATELY. That is what makes C1 observable: when a call
+ * omits the required property, the value left in the control by the previous call is what the
+ * handler reads, and echoing it is how the probe can see that it happened.
+ */
+document.getElementById('answers').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const held = {};
+  for (const [key, value] of new FormData(event.currentTarget).entries()) held[key] = value;
+  log(`nt_form_answers submitted: ${JSON.stringify(held)}`);
+  if (event.agentInvoked === true && typeof event.respondWith === 'function') {
+    event.respondWith(Promise.resolve(`Recorded ${JSON.stringify(held)}`));
+  }
+});
+
+// nt_form_silent has no submit handler on the agent path on purpose. A person pressing the button
+// still gets an answer on the page, so this is a working control and not a broken one.
+document.getElementById('silent').addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (event.agentInvoked === true) return;   // the point of this fixture: the agent is never answered
+  log('nt_form_silent submitted by a person, and answered on the page.');
+});
+
+/**
+ * The entry point the auditor calls across the iframe boundary.
+ *
+ * It is exposed rather than run on load so that the audit happens when a visitor asks for it, and
+ * so the page is an ordinary page until then.
+ */
+window.__ninthtool_observe = async function observe() {
+  const found = findModelContext(document, navigator);
+  if (!found.ctx) return { meta: { url: location.href, userAgent: navigator.userAgent, api: null },
+    observations: {}, errors: [found.reason] };
+  log('audit running');
+  const transcript = await observeAll(found.ctx, { url: location.href, userAgent: navigator.userAgent });
+  transcript.meta.api = found.where;
+  log(`audit done, ${Object.keys(transcript.observations).length} observations`);
+  return transcript;
+};
+
+log(findModelContext(document, navigator).ctx ? 'WebMCP present, ready' : 'no WebMCP host object');
+</script>
+</body>
+</html>

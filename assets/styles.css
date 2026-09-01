@@ -1,0 +1,157 @@
+/* Ninth Tool. One stylesheet, no framework, no build step, no web font.
+   Light and dark are both defined from tokens on :root, and the dark block only redefines the
+   tokens, so nothing can end up with a colour that exists in one theme and not the other. */
+
+:root {
+  --bg: #ffffff;
+  --bg-sunk: #f5f6f8;
+  --bg-raised: #ffffff;
+  --ink: #16181c;
+  --ink-soft: #545a66;
+  --ink-faint: #7b8291;
+  --line: #dfe2e8;
+  --line-strong: #c3c8d2;
+  --accent: #1d4ed8;
+  --accent-ink: #ffffff;
+  --pass: #146c43;
+  --pass-bg: #e7f4ed;
+  --fail: #a01b2b;
+  --fail-bg: #fdeaec;
+  --na: #6b5a18;
+  --na-bg: #fbf3d9;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101216;
+    --bg-sunk: #16181d;
+    --bg-raised: #1a1d23;
+    --ink: #e8eaee;
+    --ink-soft: #a5abb8;
+    --ink-faint: #7f8695;
+    --line: #2a2f38;
+    --line-strong: #3b4250;
+    --accent: #6f9bff;
+    --accent-ink: #0d1017;
+    --pass: #6cd39a;
+    --pass-bg: #10241a;
+    --fail: #ff9099;
+    --fail-bg: #2a1418;
+    --na: #e2c56a;
+    --na-bg: #262010;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.wrap { max-width: 940px; margin: 0 auto; padding: 0 20px; }
+
+/* ---------------------------------------------------------------- masthead */
+.masthead { background: var(--bg-sunk); border-bottom: 1px solid var(--line); padding: 34px 0 30px; }
+.eyebrow {
+  margin: 0 0 10px; font: 600 12px/1 var(--mono); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.flagship { margin: 0 0 14px; font-size: clamp(21px, 3.6vw, 30px); line-height: 1.28; font-weight: 650; letter-spacing: -.01em; }
+.sub { margin: 0; color: var(--ink-soft); max-width: 68ch; font-size: 15px; }
+
+/* ---------------------------------------------------------------- sections */
+main > section { padding: 30px 0; border-bottom: 1px solid var(--line); }
+main > section:last-child { border-bottom: 0; }
+.section-h { margin: 0 0 8px; font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.lede { margin: 0 0 16px; color: var(--ink-soft); max-width: 72ch; }
+
+/* ---------------------------------------------------------------- the run control */
+.run-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.primary {
+  font: 600 15px/1 inherit; padding: 12px 20px; border: 0; border-radius: 8px;
+  background: var(--accent); color: var(--accent-ink); cursor: pointer;
+}
+.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.primary:disabled { opacity: .5; cursor: not-allowed; }
+.primary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.status { margin: 0; color: var(--ink-soft); font-size: 14px; }
+.blocker {
+  margin: 14px 0 0; padding: 12px 14px; border-radius: 8px;
+  background: var(--fail-bg); color: var(--fail); border: 1px solid currentColor; max-width: 72ch;
+}
+
+/* ---------------------------------------------------------------- summary tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.tile { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.tile b { display: block; font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile span { display: block; font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
+.tile.is-fail b { color: var(--fail); }
+.tile.is-pass b { color: var(--pass); }
+.tile.is-na b { color: var(--na); }
+.env { margin: 0; font: 12px/1.5 var(--mono); color: var(--ink-faint); word-break: break-word; }
+
+/* ---------------------------------------------------------------- findings */
+.groups { display: grid; gap: 22px; }
+.group-h { margin: 0 0 4px; font-size: 17px; font-weight: 650; }
+.group-note { margin: 0 0 12px; color: var(--ink-soft); font-size: 14px; max-width: 72ch; }
+.cards { display: grid; gap: 10px; }
+
+.card {
+  background: var(--bg-raised); border: 1px solid var(--line);
+  border-left: 4px solid var(--line-strong); border-radius: 10px; padding: 14px 16px;
+}
+.card.v-pass { border-left-color: var(--pass); }
+.card.v-fail { border-left-color: var(--fail); }
+.card.v-na   { border-left-color: var(--na); }
+
+.card-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.chip {
+  font: 700 11px/1 var(--mono); letter-spacing: .06em; padding: 5px 8px; border-radius: 5px;
+  background: var(--bg-sunk); color: var(--ink-faint);
+}
+.verdict { font: 700 11px/1 var(--mono); letter-spacing: .08em; padding: 5px 8px; border-radius: 5px; }
+.v-pass .verdict { background: var(--pass-bg); color: var(--pass); }
+.v-fail .verdict { background: var(--fail-bg); color: var(--fail); }
+.v-na   .verdict { background: var(--na-bg);   color: var(--na); }
+.subject-tag { font-size: 11px; color: var(--ink-faint); margin-left: auto; }
+.card-title { margin: 0; font-size: 16px; font-weight: 620; flex-basis: 100%; }
+.card-why { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; }
+
+.kv { margin: 12px 0 0; display: grid; gap: 6px; }
+.kv div { display: grid; grid-template-columns: 84px 1fr; gap: 10px; align-items: start; font-size: 13px; }
+.kv dt, .kv .k { color: var(--ink-faint); font: 600 11px/1.5 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding-top: 2px; }
+.kv .v { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; word-break: break-word; }
+.kv .v.observed { color: var(--fail); }
+.v-pass .kv .v.observed { color: var(--pass); }
+
+.repro { margin: 12px 0 0; }
+.cmd {
+  margin: 0; padding: 9px 11px; background: var(--bg-sunk); border: 1px solid var(--line);
+  border-radius: 6px; overflow-x: auto;
+}
+.cmd code { font: 12.5px/1.5 var(--mono); color: var(--ink); white-space: pre; }
+
+/* ---------------------------------------------------------------- subject frame */
+.subject-frame {
+  width: 100%; height: 430px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+/* ---------------------------------------------------------------- misc */
+code { font: .92em var(--mono); background: var(--bg-sunk); padding: 1px 5px; border-radius: 4px; }
+pre.cmd code { background: none; padding: 0; }
+a { color: var(--accent); }
+.limits p, .honesty p { max-width: 72ch; color: var(--ink-soft); }
+.limits strong, .honesty strong { color: var(--ink); }
+.foot { padding: 24px 20px 40px; color: var(--ink-faint); font-size: 13px; }
+
+@media (max-width: 560px) {
+  .kv div { grid-template-columns: 1fr; gap: 2px; }
+  .subject-frame { height: 520px; }
+  .subject-tag { margin-left: 0; flex-basis: 100%; }
+}
