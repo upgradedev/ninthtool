@@ -112,3 +112,88 @@ export async function launchWithWebMCP({ url, port = 9411, chrome, timeoutMs = 3
   }
   return { child, browser: up.browser, profile, waitedMs: up.waitedMs, close };
 }
+
+/**
+ * Wait until the browser has a page target for the URL we asked it to open.
+ *
+ * WHY THIS EXISTS. Chrome opens `about:blank` first and navigates afterwards. Attaching to the
+ * first page target therefore raced the navigation, and a run against a real site attached to a
+ * blank document, found no WebMCP on it and reported all fourteen behaviours unobserved. It did not
+ * report a false pass, which is the instrument behaving correctly, but nought measurements is an
+ * instrument failure and never a result. So the target is now waited for by name.
+ *
+ * @param {(string|number)} port
+ * @param {string} url the URL that was opened
+ * @param {number} [timeoutMs]
+ * @returns {Promise<{ok: boolean, url: (string|null), seen: string[], waitedMs: number}>}
+ */
+export async function waitForPageTarget(port, url, timeoutMs = 30000) {
+  const wanted = String(url).replace(/#.*$/, '');
+  const started = Date.now();
+  let seen = [];
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/json`);
+      const targets = await response.json();
+      seen = targets.filter((t) => t.type === 'page').map((t) => String(t.url));
+      const hit = seen.find((u) => u === wanted || u.startsWith(wanted) || wanted.startsWith(u.replace(/\/$/, '')));
+      if (hit && hit !== 'about:blank') {
+        return { ok: true, url: hit, seen, waitedMs: Date.now() - started };
+      }
+    } catch {
+      // The browser is still coming up.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return { ok: false, url: null, seen, waitedMs: Date.now() - started };
+}
+
+/** A target matcher for openSession, for the page this launcher was asked to open. */
+export function targetFor(url) {
+  const wanted = String(url).replace(/#.*$/, '');
+  return (target) => {
+    const seen = String(target.url || '');
+    return seen !== 'about:blank' && (seen === wanted || seen.startsWith(wanted) || wanted.startsWith(seen.replace(/\/$/, '')));
+  };
+}
+
+/**
+ * Wait until the attached page's own document is the one we asked for and has finished loading.
+ *
+ * WHY THE TARGET LIST IS NOT ENOUGH. Chrome's /json endpoint reports the new URL on a page target
+ * before that page's JavaScript context has committed to it. Attaching on the strength of the
+ * target list and evaluating immediately therefore ran against the initial blank document: bare
+ * `location.href` came back as `about:blank` while `document.title` was already the real page, and
+ * the probe found no WebMCP and reported all fourteen behaviours unobserved. It refused to report a
+ * result rather than reporting a wrong one, which is the instrument behaving correctly, but nought
+ * measurements is an instrument failure and never a finding.
+ *
+ * So readiness is asked of the document itself, from inside the page, which is the only place that
+ * knows.
+ *
+ * @param {object} session an attached CDP session
+ * @param {string} url the URL that should be loaded
+ * @param {number} [timeoutMs]
+ * @returns {Promise<{ok: boolean, url: string, readyState: string, waitedMs: number}>}
+ */
+export async function waitForDocument(session, url, timeoutMs = 30000) {
+  const wanted = String(url).replace(/#.*$/, '');
+  const started = Date.now();
+  let last = { url: '', readyState: '' };
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const seen = JSON.parse(await session.evaluate(
+        'JSON.stringify({ url: document.URL, readyState: document.readyState })', 5000,
+      ));
+      last = seen;
+      const matches = seen.url === wanted || seen.url.startsWith(wanted) || wanted.startsWith(seen.url.replace(/\/$/, ''));
+      if (matches && seen.url !== 'about:blank' && seen.readyState === 'complete') {
+        return { ok: true, url: seen.url, readyState: seen.readyState, waitedMs: Date.now() - started };
+      }
+    } catch {
+      // The context is being replaced by the navigation. Ask again.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return { ok: false, url: last.url, readyState: last.readyState, waitedMs: Date.now() - started };
+}

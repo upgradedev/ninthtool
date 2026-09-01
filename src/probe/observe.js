@@ -380,7 +380,7 @@ export async function observeAll(ctx, meta = {}) {
 
   return {
     meta: {
-      url: meta.url || (typeof location !== 'undefined' ? location.href : null),
+      url: meta.url || (typeof document !== 'undefined' ? document.URL : null),
       userAgent: meta.userAgent || (typeof navigator !== 'undefined' ? navigator.userAgent : null),
       api: 'document.modelContext',
     },
