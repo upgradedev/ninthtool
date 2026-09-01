@@ -122,8 +122,54 @@ function unfollowable(text, relative) {
   return refusals;
 }
 
+/**
+ * Remove comments before looking for imports.
+ *
+ * WHY. A docblock in `behaviours.js` shows a reader how to recount a number:
+ * `node -e "import('./src/judge/behaviours.js')..."`. The dynamic import pattern matched it, the
+ * path resolved relative to `src/judge/` into a file that does not exist, and the build stopped on
+ * a reference nothing actually loads. A walker that reads commented imports invents files, and
+ * would equally miss a real import somebody had wrapped in a comment while debugging.
+ *
+ * This is a scanner, not a lexer. It tracks single quotes, double quotes, backticks and both
+ * comment forms, which is enough for the files in this repository and is asserted by
+ * tests/unit/graph_hardening.test.js. It does not understand regular expression literals, so a
+ * comment character inside one would confuse it. If that ever matters, the fix is a real lexer,
+ * and the test that fails will say so.
+ */
+function stripComments(text) {
+  let out = '';
+  let i = 0;
+  let mode = 'code';
+  while (i < text.length) {
+    const c = text[i];
+    const next = text[i + 1];
+    if (mode === 'code') {
+      if (c === '/' && next === '/') { mode = 'line'; i += 2; continue; }
+      if (c === '/' && next === '*') { mode = 'block'; i += 2; continue; }
+      if (c === "'" || c === '"' || c === '`') { mode = c; out += c; i += 1; continue; }
+      out += c; i += 1; continue;
+    }
+    if (mode === 'line') {
+      if (c === '\n') { mode = 'code'; out += c; }
+      i += 1; continue;
+    }
+    if (mode === 'block') {
+      if (c === '*' && next === '/') { mode = 'code'; i += 2; continue; }
+      if (c === '\n') out += c;
+      i += 1; continue;
+    }
+    // inside a string
+    if (c === '\\') { out += c + (next === undefined ? '' : next); i += 2; continue; }
+    if (c === mode) mode = 'code';
+    out += c; i += 1;
+  }
+  return out;
+}
+
 /** References out of a module: static and dynamic imports, and re-exports. */
-function referencesInModule(text) {
+function referencesInModule(source) {
+  const text = stripComments(source);
   const found = [];
   const patterns = [
     /\bimport\s+[^'"]*?\bfrom\s*['"]([^'"]+)['"]/g,

@@ -77,6 +77,23 @@ names, descriptions, schemas. This one **calls the tools and watches what happen
 measurements below say that is where the defects are. A page can pass every metadata linter, look
 correct in a tool inspector, and still tell an agent that a write succeeded when it was refused.
 
+**13 of the 20 rows cannot be decided by reading a tool list.** They need a tool to be called, or
+one of our own to be registered and watched. The other seven are readable from `getTools()` and are
+the ones an existing checker already reaches. Of the six rows about your own page, four are metadata
+and two need execution.
+
+Recount it yourself, from the catalogue rather than from this sentence:
+
+```bash
+node -e "import('./src/judge/behaviours.js').then(m=>console.log(m.decidability()))"
+```
+
+That is the only comparative number here, and it is narrow on purpose. It is a property of these
+twenty rows, not a survey, not a benchmark against a named product, and not a claim about how well
+anybody implements the metadata half. A different catalogue would score differently.
+`tests/unit/decidability.test.js` asserts the classification row by row, so it cannot be quietly
+adjusted to flatter the number.
+
 Twenty behaviours. **Six read the tools your page publishes and are the ones you can fix.** The
 other fourteen are the host, and are the same wherever you point this. They are not all the same
 kind of thing, and they are not all defects: three are divergences from the specification, five are
