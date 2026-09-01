@@ -29,8 +29,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { spawn, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -39,6 +38,7 @@ import {
 } from './readiness_config.mjs';
 import { OTHER_COMPETITIONS, JUDGE_FACING_FILES } from './style_config.mjs';
 import { BEHAVIOURS } from '../src/judge/behaviours.js';
+import { launchWithWebMCP } from '../src/probe/launch.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -63,17 +63,6 @@ async function get(url) {
   } catch (error) {
     return { status: 0, body: '', error: String((error && error.message) || error) };
   }
-}
-
-function findChrome() {
-  const candidates = process.platform === 'win32'
-    ? ['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe']
-    : process.platform === 'darwin'
-      ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
-      : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium-browser',
-        '/usr/bin/chromium', '/opt/google/chrome/chrome'];
-  return candidates.find((c) => c && fs.existsSync(c)) || null;
 }
 
 /* ------------------------------------------------------------------ the rows */
@@ -318,20 +307,11 @@ const ROWS = [
 /** Open the live URL in a flagged Chrome, press the button, and report what happened. */
 async function driveLivePage() {
   const { openSession } = await import('../src/probe/cdp.mjs');
-  const binary = findChrome();
-  if (!binary) throw new Error('no Chrome or Edge on this machine, so the live page could not be driven');
-
   const port = 9412;
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'ninthtool-readiness-'));
-  const child = spawn(binary, [
-    '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-    '--enable-features=WebMCP', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
-    LIVE_URL,
-  ], { stdio: 'ignore' });
+  const launched = await launchWithWebMCP({ url: LIVE_URL, port });
 
   let socket = null;
   try {
-    await new Promise((r) => setTimeout(r, 2500));
     const connection = await openSession(port);
     socket = connection.socket;
     const { session } = connection;
@@ -397,7 +377,7 @@ async function driveLivePage() {
     })()`, 150000);
   } finally {
     if (socket) socket.destroy();
-    try { child.kill(); } catch { /* already gone */ }
+    launched.close();
   }
 }
 
