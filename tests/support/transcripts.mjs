@@ -62,11 +62,19 @@ export function conforming() {
       P4: { toolCount: 3, fromOtherDocuments: [] },
       P5: {
         attempted: ['read_state', 'read_notes'],
+        refused: ['read_state: rejected the call', 'read_notes: rejected the call'],
         ignored: [],
-        noticed: ['read_state: refused', 'read_notes: refused'],
+        inconclusive: [],
         skipped: [],
       },
-      P6: { oracleCount: 2, oracles: ['read_state', 'read_notes'], moved: [] },
+      P6: {
+        oracleCount: 2,
+        oracles: ['read_state', 'read_notes'],
+        stable: true,
+        unstable: [],
+        moved: [],
+        selfChanged: [],
+      },
     },
   };
 }
@@ -151,15 +159,27 @@ export function measuredChrome152() {
         fromOtherDocuments: ['nt_form_answers (origin http://127.0.0.1:57361)',
           'nt_form_silent (origin http://127.0.0.1:57361)'],
       },
+      // P5 and P6 are re-measured below from a live run after the oracle rewrite. P5 no longer
+      // passes on "answered differently", and this page's tool does exactly that, so the row is now
+      // honestly inconclusive rather than a pass it had not earned.
       P5: {
         attempted: ['nt_explain_behaviour'],
+        refused: [],
         ignored: [],
-        noticed: ['nt_explain_behaviour: answered differently'],
+        inconclusive: ['nt_explain_behaviour: answered differently, which is consistent with a '
+          + 'refusal and also with the tool simply echoing what it was sent'],
         skipped: ['nt_form_answers: carries no annotations', 'nt_form_silent: carries no annotations',
           'nt_run_audit: not marked readOnlyHint',
           'nt_list_behaviours: declares no required properties, so there is nothing to break'],
       },
-      P6: { oracleCount: 2, oracles: ['nt_explain_behaviour', 'nt_list_behaviours'], moved: [] },
+      P6: {
+        oracleCount: 2,
+        oracles: ['nt_explain_behaviour', 'nt_list_behaviours'],
+        stable: true,
+        unstable: [],
+        moved: [],
+        selfChanged: [],
+      },
     },
   };
 }
@@ -171,5 +191,8 @@ export function measuredChrome152() {
 export const CHROME_152_FAILURES = Object.freeze(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'B4', 'B5',
   'C1', 'C2', 'C3', 'C4', 'P1', 'P4']);
 
+/** Rows nothing could be concluded about. Not passes, and the report never counts them as any. */
+export const CHROME_152_INCONCLUSIVE = Object.freeze(['P5']);
+
 /** The ids Chrome 152 kept. Same reasoning. */
-export const CHROME_152_PASSES = Object.freeze(['D1', 'D2', 'P2', 'P3', 'P5', 'P6']);
+export const CHROME_152_PASSES = Object.freeze(['D1', 'D2', 'P2', 'P3', 'P6']);

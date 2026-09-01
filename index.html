@@ -129,7 +129,7 @@
   </section>
 
   <section class="honesty" aria-labelledby="own-h">
-    <h2 id="own-h" class="section-h">This page fails two of its own rows</h2>
+    <h2 id="own-h" class="section-h">What this page scores on its own rows, and why</h2>
     <p><strong>P1</strong> fails because two of the tools on this surface come from HTML forms, and
       the standard has no way to annotate a form derived tool at all. That is behaviour B4 above. It
       is not something this page can fix, and pretending otherwise by hiding the row would be the
@@ -139,10 +139,16 @@
       are sitting on it, and nothing on the surface says where they came from. That is the finding,
       not an accident, and it is worth seeing on a page that admits it before you meet it on one
       that does not.</p>
-    <p><strong>P5 failed here too, on the first run that measured it, and that one was a real
-      defect.</strong> The tools on this page did not check their own arguments, in a standard where
-      the browser checks nothing on the script path. They do now, and the row is green. The suite
-      found it in its own author's code, which is the most useful thing it has done so far.</p>
+    <p><strong>P5 abstains here, and that is the most interesting row on the page.</strong> It
+      passes only on a demonstrated refusal, and the only refusal signal WebMCP has is rejecting the
+      promise, which behaviour B1 measured erases the page's own reason. The tools on this page
+      deliberately do the other thing: they return a result carrying the reason, so a caller can
+      read why. That choice is unverifiable from outside, so the row says nothing was demonstrated
+      rather than passing on a guess. The standard makes you choose between a readable refusal and a
+      detectable one, and this suite can only confirm the second.</p>
+    <p>An earlier version passed this row on "the tool answered differently", which is equally
+      consistent with the tool simply echoing its arguments. It could pass with nothing shown at
+      all. Three outcomes now, and only a rejection is a pass.</p>
   </section>
 
   <section class="honesty" aria-labelledby="hon-h">

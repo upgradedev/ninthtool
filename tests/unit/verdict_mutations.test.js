@@ -102,37 +102,56 @@ const MUTATIONS = {
     expect: /widget_tool/ },
 
   P5: { what: 'a tool ignores its own required list',
-    break: (o) => { o.ignored = ['your_tool: omitting customer_id changed nothing']; },
+    break: (o) => { o.ignored = ['your_tool: omitting customer_id changed nothing in the answer']; },
     expect: /changed nothing/ },
 
   P6: { what: 'a read only tool moved state another one can see',
     break: (o) => { o.moved = ['read_state changed what read_notes answers']; },
     expect: /changed what read_notes answers/ },
+
+  // P5 has a second mutation, because the defect an audit found was not a wrong verdict but a
+  // verdict reached with nothing demonstrated. Refusing nothing and ignoring nothing must not pass.
+  P5b: { id: 'P5', what: 'nothing is demonstrated either way',
+    break: (o) => { o.refused = []; o.ignored = []; o.inconclusive = ['your_tool: answered differently']; },
+    expectNotApplicable: /nothing was demonstrated/ },
+
+  P6b: { id: 'P6', what: 'the oracles do not answer the same way twice',
+    break: (o) => { o.stable = false; o.unstable = ['read_state']; },
+    expectNotApplicable: /same way twice/ },
 };
 
-for (const id of Object.keys(MUTATIONS)) {
-  const mutation = MUTATIONS[id];
+for (const key of Object.keys(MUTATIONS)) {
+  const mutation = MUTATIONS[key];
+  const id = mutation.id || key;
 
-  test(`${id} passes the conforming transcript`, () => {
+  test(`${key} passes the conforming transcript`, () => {
     const finding = judgeBehaviour(id, conforming());
     assert.equal(finding.verdict, 'pass',
       `${id} cannot be shown to fail until it has first been shown to pass. Got: ${finding.reason || finding.observed}`);
   });
 
-  test(`${id} FAILS when ${mutation.what}`, () => {
+  test(`${key} does not pass when ${mutation.what}`, () => {
     const transcript = conforming();
     mutation.break(transcript.observations[id]);
     const finding = judgeBehaviour(id, transcript);
 
+    if (mutation.expectNotApplicable) {
+      // Some defects are not "the promise was broken" but "nothing was established". Those must
+      // abstain with the reason, and abstaining is never a pass either.
+      assert.equal(finding.verdict, 'not-applicable',
+        `${key} should have abstained rather than scoring. Got ${finding.verdict}.`);
+      assert.match(finding.reason, mutation.expectNotApplicable);
+      return;
+    }
     assert.equal(finding.verdict, 'fail',
-      `${id} was handed a broken observation and did not fail. A rule that cannot fail is not a rule.`);
+      `${key} was handed a broken observation and did not fail. A rule that cannot fail is not a rule.`);
     assert.match(finding.observed, mutation.expect,
-      `${id} failed, but not for the reason the mutation introduced`);
+      `${key} failed, but not for the reason the mutation introduced`);
   });
 }
 
 test('every behaviour in the catalogue has a mutation proving it can fail', () => {
-  const covered = Object.keys(MUTATIONS);
+  const covered = Object.keys(MUTATIONS).map((k) => MUTATIONS[k].id || k);
   const missing = BEHAVIOUR_IDS.filter((id) => !covered.includes(id));
   assert.deepEqual(missing, [],
     'a behaviour was added to the catalogue with no proof that its rule can fail. '

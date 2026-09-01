@@ -308,39 +308,85 @@ const RULES = {
    * probe will not do, and one whose read only tools declare no required array, because there is
    * then nothing to break.
    */
+  /**
+   * Held only when a refusal was actually DEMONSTRATED, never merely not disproved.
+   *
+   * An earlier version passed on "answered differently", which is consistent with a refusal and
+   * equally consistent with the tool echoing what it was sent. It could therefore pass with nothing
+   * noticed at all, which an audit was right to call structural. Three outcomes now, and only one
+   * of them is a pass:
+   *
+   *   rejected      the only failure signal WebMCP has. Unambiguous. Counts.
+   *   identical     the tool answered a broken call exactly as it answered a good one. It did not
+   *                 look at its input. This is the only outcome that PROVES a defect.
+   *   different     inconclusive, and reported as inconclusive rather than scored either way.
+   */
   P5(o) {
-    need(o, ['attempted', 'ignored', 'noticed', 'skipped']);
+    need(o, ['attempted', 'refused', 'ignored', 'inconclusive', 'skipped']);
     const attempted = asArray(o.attempted);
+    const refused = asArray(o.refused);
     const ignored = asArray(o.ignored);
-    const noticed = asArray(o.noticed);
+    const inconclusive = asArray(o.inconclusive);
     const skipped = asArray(o.skipped);
+
     if (attempted.length === 0) {
       throw new Error('no tool on this page is both marked readOnlyHint and declares a required '
-        + `property, and this probe calls nothing else. Skipped: ${skipped.join('; ') || 'nothing'}`);
+        + `property that is in its own schema, and this probe calls nothing else. `
+        + `Skipped: ${skipped.join('; ') || 'nothing'}`);
     }
+    if (ignored.length === 0 && refused.length === 0) {
+      throw new Error(`nothing was demonstrated either way. ${inconclusive.length} of `
+        + `${attempted.length} answered differently, which is consistent with a refusal and also `
+        + `with echoing the arguments: ${inconclusive.join('; ')}`);
+    }
+
     return {
-      held: ignored.length === 0,
-      expected: `all ${attempted.length} read only tools notice a call that omits a required property`,
+      held: ignored.length === 0 && refused.length === attempted.length,
+      expected: `all ${attempted.length} read only tools demonstrably refuse a call that omits a `
+        + 'required property',
       observed: ignored.length
-        ? `${ignored.length} of ${attempted.length} did not: ${ignored.join('; ')}`
-        : `all ${attempted.length} noticed: ${noticed.join('; ')}`,
+        ? `${ignored.length} of ${attempted.length} ignored it: ${ignored.join('; ')}`
+        : (refused.length === attempted.length
+          ? `all ${attempted.length} rejected it: ${refused.join('; ')}`
+          : `${refused.length} of ${attempted.length} demonstrably refused; `
+            + `${inconclusive.length} were inconclusive: ${inconclusive.join('; ')}`),
     };
   },
 
-  /** Held when no read only tool changed what another read only tool answers. */
+  /**
+   * A differential observation, and it is careful not to claim more than one.
+   *
+   * It cannot prove readOnlyHint is honest: a tool can change state no tool on this page reports.
+   * What it reports is whether calling one read only tool changed what another one answers, using
+   * arguments each tool's own schema says are valid.
+   *
+   * IT ABSTAINS WHEN THE SURFACE IS NOT STABLE. Reading the oracles is itself calling tools, so the
+   * baseline is built by the thing being measured. The probe reads them twice with nothing in
+   * between first; if those disagree, no attribution is possible and this returns not-applicable
+   * rather than blaming whichever tool was called next.
+   */
   P6(o) {
-    need(o, ['oracleCount', 'oracles', 'moved']);
+    need(o, ['oracleCount', 'oracles', 'moved', 'stable']);
     const moved = asArray(o.moved);
+    const selfChanged = asArray(o.selfChanged);
+    const unstable = asArray(o.unstable);
     if (Number(o.oracleCount) < 2) {
       throw new Error('a differential needs at least two read only tools, one to call and one to '
         + 'read the state with');
     }
+    if (o.stable !== true) {
+      throw new Error('these read only tools do not answer the same way twice with nothing called '
+        + `in between, so no change can be attributed to any of them: ${unstable.join(', ')}`);
+    }
     return {
       held: moved.length === 0,
-      expected: `none of the ${o.oracleCount} read only tools moves state another one can see`,
+      expected: `calling any of the ${o.oracleCount} read only tools leaves what the others answer `
+        + 'unchanged',
       observed: moved.length
-        ? `${moved.length} moved something: ${moved.join('; ')}`
-        : `${o.oracleCount} read only tools, none changed what another answers`,
+        ? `${moved.length} changed another tool's answer: ${moved.join('; ')}`
+        : `${o.oracleCount} read only tools, stable across a control read, and none changed what `
+          + `another answers`
+          + (selfChanged.length ? `. ${selfChanged.length} changed their own answer: ${selfChanged.join('; ')}` : ''),
     };
   },
 };

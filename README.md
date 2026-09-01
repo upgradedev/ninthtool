@@ -73,17 +73,26 @@ which is what `--fail-on page` does.
 | P2 | every tool declares a schema an agent can read | a missing or unparseable schema, in a standard where the browser validates nothing on the script path |
 | P3 | every tool and every parameter is described | an undescribed parameter is one a model fills with something plausible |
 | P4 | nothing on your surface came from a frame you may not control | anything you embed same origin can put a tool in front of an agent on your page, under your origin |
-| P5 | your read only tools notice a call that breaks their own required list | the browser ignores `required`, so the promise is yours to keep |
-| P6 | a tool you marked read only does not move state your other read tools can see | an annotation nobody checks is a promise nobody keeps |
+| P5 | your read only tools **demonstrably refuse** a call that breaks their own required list | the browser ignores `required`, so the promise is yours to keep. Passes only on a rejection; an identical answer proves a defect; anything else is reported as inconclusive |
+| P6 | calling one read only tool does not change what another one answers | a narrow differential, with a stability control first. It **cannot** prove `readOnlyHint` is honest and does not claim to |
 
-**This page fails two of its own six, and owns both.** P1 fails because two of its tools come from
+**This page fails two of its own six and abstains on a third, and owns all three.** P1 fails because two of its tools come from
 HTML forms and the standard has no way to annotate those at all, which is behaviour B4 below. P4
 fails because this page and its subject frame share one origin, so they share one tool surface:
 whichever document you measure from, the other one's tools are on it and nothing says where they
 came from. That is the finding, not an accident.
 
-P5 also failed here on the first run that measured it, and that one was a real defect: the tools on
-this page did not check their own arguments. They do now.
+**P5 abstains here, and it is the most interesting row.** It passes only on a demonstrated refusal,
+and the only refusal signal WebMCP has is rejecting the promise, which B1 measured erases the page's
+own reason. The tools on this page deliberately do the other thing: they return a result carrying
+the reason so a caller can read it. That choice cannot be verified from outside, so the row reports
+that nothing was demonstrated rather than passing on a guess. The standard makes you choose between
+a readable refusal and a detectable one, and this suite can only confirm the second.
+
+P5 has been wrong twice and both corrections are in the catalogue. It first sent a property that was
+in no schema, which JSON Schema permits. It then passed on "answered differently", which is equally
+consistent with the tool echoing its arguments, so it could pass with nothing shown. Three outcomes
+now, and only a rejection is a pass.
 
 ## The host
 

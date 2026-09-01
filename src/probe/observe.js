@@ -653,16 +653,21 @@ export async function observeAll(ctx, options = {}) {
           skipped.push(`${record.name}: declares no required properties, so there is nothing to break`);
           continue;
         }
+        const properties = (record.schema && record.schema.properties) || {};
+        if (!Object.prototype.hasOwnProperty.call(properties, required[0])) {
+          skipped.push(`${record.name}: requires "${required[0]}" which is not in its own properties, `
+            + 'so removing it would change nothing to send');
+          continue;
+        }
         testable.push(record);
       }
 
+      const refused = [];
       const ignored = [];
-      const noticed = [];
+      const inconclusive = [];
       for (const record of testable) {
         const tool = await toolNamed(ctx, record.name);
         if (!tool) continue;
-        // A well formed call, built from the tool's own schema, and the same call with one required
-        // property removed. Two read only calls, nothing else touched.
         const wellFormed = synthesiseArguments(record.schema);
         const broken = { ...wellFormed };
         delete broken[record.schema.required[0]];
@@ -670,16 +675,35 @@ export async function observeAll(ctx, options = {}) {
         const good = await settle(call(ctx, tool, wellFormed), SETTLE_TIMEOUT_MS);
         const bad = await settle(call(ctx, tool, broken), SETTLE_TIMEOUT_MS);
 
-        const goodText = good.settled === 'resolved' ? String(good.value ?? '') : `[${good.settled}]`;
+        // THE CONTROL. If the well formed call did not succeed, the comparison is meaningless:
+        // two failures that differ prove nothing about validation. Say so rather than scoring it.
+        if (good.settled !== 'resolved') {
+          inconclusive.push(`${record.name}: the well formed call itself ${good.settled}, so there `
+            + 'was nothing to compare against');
+          continue;
+        }
+
+        const goodText = String(good.value ?? '');
         const badText = bad.settled === 'resolved' ? String(bad.value ?? '') : `[${bad.settled}]`;
-        if (bad.settled === 'rejected' || badText !== goodText) {
-          noticed.push(`${record.name}: ${bad.settled === 'rejected' ? 'refused' : 'answered differently'}`);
+
+        if (bad.settled === 'rejected') {
+          // The only failure signal WebMCP has. Behaviour B1 measured that it erases the reason,
+          // which is a separate finding; as a signal that the tool refused, it is unambiguous.
+          refused.push(`${record.name}: rejected the call`);
+        } else if (badText === goodText) {
+          // The tool answered a call missing a required property exactly as it answered a complete
+          // one. It did not look at its input. This is the only outcome that PROVES a defect.
+          ignored.push(`${record.name}: omitting ${record.schema.required[0]} changed nothing in the answer`);
         } else {
-          ignored.push(`${record.name}: omitting ${record.schema.required[0]} changed nothing`);
+          // Different text is NOT proof of validation. It could be a refusal, or it could be the
+          // tool echoing its arguments. An earlier version of this row counted it as a pass, which
+          // an audit was right to reject. It is reported as what it is.
+          inconclusive.push(`${record.name}: answered differently, which is consistent with a refusal `
+            + 'and also with the tool simply echoing what it was sent');
         }
       }
 
-      return { attempted: testable.map((t) => t.name), ignored, noticed, skipped };
+      return { attempted: testable.map((t) => t.name), refused, ignored, inconclusive, skipped };
     });
 
     await step('P6', async () => {
@@ -689,31 +713,79 @@ export async function observeAll(ctx, options = {}) {
         throw new Error(`this page publishes ${readOnly.length} read only tool(s), and a differential `
           + 'needs at least two: one to call and one to read the state with');
       }
-      const readAll = async () => {
+
+      /*
+       * WHAT THIS ROW CAN AND CANNOT SAY.
+       *
+       * It cannot prove that readOnlyHint is honest. A tool can change state no tool on this page
+       * reports, and nothing observable from here would show it. An earlier version of this row
+       * claimed the broad thing and an audit was right to reject it. What it does is narrower and
+       * stated as such: a DIFFERENTIAL OBSERVATION over the answers the page's own read only tools
+       * give, using arguments each tool's own schema says are valid.
+       *
+       * THE STABILITY CONTROL COMES FIRST. Reading the oracles is itself calling tools, so the
+       * baseline is built by the very thing being measured. Before attributing any change to any
+       * tool, the oracles are read twice with no call in between. If those two reads already
+       * disagree, this surface is not stable enough for a differential and the row abstains rather
+       * than blaming whichever tool happened to be called next.
+       */
+      const readOracles = async () => {
         const seen = {};
         for (const record of readOnly) {
           const tool = await toolNamed(ctx, record.name);
-          if (!tool) continue;
-          const outcome = await settle(call(ctx, tool, {}), SETTLE_TIMEOUT_MS);
+          if (!tool) { seen[record.name] = '[gone from the surface]'; continue; }
+          // Schema valid arguments, not {}. A tool that requires an argument answers an empty
+          // object with an error, and an error that varies is not a state change.
+          const outcome = await settle(call(ctx, tool, synthesiseArguments(record.schema)), SETTLE_TIMEOUT_MS);
           seen[record.name] = outcome.settled === 'resolved' ? String(outcome.value ?? '') : `[${outcome.settled}]`;
         }
         return seen;
       };
-      const before = await readAll();
+
+      const controlA = await readOracles();
+      const controlB = await readOracles();
+      const unstable = Object.keys(controlA).filter((k) => controlA[k] !== controlB[k]);
+      if (unstable.length) {
+        return {
+          oracleCount: readOnly.length,
+          oracles: readOnly.map((t) => t.name),
+          stable: false,
+          unstable,
+          moved: [],
+          selfChanged: [],
+        };
+      }
+
+      // The baseline is controlB, established and confirmed before any attributed call.
+      const baseline = controlB;
       const moved = [];
+      const selfChanged = [];
       for (const record of readOnly) {
         const tool = await toolNamed(ctx, record.name);
         if (!tool) continue;
-        await settle(call(ctx, tool, {}), SETTLE_TIMEOUT_MS);
-        const after = await readAll();
-        for (const oracle of Object.keys(before)) {
-          if (oracle === record.name) continue;
-          if (after[oracle] !== before[oracle]) moved.push(`${record.name} changed what ${oracle} answers`);
-          before[oracle] = after[oracle];
+        await settle(call(ctx, tool, synthesiseArguments(record.schema)), SETTLE_TIMEOUT_MS);
+        const after = await readOracles();
+        for (const oracle of Object.keys(baseline)) {
+          if (after[oracle] === baseline[oracle]) continue;
+          // Self observation is REPORTED, not excluded. A tool whose own answer drifts is the one
+          // thing the previous version structurally could not name, because it skipped itself and
+          // then blamed the next tool called.
+          if (oracle === record.name) selfChanged.push(`${record.name}: its own answer changed between reads`);
+          else moved.push(`${record.name} changed what ${oracle} answers`);
+          baseline[oracle] = after[oracle];
         }
       }
-      return { oracleCount: readOnly.length, oracles: readOnly.map((t) => t.name), moved };
+
+      return {
+        oracleCount: readOnly.length,
+        oracles: readOnly.map((t) => t.name),
+        stable: true,
+        unstable: [],
+        moved,
+        selfChanged,
+      };
     });
+
   } finally {
     // Whatever happened, take the probe's own tools back off the surface.
     controller.abort();

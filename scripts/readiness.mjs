@@ -199,9 +199,18 @@ const ROWS = [
           + ` status was "${result.statusAfterBoot}". This is a page that a judge would open and find blank.`);
       }
       const narrow = result.narrow || {};
+
+      // A ROW MAY ABSTAIN, AND A BROWSER MAY NOT ABSTAIN ON EVERYTHING. This used to require zero
+      // unobserved rows, which was right when every row could always reach a verdict. P5 now
+      // abstains by design when nothing was demonstrated either way, and calling that a broken
+      // deployment would push the next person towards a rule that passes on a guess. So the row
+      // keeps a FLOOR instead: most of the catalogue must reach a real verdict, which still fails
+      // closed on the host that observed nothing at all and reported it as zero broken.
+      const settled = result.counts.pass + result.counts.fail;
+      const floor = BEHAVIOURS.length - 2;
       const ok = result.cards === BEHAVIOURS.length
         && result.counts.total === BEHAVIOURS.length
-        && result.counts.notApplicable === 0
+        && settled >= floor
         && result.findingsToolAppeared === true
         && result.findingsToolWithdrew === true
         && result.namesItsOwnTools === true
@@ -209,7 +218,8 @@ const ROWS = [
       return {
         ok,
         evidence: `${result.cards} cards, audit gave ${result.counts.fail} broken / ${result.counts.pass} kept`
-          + ` / ${result.counts.notApplicable} not run in ${result.elapsedMs} ms`
+          + ` / ${result.counts.notApplicable} unsettled in ${result.elapsedMs} ms`
+          + ` (${settled} reached a verdict, floor ${floor})`
           + `, nt_get_findings appeared=${result.findingsToolAppeared} withdrew=${result.findingsToolWithdrew}`
           + `, its own tools named on the page=${result.namesItsOwnTools}`
           + `, at 375 px document is ${narrow.scrollWidth} px wide with sideways scroll=${narrow.sideScroll}`,
@@ -452,7 +462,8 @@ async function selftest() {
     ['M5 with a 404 from the live URL', () => ({ ok: 404 === 200 })],
     ['M6 with one asset missing', () => ({ ok: ['a -> 404'].length === 0 })],
     ['M7 with a body that lost the sentence', () => ({ ok: flat('<html>nothing</html>').includes(flat(FLAGSHIP)) })],
-    ['M8 with an audit that judged nothing', () => ({ ok: 0 === BEHAVIOURS.length })],
+    ['M8 with an audit that judged nothing', () => ({ ok: 0 >= BEHAVIOURS.length - 2 })],
+    ['M8 with an audit that abstained on most of the catalogue', () => ({ ok: 3 >= BEHAVIOURS.length - 2 })],
     ['R1 with a behaviour that has no mutation', () => ({ ok: ['C4'].length === 0 })],
     ['R2 with failing tests', () => ({ ok: '3' === '0' })],
     ['R3 with a style gate that never proved itself', () => ({ ok: /style gate: PASS/.test('style gate: PASS') && false })],
