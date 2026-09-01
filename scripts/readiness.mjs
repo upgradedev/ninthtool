@@ -192,6 +192,10 @@ const ROWS = [
       if (!result.hasCtx) {
         throw new Error('the browser opened the page but exposed no WebMCP host object, so nothing was proved');
       }
+      if (result.bootFailed) {
+        throw new Error(`the page never rendered a single card in 45 s, so the audit was never reachable.`
+          + ` status was "${result.statusAfterBoot}". This is a page that a judge would open and find blank.`);
+      }
       const ok = result.cards === BEHAVIOURS.length
         && result.counts.total === BEHAVIOURS.length
         && result.counts.notApplicable === 0
@@ -327,7 +331,7 @@ async function driveLivePage() {
 
   let socket = null;
   try {
-    await new Promise((r) => setTimeout(r, 4000));
+    await new Promise((r) => setTimeout(r, 2500));
     const connection = await openSession(port);
     socket = connection.socket;
     const { session } = connection;
@@ -335,21 +339,50 @@ async function driveLivePage() {
 
     return await session.evaluate(`(async () => {
       const ctx = document.modelContext;
-      const out = { hasCtx: !!ctx, cards: document.querySelectorAll('.card').length };
+      const out = { hasCtx: !!ctx };
       if (!ctx) return out;
+
+      // WAIT FOR THE APP TO BOOT BEFORE TOUCHING IT. The first version of this row clicked at a
+      // fixed four seconds. On a slower runner the module graph had not finished loading, the
+      // click landed before app.js attached its listener, and it was simply lost: nought cards,
+      // nought findings, sixty seconds of waiting for a status that could never change. The gate
+      // reported FAIL, which is correct, but for the wrong reason. So the readiness of the page is
+      // now something this waits for and reports on, rather than something it assumes.
+      const bootDeadline = Date.now() + 45000;
+      while (Date.now() < bootDeadline) {
+        const cards = document.querySelectorAll('.card').length;
+        const button = document.querySelector('[data-el="run"]');
+        const status = document.querySelector('[data-el="status"]');
+        if (cards > 0 && button && status && /Ready|cannot run/.test(status.textContent)) break;
+        await new Promise(r => setTimeout(r, 250));
+      }
+      out.bootedInMs = 45000 - (bootDeadline - Date.now());
+      out.cardsAfterBoot = document.querySelectorAll('.card').length;
+      out.statusAfterBoot = (document.querySelector('[data-el="status"]') || {}).textContent || '';
+      if (out.cardsAfterBoot === 0) {
+        out.bootFailed = true;
+        out.cards = 0;
+        out.counts = { fail: 0, pass: 0, notApplicable: 0, total: 0 };
+        out.findingsToolAppeared = false;
+        out.findingsToolWithdrew = false;
+        out.elapsedMs = 0;
+        return out;
+      }
+
       const names = async () => (await ctx.getTools()).map(t => String(t.name));
       const before = await names();
       const started = Date.now();
       document.querySelector('[data-el="run"]').click();
       while (Date.now() - started < 60000) {
         const s = document.querySelector('[data-el="status"]').textContent;
-        if (/Done\\.|did not finish/.test(s)) break;
+        if (/Done\.|did not finish/.test(s)) break;
         await new Promise(r => setTimeout(r, 300));
       }
       out.elapsedMs = Date.now() - started;
       out.status = document.querySelector('[data-el="status"]').textContent;
       const during = await names();
       out.findingsToolAppeared = !before.includes('nt_get_findings') && during.includes('nt_get_findings');
+      out.cards = document.querySelectorAll('.card').length;
       out.counts = {
         fail: document.querySelectorAll('.card.v-fail').length,
         pass: document.querySelectorAll('.card.v-pass').length,
@@ -357,11 +390,11 @@ async function driveLivePage() {
         total: document.querySelectorAll('.card').length
       };
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 800));
       const after = await names();
       out.findingsToolWithdrew = during.includes('nt_get_findings') && !after.includes('nt_get_findings');
       return out;
-    })()`, 90000);
+    })()`, 150000);
   } finally {
     if (socket) socket.destroy();
     try { child.kill(); } catch { /* already gone */ }
