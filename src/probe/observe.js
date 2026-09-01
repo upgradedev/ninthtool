@@ -220,10 +220,11 @@ export async function observeAll(ctx, options = {}) {
     for (const id of STEPS[stepName].produces || []) skipped[id] = refusalReason(stepName);
   }
 
-  // The per run nonce, and the fixture identity verdict, both established before any form is
-  // touched. `fixtureTrust` is null until a fixture step asks for it.
+  // The per run nonce, and the fixture identity verdicts, established before any form is touched.
+  // KEYED BY TOOL NAME, not a single run-wide boolean: one tool's identity is not another's, and
+  // caching one decision for the whole run is what let an unrelated form be submitted.
   const nonce = makeNonce(options.random);
-  let fixtureTrust = null;
+  const fixtureTrust = {};
 
   // BEFORE ANYTHING ELSE. Read the page's own surface while it is still only the page's own
   // surface. Everything in the your-page group is judged against this.
@@ -261,22 +262,61 @@ export async function observeAll(ctx, options = {}) {
    * the tool name gets nothing submitted to it. Resolved once per run and cached, because the
    * checks write the nonce and repeating that is pointless.
    */
+  /*
+   * ONE DECISION PER TOOL, AND THE DECISION IS ABOUT THE TOOL WE ARE ABOUT TO WRITE TO.
+   *
+   * This used to prove whichever of the two fixture tools it found FIRST, cache that as a single
+   * run-wide boolean, and then hand back whatever tool the caller asked for without checking it at
+   * all. A trusted `nt_form_answers` in the bundled fixture therefore authorised an unrelated
+   * `nt_form_silent` living in a different same-origin document, and that form was submitted.
+   *
+   * The identity now travels with the exact tool instance: it is resolved first, checked itself,
+   * and cached under its own name only. Nothing is submitted to a tool that has not personally
+   * passed origin, exact document path, build marker and the nonce channel.
+   */
   const trustedFixture = async (toolName) => {
-    if (fixtureTrust === null) {
-      const candidate = await toolNamed(ctx, FIXTURE_FORM_ANSWERS)
-        || await toolNamed(ctx, FIXTURE_FORM_SILENT);
-      fixtureTrust = checkFixtureIdentity(candidate, {
-        expectedOrigin: options.expectedOrigin
-          || (typeof location === 'undefined' ? '' : location.origin),
-        nonce,
-      });
+    if (Object.prototype.hasOwnProperty.call(fixtureTrust, toolName)) {
+      const cached = fixtureTrust[toolName];
+      if (!cached.decision.trusted) {
+        throw new Error(`this page is not the bundled fixture, so nothing was submitted to it: `
+          + `${cached.decision.reason}`);
+      }
+      return cached.tool;
     }
-    if (!fixtureTrust.trusted) {
+
+    // AMBIGUITY IS A REFUSAL. `toolNamed` took the first match and ignored the rest, so two
+    // documents publishing the same name silently resolved to whichever the host listed first.
+    // There is no safe way to pick, so we do not pick.
+    const all = (await ctx.getTools()).filter((t) => String(t.name) === toolName);
+    if (all.length > 1) {
+      fixtureTrust[toolName] = {
+        tool: null,
+        decision: {
+          trusted: false,
+          reason: `${all.length} tools are published under the name ${toolName}, so which document `
+            + `would be written to is ambiguous`,
+        },
+      };
       throw new Error(`this page is not the bundled fixture, so nothing was submitted to it: `
-        + `${fixtureTrust.reason}`);
+        + `${fixtureTrust[toolName].decision.reason}`);
     }
-    const tool = await toolNamed(ctx, toolName);
-    if (!tool) throw new Error(`the bundled fixture does not publish ${toolName}`);
+
+    const tool = all[0] || null;
+    const decision = checkFixtureIdentity(tool, {
+      expectedOrigin: options.expectedOrigin
+        || (typeof location === 'undefined' ? '' : location.origin),
+      // The probe runs inside the fixture in both transports, so its own document IS the identity.
+      expectedWindow: typeof window === 'undefined' ? null : window,
+      expectedPath: options.expectedPath
+        || (typeof location === 'undefined' ? '' : location.pathname),
+      nonce,
+    });
+    fixtureTrust[toolName] = { tool, decision };
+
+    if (!decision.trusted) {
+      throw new Error(`this page is not the bundled fixture, so nothing was submitted to it: `
+        + `${decision.reason}`);
+    }
     return tool;
   };
 
@@ -871,7 +911,13 @@ export async function observeAll(ctx, options = {}) {
       selectedBehaviours: [...selected],
       allow: { toolCalls: allow.toolCalls === true, fixtureForms: allow.fixtureForms === true },
       nonceIssued: Boolean(nonce),
-      fixture: fixtureTrust ? { trusted: fixtureTrust.trusted, reason: fixtureTrust.reason } : null,
+      // One row per tool that was actually asked for, so a reader can tell WHICH document was
+      // trusted rather than reading a single boolean that covered whatever was found first.
+      fixture: Object.keys(fixtureTrust).length
+        ? Object.fromEntries(Object.entries(fixtureTrust).map(([name, entry]) => [
+          name, { trusted: entry.decision.trusted, reason: entry.decision.reason },
+        ]))
+        : null,
     },
     skipped,
     // The page's own surface, as it was before this probe touched it. A reader can check every

@@ -85,9 +85,11 @@ registered anything of its own.
 because two of its tools come from HTML forms and the standard has no way to annotate those, which
 is B4. P4 fails because this page deliberately embeds a subject frame whose tools join its surface.
 
-**P5 failed here on the first run that measured it, and that one was a real defect.** The tools on
-this page did not check their own arguments, in a standard where the browser checks nothing on the
-script path. They do now.
+**P5 failed here on the first run that measured it, and this page has now failed it twice.** The
+tools did not check their own arguments, in a standard where the browser checks nothing on the
+script path. The first fix filtered undeclared properties and stopped there, so a tool that
+published `required: ['id']` still answered without one, and the page read as fixed while the row it
+ships an auditor for still failed. Both halves are enforced now.
 
 An earlier version of P5 sent a property that was in no schema at all and called acceptance a
 failure. That was wrong: JSON Schema allows additional properties unless a schema says otherwise, so

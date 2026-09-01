@@ -87,11 +87,50 @@ export function checkFixtureIdentity(tool, options) {
       reason: `the registering document could not be reached: ${String((error && error.message) || error)}`,
     };
   }
+  /*
+   * THE DOCUMENT ITSELF, NOT A STRING THAT RESEMBLES IT.
+   *
+   * This was `path.endsWith(FIXTURE_PATH)`, so any origin we were pointed at could serve
+   * `/attacker/fixtures/subject.html`, carry the marker, and be handed the nonce.
+   *
+   * Replacing it with `path === FIXTURE_PATH` was WRONG and was caught by running it: GitHub Pages
+   * serves this project under `/ninthtool/`, so the real fixture's path is
+   * `/ninthtool/fixtures/subject.html` and the live deployment refused itself. A constant cannot
+   * describe where the fixture lives, which is why the suffix test existed in the first place.
+   *
+   * So the check is now identity rather than spelling. The probe runs INSIDE the document that
+   * publishes these form tools, in both transports: the page calls `observeAll` inside the subject
+   * iframe, and the command line runner evaluates it in the top document it navigated to. A tool
+   * registered by any other document is not the fixture we are running in, whatever its path says.
+   * `expectedWindow` is that identity; `expectedPath` is the same fact spelled out for the report
+   * and a second gate for hosts where a Window comparison is unavailable.
+   */
+  if (options.expectedWindow && win !== options.expectedWindow) {
+    return {
+      trusted: false,
+      checks,
+      reason: `the tool was registered by a different document than the one being audited, so it `
+        + `is not the fixture this run is inside`,
+    };
+  }
+  const expectedPath = String(options.expectedPath || '');
+  if (!expectedPath) {
+    return { trusted: false, checks, reason: 'no expected fixture path was supplied for this run' };
+  }
+  // TWO SEPARATE CONDITIONS, REPORTED SEPARATELY. Reporting them as one produced the reason "the
+  // tool was registered by /, and this run's fixture is /", which reads as a match and refuses.
+  if (path !== expectedPath) {
+    return {
+      trusted: false,
+      checks,
+      reason: `the tool was registered by ${path}, and this run asked to audit ${expectedPath}`,
+    };
+  }
   if (!path.endsWith(FIXTURE_PATH)) {
     return {
       trusted: false,
       checks,
-      reason: `the tool was registered by ${path}, and the bundled fixture is ${FIXTURE_PATH}`,
+      reason: `${path} is not the bundled fixture, whose path ends with ${FIXTURE_PATH}`,
     };
   }
   checks.document = true;

@@ -128,7 +128,13 @@ function toolLike({ origin, pathname, marker, throwOnWindow = false, throwOnWrit
   };
 }
 
-const GOOD = { expectedOrigin: 'https://example.test', nonce: 'nt-abc123' };
+const GOOD = {
+  expectedOrigin: 'https://example.test',
+  nonce: 'nt-abc123',
+  // The path the probe's own document is at. A constant cannot stand in for this: the deployment
+  // lives under /ninthtool/ on Pages, so the fixture's real path is not the repo-relative one.
+  expectedPath: FIXTURE_PATH,
+};
 
 test('the bundled fixture passes all four checks', () => {
   const verdict = checkFixtureIdentity(
@@ -191,7 +197,8 @@ test('an unreachable registering document is refused rather than assumed safe', 
 test('a run with no nonce is refused, because the echo could not be checked', () => {
   const verdict = checkFixtureIdentity(
     toolLike({ origin: 'https://example.test', pathname: FIXTURE_PATH, marker: FIXTURE_MARKER }),
-    { expectedOrigin: 'https://example.test', nonce: '' },
+    // expectedPath supplied, so this isolates the nonce condition rather than failing earlier.
+    { expectedOrigin: 'https://example.test', expectedPath: FIXTURE_PATH, nonce: '' },
   );
   assert.equal(verdict.trusted, false);
   assert.match(verdict.reason, /nonce/);
@@ -228,4 +235,147 @@ test('the fixture page carries the marker the checks require', async () => {
     'the bundled fixture must set the marker, or nothing will ever be trusted');
   assert.match(fixture, /NONCE_KEY\]/,
     'the bundled fixture must echo the nonce, or the fourth check can never pass');
+});
+
+/* ---------------------------------------------- the Codex re-audit's P0.1, reproduced then closed */
+
+/*
+ * A SUFFIX IS NOT A PATH.
+ *
+ * The document check was `path.endsWith(FIXTURE_PATH)`. Any origin we are pointed at could serve
+ * `/attacker/fixtures/subject.html`, carry the marker, and be handed the nonce. Suffix matching is
+ * how a check that reads like an equality test stops being one, and this is a check whose whole job
+ * is deciding whether to SUBMIT A FORM to a document.
+ */
+test('a path that merely ends with the fixture path is refused', () => {
+  for (const pathname of [
+    '/attacker/fixtures/subject.html',
+    '/a/b/c/fixtures/subject.html',
+    '//fixtures/subject.html',
+    '/not-really/fixtures/subject.html',
+  ]) {
+    const decision = checkFixtureIdentity(
+      toolLike({ origin: GOOD.expectedOrigin, pathname, marker: FIXTURE_MARKER }), GOOD,
+    );
+    assert.equal(decision.trusted, false, `${pathname} was trusted, and it is not the fixture`);
+    assert.match(decision.reason, /registered by/);
+  }
+});
+
+test('the exact fixture path is still trusted, so the fix did not just ban everything', () => {
+  const decision = checkFixtureIdentity(
+    toolLike({ origin: GOOD.expectedOrigin, pathname: FIXTURE_PATH, marker: FIXTURE_MARKER }), GOOD,
+  );
+  assert.equal(decision.trusted, true, decision.reason);
+});
+
+/*
+ * IDENTITY FOR ONE TOOL IS NOT IDENTITY FOR ANOTHER.
+ *
+ * `trustedFixture(name)` proved the identity of whichever of the two fixture tools it found FIRST,
+ * cached that as a single run-wide boolean, and then returned the tool the caller asked for without
+ * checking it at all. So a trusted `nt_form_answers` in the bundled fixture authorised an unrelated
+ * `nt_form_silent` living in a different same-origin document, and that form was submitted.
+ *
+ * These assert the property the fix has to hold: a decision is about ONE tool, and a second tool
+ * has to earn its own. They are written against checkFixtureIdentity because that is the unit that
+ * decides, and the runner now calls it per tool rather than once per run.
+ */
+test('a decision about one tool never authorises a different tool', () => {
+  const trusted = toolLike({
+    origin: GOOD.expectedOrigin, pathname: FIXTURE_PATH, marker: FIXTURE_MARKER,
+  });
+  assert.equal(checkFixtureIdentity(trusted, GOOD).trusted, true);
+
+  // Same origin, same tool-name convention, DIFFERENT document. This is the one that was submitted.
+  const elsewhere = toolLike({
+    origin: GOOD.expectedOrigin, pathname: '/somewhere/else.html', marker: FIXTURE_MARKER,
+  });
+  elsewhere.name = 'nt_form_silent';
+  const decision = checkFixtureIdentity(elsewhere, GOOD);
+  assert.equal(decision.trusted, false,
+    'a second tool in another document inherited the first tool\'s trust, and was written to');
+  assert.match(decision.reason, /registered by/);
+});
+
+test('every tool that will be submitted to is checked, not just the first one found', () => {
+  // The shape of the real defect: two tools, one trustworthy, one not. Checking either ONE and
+  // caching the answer is what made the unrelated form reachable.
+  const good = toolLike({
+    origin: GOOD.expectedOrigin, pathname: FIXTURE_PATH, marker: FIXTURE_MARKER,
+  });
+  const bad = toolLike({
+    origin: GOOD.expectedOrigin, pathname: '/other/fixtures/subject.html', marker: FIXTURE_MARKER,
+  });
+  const decisions = [good, bad].map((t) => checkFixtureIdentity(t, GOOD).trusted);
+  assert.deepEqual(decisions, [true, false],
+    'the two tools must be decided independently, and one must not carry the other');
+});
+
+
+/*
+ * THE REGRESSION THAT THIS FIX ALMOST SHIPPED.
+ *
+ * The first attempt replaced `endsWith` with `path === FIXTURE_PATH`. It passed every unit test in
+ * this file, because every fixture here is spelled `/fixtures/subject.html`. Run against the live
+ * deployment it refused the real fixture, because GitHub Pages serves the project under
+ * `/ninthtool/` and the actual path is `/ninthtool/fixtures/subject.html`.
+ *
+ * A suffix test was not merely sloppy, it was load bearing, and the safe replacement had to keep
+ * working for a fixture that is not at the origin root. So this asserts the deployed shape
+ * explicitly. If someone reaches for a constant again, this is the test that stops them.
+ */
+test('the fixture is trusted where it actually lives, under a project path', () => {
+  const deployed = '/ninthtool/fixtures/subject.html';
+  const decision = checkFixtureIdentity(
+    toolLike({ origin: GOOD.expectedOrigin, pathname: deployed, marker: FIXTURE_MARKER }),
+    { ...GOOD, expectedPath: deployed },
+  );
+  assert.equal(decision.trusted, true,
+    `the live deployment refused itself: ${decision.reason}`);
+});
+
+test('a document at the right depth but the wrong project is still refused', () => {
+  // Same shape as the deployed path, different project. Exactness has to survive the relaxation.
+  const decision = checkFixtureIdentity(
+    toolLike({
+      origin: GOOD.expectedOrigin,
+      pathname: '/someone-else/fixtures/subject.html',
+      marker: FIXTURE_MARKER,
+    }),
+    { ...GOOD, expectedPath: '/ninthtool/fixtures/subject.html' },
+  );
+  assert.equal(decision.trusted, false, 'the fixture path of another project was trusted');
+});
+
+test('a run that supplies no expected path fails closed', () => {
+  const decision = checkFixtureIdentity(
+    toolLike({ origin: GOOD.expectedOrigin, pathname: FIXTURE_PATH, marker: FIXTURE_MARKER }),
+    { expectedOrigin: GOOD.expectedOrigin, nonce: GOOD.nonce },
+  );
+  assert.equal(decision.trusted, false,
+    'with nothing to compare against, the check must refuse rather than wave it through');
+  assert.match(decision.reason, /no expected fixture path/);
+});
+
+test('a tool registered by another document is refused even when its path matches', () => {
+  // THE STRONGEST CHECK, and the one that closes the mixed-frame counterexample. Two documents can
+  // share a path spelling; they cannot share a Window.
+  const elsewhere = toolLike({
+    origin: GOOD.expectedOrigin, pathname: FIXTURE_PATH, marker: FIXTURE_MARKER,
+  });
+  const someOtherWindow = { location: { pathname: FIXTURE_PATH } };
+  const decision = checkFixtureIdentity(elsewhere, { ...GOOD, expectedWindow: someOtherWindow });
+  assert.equal(decision.trusted, false,
+    'a tool from a different document passed because its path happened to match');
+  assert.match(decision.reason, /different document/);
+});
+
+test('the document the probe runs inside is trusted when the window matches', () => {
+  const mine = toolLike({
+    origin: GOOD.expectedOrigin, pathname: FIXTURE_PATH, marker: FIXTURE_MARKER,
+  });
+  // Same object identity the probe would compare against.
+  const decision = checkFixtureIdentity(mine, { ...GOOD, expectedWindow: mine.window });
+  assert.equal(decision.trusted, true, decision.reason);
 });

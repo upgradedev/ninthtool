@@ -10,9 +10,9 @@
   "index.html": "351f0d0309a396edcae8585210b68d13112949196bccbb14687f47fecdaee378",
   "src/judge/behaviours.js": "3f118f7743d8bc673f8f802c1cb11b49fc450889b72ee2b74cd0a388c7f33d36",
   "src/judge/verdict.js": "e5f8827cb06cff5c037babc23eaded70a098b12c5b37e221e95ebade37d5a88e",
-  "src/probe/fixture_identity.js": "908b1e7790018b91c2d0dd1f6aa109402d590f6a4f9aa9b48bb867bf2ca69ac0",
-  "src/probe/observe.js": "3ac2945bbd4c798271ebb3acc58145fa62e798bf398c269906196709c484a210",
+  "src/probe/fixture_identity.js": "10ff248b1d0579eafa37bf07505a1cf73598155fc73a9d4d28a60714f2eb44b7",
+  "src/probe/observe.js": "27aa790617733c4275caabce0a0002dac0fe7f5eb788511f45eb52b5f26e6fcc",
   "src/probe/steps.js": "ce12cf53217a323532f258c41ceef0635464769c578092bf624acacd40edc045",
-  "src/ui/app.js": "3b2b59278ab43713c2341f70e59349fd6e21af78b3899c6664552ff428b8cdde"
+  "src/ui/app.js": "d67f046f92283f4cea99a49a832bef7cbdf2f06a181df18e35d284a3b1ea949c"
  }
 }
