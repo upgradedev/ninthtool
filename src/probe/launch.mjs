@@ -88,6 +88,22 @@ export async function launchWithWebMCP({ url, port = 9411, chrome, timeoutMs = 3
       + 'Firefox and Safari have no implementation. Pass one with --chrome PATH.');
   }
 
+  /*
+   * REFUSE A PORT SOMEBODY ELSE IS ON.
+   *
+   * waitForDebugger asks the port whether a browser is answering, and any browser answers. A stale
+   * Chrome from an earlier run, or somebody's own debugging session, would be adopted silently and
+   * driven: the probe would measure a page nobody asked about and report it confidently. Checking
+   * first costs one short request and turns that into a refusal naming what is already there.
+   */
+  const occupant = await waitForDebugger(port, 900);
+  if (occupant.ok) {
+    throw new Error(`something is already listening on the debugging port ${port}: `
+      + `${occupant.browser || 'an unknown browser'}. This will not attach to a browser it did not `
+      + 'start, because driving another session would measure a page nobody asked about. Close it, '
+      + 'or pass --port with a free one.');
+  }
+
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'ninthtool-'));
   const flags = [
     '--headless=new',
@@ -102,7 +118,28 @@ export async function launchWithWebMCP({ url, port = 9411, chrome, timeoutMs = 3
   flags.push(url);
 
   const child = spawn(binary, flags, { stdio: 'ignore' });
-  const close = () => { try { child.kill(); } catch { /* already gone */ } };
+
+  /*
+   * THE PROFILE IS REMOVED ON EVERY PATH, including the ones nobody plans for.
+   *
+   * Each run made a throwaway profile directory and never deleted it. Measured on this machine
+   * after one afternoon: 79 of them in TEMP, each holding a browser profile. close() removes it
+   * now, and the same cleanup is registered against process exit and against SIGINT, because the
+   * run that most needs cleaning up is the one somebody interrupted.
+   */
+  let cleaned = false;
+  const onSignal = () => { close(); process.exit(130); };
+  const close = () => {
+    if (cleaned) return;
+    cleaned = true;
+    try { child.kill(); } catch { /* already gone */ }
+    try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 3 }); }
+    catch { /* the browser may still hold a handle, and TEMP is swept eventually */ }
+    process.off('exit', close);
+    process.off('SIGINT', onSignal);
+  };
+  process.on('exit', close);
+  process.on('SIGINT', onSignal);
 
   const up = await waitForDebugger(port, timeoutMs);
   if (!up.ok) {
