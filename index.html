@@ -13,8 +13,9 @@
 <header class="masthead">
   <div class="wrap">
     <p class="eyebrow">Ninth Tool</p>
-    <!-- J5. This sentence is identical, word for word, in the README and in the submitted
-         description. tests/unit/flagship.test.js reads all three and refuses a drift. -->
+    <!-- J5. This sentence is identical, word for word, here and in the README.
+         tests/unit/flagship.test.js reads both files and refuses a drift, and the readiness gate
+         checks the same sentence against the bytes the live origin actually serves. -->
     <h1 class="flagship" data-el="flagship">Ninth Tool executes your page's WebMCP tools in the
       browser and shows which promises the standard silently drops, with the command that
       reproduces each one.</h1>
@@ -30,12 +31,13 @@
   <section class="run" aria-labelledby="run-h">
     <h2 id="run-h" class="section-h">Run it</h2>
     <p class="lede">This drives the subject page below through your browser's own WebMCP and judges
-      what happened. Nothing is sent anywhere, nothing is stored, and no tool that writes is ever
-      called.</p>
+      what happened. Nothing is sent anywhere and nothing is stored. On any page but this one it
+      calls only tools marked read only; here, where the subject page is ours, some rows drive its
+      forms as well.</p>
 
     <div class="run-row">
       <button type="button" class="primary" data-el="run">Run the audit</button>
-      <p class="status" data-el="status" role="status" aria-live="polite">Ready.</p>
+      <p class="status" data-el="status" role="status" aria-live="polite">Loading the catalogue.</p>
     </div>
 
     <!-- H2. When the control is disabled the reason is rendered right here, never left blank. -->
@@ -52,6 +54,49 @@
     <h2 id="find-h" class="section-h">The behaviours</h2>
     <p class="lede" data-el="catalogue-lede"></p>
     <div data-el="groups" class="groups"></div>
+  </section>
+
+  <section class="tools" aria-labelledby="tools-h">
+    <h2 id="tools-h" class="section-h">This page is a WebMCP page too</h2>
+    <p class="lede">Both halves of the standard on one surface. This page publishes tools of its
+      own, so your agent can run the whole audit without touching the screen, and the subject page
+      it drives publishes two more from nothing but HTML attributes.</p>
+
+    <div class="cards">
+      <article class="card">
+        <div class="card-top"><span class="chip">read only</span>
+          <h3 class="card-title"><code>nt_list_behaviours</code></h3></div>
+        <p class="card-why">Every behaviour this suite tests, filterable by group.</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="chip">read only</span>
+          <h3 class="card-title"><code>nt_explain_behaviour</code></h3></div>
+        <p class="card-why">One row in full: the promise, what the specification says, what was
+          measured, and the command that reproduces it.</p>
+      </article>
+      <article class="card">
+        <div class="card-top"><span class="chip">not read only</span>
+          <h3 class="card-title"><code>nt_run_audit</code></h3></div>
+        <p class="card-why">Runs the audit and returns the counts. Marked <strong>not</strong> read
+          only, because it drives forms on the subject page below, and saying otherwise would be
+          exactly the dishonest annotation this suite exists to catch.</p>
+      </article>
+      <article class="card v-pass">
+        <div class="card-top"><span class="chip">read only</span>
+          <span class="verdict">THE NINTH TOOL</span>
+          <h3 class="card-title"><code>nt_get_findings</code></h3></div>
+        <p class="card-why">Reads the findings from the run. It <strong>does not exist until an
+          audit has produced some</strong>, and it is withdrawn when they are cleared. Registered
+          with the abort signal in the options bag, which is the only place that works: behaviour C2
+          exists because putting it on the descriptor fails silently. Run the audit and the tool
+          count moves from three to four, then press Escape and watch it go back.</p>
+      </article>
+    </div>
+
+    <p class="lede" style="margin-top:14px">Every one of them validates its own arguments, because
+      behaviour C3 measured that the browser validates none, and every one refuses by returning a
+      result rather than throwing, because behaviour B1 measured that throwing erases the
+      message.</p>
   </section>
 
   <section class="subject" aria-labelledby="subj-h">
@@ -87,10 +132,11 @@
       the standard has no way to annotate a form derived tool at all. That is behaviour B4 above. It
       is not something this page can fix, and pretending otherwise by hiding the row would be the
       dishonesty this whole suite exists to catch.</p>
-    <p><strong>P4</strong> fails because this page deliberately embeds a subject frame, and that
-      frame's tools join this page's surface under this page's origin. Nothing on the surface says
-      where they came from. That is the finding, not an accident, and it is worth seeing on a page
-      that admits it before you find it on one that does not.</p>
+    <p><strong>P4</strong> fails because this page and its subject frame share one origin, so they
+      share one tool surface. Whichever of the two documents you measure from, the other one's tools
+      are sitting on it, and nothing on the surface says where they came from. That is the finding,
+      not an accident, and it is worth seeing on a page that admits it before you meet it on one
+      that does not.</p>
     <p><strong>P5 failed here too, on the first run that measured it, and that one was a real
       defect.</strong> The tools on this page did not check their own arguments, in a standard where
       the browser checks nothing on the script path. They do now, and the row is green. The suite
@@ -112,6 +158,8 @@
 
 <footer class="wrap foot">
   <p>MIT licensed. <a href="https://github.com/upgradedev/ninthtool">Source on GitHub</a>.
+     Measured against the <a href="https://webmachinelearning.github.io/webmcp/">WebMCP draft</a>,
+     whose declarative section currently reads in full: "This section is entirely a TODO."
      Built for the WebMCP Challenge.</p>
 </footer>
 

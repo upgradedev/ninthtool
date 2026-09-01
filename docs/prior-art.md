@@ -27,8 +27,8 @@ web search for "WebMCP conformance", "WebMCP test suite", "WebMCP linter" and "a
 ## The first design, and why it was abandoned
 
 The plan this repository started from was "a page whose WebMCP tools audit other pages' WebMCP
-tools". Three of the products above already are that, and at least three entries in this same
-event are aimed at it. Building it would have shipped a weaker copy of a live product.
+tools". Three of the products above already are that. Building it would have shipped a weaker copy
+of something already live.
 
 The transport it needed also does not exist. The `tools` Permissions Policy defaults to `self`, so a
 cross origin frame contributes nothing. That was measured rather than assumed: a frame on a

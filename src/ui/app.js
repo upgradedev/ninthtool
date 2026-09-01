@@ -109,8 +109,11 @@ function renderCard(behaviour, finding) {
   const top = text('div', 'card-top');
   top.append(text('span', 'chip', behaviour.id));
   if (verdict) top.append(text('span', 'verdict', VERDICT_WORD[verdict]));
+  // NOT "a defect in the page". Four of the six your-page rows hold, so that wording rendered a
+  // green HOLDS chip beside the words "a defect" on the same line. This field names WHAT WAS
+  // MEASURED, not what was concluded, and the command line runner already words it correctly.
   top.append(text('span', 'subject-tag',
-    behaviour.subject === 'browser' ? 'a fact about the browser' : 'a defect in the page'));
+    behaviour.subject === 'browser' ? 'measured on the browser' : 'measured on the page under test'));
   top.append(text('h3', 'card-title', behaviour.title));
   card.append(top);
 

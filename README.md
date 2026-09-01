@@ -7,6 +7,37 @@ Named for the tool that has to disappear. A page registers eight tools, a ninth 
 state that justifies it appears, and it is supposed to withdraw when that state goes away. Write the
 withdrawal the obvious way and it never happens, and nothing is thrown.
 
+**Live, no account, no install: <https://upgradedev.github.io/ninthtool/>**
+It needs a Chromium browser with WebMCP enabled at `chrome://flags/#enable-webmcp-testing`. On any
+other browser the page still renders every row and what was measured, and says why it cannot run.
+
+Also here: [the prior art search](docs/prior-art.md) that killed this project's first design, and
+[every measurement with the command that produced it](docs/evidence.md).
+
+---
+
+## It is a WebMCP page as well as a WebMCP auditor
+
+Both halves of the standard, on one surface. The auditor publishes tools of its own, so a visitor's
+agent runs the whole audit without touching the screen, and the subject page it drives publishes two
+more from nothing but HTML attributes.
+
+| Tool | What it does | `readOnlyHint` |
+|---|---|---|
+| `nt_list_behaviours` | every behaviour this suite tests, filterable by group | `true` |
+| `nt_explain_behaviour` | one row in full: the promise, the specification, what was measured, the command | `true` |
+| `nt_run_audit` | runs the audit and returns the counts. **Marked not read only**, because it drives forms on the subject page, and saying otherwise would be exactly the dishonest annotation this suite exists to catch | `false` |
+| `nt_get_findings` | reads the findings from the run. **Does not exist until an audit has produced some, and is withdrawn when they are cleared** | `true` |
+
+`nt_get_findings` is the ninth tool. It is registered with the abort signal in the options bag,
+which is the only place that works, and behaviour C2 below exists because putting it on the
+descriptor fails silently. The tool count on the page moves from three to four and back, so the
+thing this project is named after is visible rather than described.
+
+Every one of them validates its own arguments, because behaviour C3 measured that the browser
+validates none, and every one refuses by returning a result rather than throwing, because behaviour
+B1 measured that throwing erases the message.
+
 ---
 
 ## What this is
@@ -37,8 +68,9 @@ which is what `--fail-on page` does.
 
 **This page fails two of its own six, and owns both.** P1 fails because two of its tools come from
 HTML forms and the standard has no way to annotate those at all, which is behaviour B4 below. P4
-fails because this page deliberately embeds a subject frame whose tools join its surface, and
-nothing on that surface says where they came from. That is the finding, not an accident.
+fails because this page and its subject frame share one origin, so they share one tool surface:
+whichever document you measure from, the other one's tools are on it and nothing says where they
+came from. That is the finding, not an accident.
 
 P5 also failed here on the first run that measured it, and that one was a real defect: the tools on
 this page did not check their own arguments. They do now.
@@ -57,14 +89,17 @@ have been right to discount the rest. So they are separate claims, each defensib
 
 | # | The contract | Chrome 152.0.7977.65 |
 |---|---|---|
-| A1 | `ToolExecuteCallback = Promise<any>(object input, ToolExecuteCallbackOptions options)`, with a required `AbortSignal`, in both the W3C draft and Chromium IDL | the callback gets **one argument**. `options` is `undefined`, so `execute(args, {signal})` throws |
+| A1 | `callback ToolExecuteCallback = Promise<any> (object inputObject, ToolExecuteCallbackOptions options)`, with a required `AbortSignal`, in the [W3C draft](https://webmachinelearning.github.io/webmcp/) and in Chromium IDL | the callback gets **one argument**. `options` is `undefined`, so `execute(args, {signal})` throws |
 | A2 | `RegisteredTool.inputSchema` is `object` in the W3C draft | a **JSON string**. Code written to the draft reads `.type` and gets `undefined` |
 | A3 | `consequentialHint` is in current Chromium IDL | **absent** from this build |
 
 ### The standard provides no way to do it
 
-The W3C draft flags the first of these itself: *"Support more granular errors than “UnknownError”,
-based on each failure case."*
+The [W3C draft](https://webmachinelearning.github.io/webmcp/) flags the first of these itself:
+*"Support more granular errors than “UnknownError”, based on each failure case."* Five of the twenty
+rows measure the declarative half, whose section in that draft currently reads, in full:
+*"This section is entirely a TODO. For now, refer to the Declarative API explainer"*. This suite is
+what a conformance pass over that half looks like while it is being written.
 
 | # | What a page needs to do | WebMCP today |
 |---|---|---|
@@ -81,7 +116,7 @@ based on each failure case."*
 | C1 | a missing required property is **not refused, it is filled from the control's stale value** | a call omitting a required property resolved, and the handler was handed the name left in the DOM by the previous, unrelated call |
 | C2 | withdrawal only works via `registerTool(desc, { signal })` | `signal` on the descriptor registers a tool that can never withdraw, and throws nothing |
 | C3 | validation depends on which half registered the tool | script registered: none at all. Form derived: strict. The halves behave oppositely and neither says so |
-| C4 | a declarative form without `toolautosubmit` | produces a real tool that **never answers**. Timed at 8016 ms with no settlement and no browser timeout |
+| C4 | a declarative form without `toolautosubmit` | produces a real tool that **never answers**. Still pending when the probe's 2500 ms deadline expired, and Chrome imposed none of its own |
 
 ### And two that hold
 
@@ -101,9 +136,9 @@ and exit zero whatever that was, so pointed at a browser with no WebMCP it print
 reported success. A run that proved nothing looked exactly like a run that proved everything.
 
 **Every rule is broken once, on purpose.** `tests/unit/verdict_mutations.test.js` starts from a
-transcript that passes everything, changes one field, and requires that behaviour to turn red. A
-structural assertion at the bottom of that file fails the build if a behaviour is added to the
-catalogue without a mutation proving its rule can fail.
+transcript that passes everything, changes one field, and requires that behaviour to turn red, for
+all twenty. A structural assertion at the bottom of that file fails the build if a behaviour is
+added to the catalogue without a mutation proving its rule can fail.
 
 ## Run it
 
@@ -190,9 +225,11 @@ Three things it will not do:
   again in the fixture beside it, and again in `tests/unit/readiness_thresholds.test.js`. The gate
   compares the first two before running anything and exits 2 with the disagreement named.
 
-Every row has been watched failing. `--selftest` feeds all thirteen a deliberately wrong input and
-requires each to go red, and the live rows were proved by pointing them at an origin that does not
-exist, which turned M4 through M7 and R5 red and took the run to 54 percent.
+Every row has been watched failing, two ways. `--selftest` feeds each row's judgement a
+deliberately wrong input and requires it to go red, which proves the judgement rather than the
+plumbing. The plumbing was proved separately, and more strongly, by pointing the config at an origin
+that does not exist: M4 through M7 and R5 went red through their real checks and the run fell to
+54 percent.
 
 ## The console is not silent during a run, on purpose
 
@@ -220,7 +257,10 @@ the page, its tools, the runner, the style gate and the tests.
   `tools` Permissions Policy defaults to `self`, and a cross origin iframe was measured
   contributing zero tools. That boundary is why this is shaped as a suite you run against your own
   page rather than a scanner you point at a stranger's.
-- No writes, anywhere, ever. No account, no backend, no database, no crawling.
+- **On a page that is not ours it calls only tools marked `readOnlyHint`.** Here, where the subject
+  page ships with this repository, some rows drive its forms too, because that is the only way to
+  measure the declarative half at all. Nothing leaves the browser either way.
+- No account, no backend, no database, no crawling.
 - No verdict is published about anybody's named page.
 
 ## Evidence
@@ -231,7 +271,8 @@ from documentation. Where the documentation disagrees with the measurement, the 
 documentation promised and is reported as a divergence.
 
 `tests/support/transcripts.mjs` holds the transcript that browser actually produced, transcribed
-rather than summarised, so the twelve failures and two passes are reproducible from a checkout.
+rather than summarised, so the fourteen failures and six passes are reproducible from a checkout
+without a browser at all.
 
 ## Licence
 

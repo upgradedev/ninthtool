@@ -93,11 +93,18 @@ main > section:last-child { border-bottom: 0; }
 .tile.is-fail b { color: var(--fail); }
 .tile.is-pass b { color: var(--pass); }
 .tile.is-na b { color: var(--na); }
-.env { margin: 0; font: 12px/1.5 var(--mono); color: var(--ink-faint); word-break: break-word; }
+.env { margin: 0; font: 12px/1.5 var(--mono); color: var(--ink-faint); word-break: break-word; min-width: 0; }
 
 /* ---------------------------------------------------------------- findings */
+/* min-width: 0 on every grid and flex child, deliberately.
+   A grid track sizes to its content's min-content width by default, so one long unbreakable
+   string anywhere inside a card pushes the whole column past the viewport and the page scrolls
+   sideways. Measured at 375 px: the document was 411 px wide before this. The scrolling boxes
+   below still scroll; this only stops them dragging their parents with them. */
+.groups, .cards, .tiles { min-width: 0; }
+.groups > *, .cards > *, .tiles > *, .card > *, .card-top > * { min-width: 0; }
 .groups { display: grid; gap: 22px; }
-.group-h { margin: 0 0 4px; font-size: 17px; font-weight: 650; }
+.group-h { margin: 0 0 4px; font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
 .group-note { margin: 0 0 12px; color: var(--ink-soft); font-size: 14px; max-width: 72ch; }
 .cards { display: grid; gap: 10px; }
 
@@ -109,7 +116,7 @@ main > section:last-child { border-bottom: 0; }
 .card.v-fail { border-left-color: var(--fail); }
 .card.v-na   { border-left-color: var(--na); }
 
-.card-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.card-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
 .chip {
   font: 700 11px/1 var(--mono); letter-spacing: .06em; padding: 5px 8px; border-radius: 5px;
   background: var(--bg-sunk); color: var(--ink-faint);
@@ -118,8 +125,8 @@ main > section:last-child { border-bottom: 0; }
 .v-pass .verdict { background: var(--pass-bg); color: var(--pass); }
 .v-fail .verdict { background: var(--fail-bg); color: var(--fail); }
 .v-na   .verdict { background: var(--na-bg);   color: var(--na); }
-.subject-tag { font-size: 11px; color: var(--ink-faint); margin-left: auto; }
-.card-title { margin: 0; font-size: 16px; font-weight: 620; flex-basis: 100%; }
+.subject-tag { font-size: 11px; color: var(--ink-faint); margin-left: auto; overflow-wrap: anywhere; }
+.card-title { margin: 0; font-size: 16px; font-weight: 620; flex-basis: 100%; overflow-wrap: anywhere; }
 .card-why { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; }
 
 .kv { margin: 12px 0 0; display: grid; gap: 6px; }

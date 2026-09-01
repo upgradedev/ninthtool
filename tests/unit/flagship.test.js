@@ -91,16 +91,46 @@ test('the repository states the browser and date every measurement was taken aga
 });
 
 test('no surface claims a capability the code does not carry', () => {
-  // Every tool name the README or the page mentions must be registered somewhere in src.
   const sources = read('src/ui/app.js');
+  const fixture = read('fixtures/subject.html');
   const mentioned = new Set([
     ...[...read('README.md').matchAll(/`(nt_[a-z_]+)`/g)].map((m) => m[1]),
     ...[...read('index.html').matchAll(/<code>(nt_[a-z_]+)<\/code>/g)].map((m) => m[1]),
   ]);
+  assert.ok(mentioned.size > 0,
+    'no judge facing surface names a single tool, so this check was iterating an empty set and '
+    + 'passing without looking at anything');
   for (const name of mentioned) {
     assert.ok(
-      sources.includes(`name: '${name}'`) || read('fixtures/subject.html').includes(`toolname="${name}"`),
+      sources.includes(`name: '${name}'`) || fixture.includes(`toolname="${name}"`),
       `${name} is named on a judge facing surface but nothing registers it`,
     );
+  }
+});
+
+test('every tool this page registers is named on a judge facing surface', () => {
+  // The other direction, and the one that was missing. Criterion one asks how thoroughly the
+  // project uses WebMCP, and the strongest answer this repository owns is that the auditor is
+  // itself a WebMCP host. A judge on a browser without the flag never learns that unless the page
+  // and the README say it in words, because the only other place those names appear is a tool list
+  // that needs a flagged browser and a button press.
+  const app = read('src/ui/app.js');
+  const registered = [...app.matchAll(/name: '(nt_[a-z_]+)'/g)].map((m) => m[1]);
+  assert.ok(registered.length >= 4, `only ${registered.length} tools found in src/ui/app.js`);
+
+  const readme = read('README.md');
+  const page = read('index.html');
+  for (const name of registered) {
+    assert.ok(readme.includes(name), `${name} is registered and the README never names it`);
+    assert.ok(page.includes(name), `${name} is registered and the page never names it`);
+  }
+});
+
+test('the conditional tool is described as conditional wherever it is named', () => {
+  for (const file of ['README.md', 'index.html']) {
+    const text = read(file).replace(/\s+/g, ' ');
+    assert.ok(text.includes('nt_get_findings'), `${file} does not name the conditional tool`);
+    assert.match(text, /does not exist until|withdrawn when/,
+      `${file} names nt_get_findings without saying it appears and withdraws, which is the whole point`);
   }
 });

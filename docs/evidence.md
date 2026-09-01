@@ -100,9 +100,14 @@ sameOriginIframeToolsVisible : true      (3 tools, each with tool.window === tha
 crossOriginIframeToolsVisible: false     (0 tools)
 ```
 
-The top document could also execute a tool registered inside the same origin frame. This is the
-measurement that decided the shape of the product: an in page auditor can drive any page it can host
-on its own origin and nothing else.
+The top document could also execute a tool registered inside the same origin frame, and the frame
+sees the top document's tools on its own list for the same reason. Sharing an origin means sharing
+one surface, in both directions. This is the measurement that decided the shape of the product: an
+in page auditor can drive any page it can host on its own origin and nothing else.
+
+Taken on 2026-09-01 against Chrome 152.0.7977.65, on a separate auditor page built for the question
+and not kept in this checkout, with `localhost` and `127.0.0.1` on one server standing in as two
+origins.
 
 ## The counts in this repository
 

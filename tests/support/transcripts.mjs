@@ -125,7 +125,7 @@ export function measuredChrome152() {
         onDescriptor: { presentBefore: true, presentAfter: true },
       },
       C3: { scriptPathEnforces: false, formPathEnforces: true },
-      C4: { settled: 'timeout', waitedMs: 8016 },
+      C4: { settled: 'timeout', waitedMs: 2502 },
       D1: { onRegister: 1, onWithdraw: 1 },
       D2: {
         schema: '{"type":"object","properties":{"witness_name":{"type":"string","description":"Full name of the witness."},'

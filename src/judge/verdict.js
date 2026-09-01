@@ -290,16 +290,23 @@ const RULES = {
       held: elsewhere.length === 0,
       expected: 'every tool on the surface was registered by this document',
       observed: elsewhere.length
-        ? `${elsewhere.length} came from another same origin document: ${elsewhere.join(', ')}`
+        ? `${elsewhere.length} came from another document: ${elsewhere.join(', ')}`
         : `all ${o.toolCount} tools were registered by this document`,
     };
   },
 
   /**
-   * Held when no read only tool accepted a property that is in nobody's schema.
+   * Held when every read only tool noticed a call that omitted one of its own required properties.
    *
-   * A page with no read only tools cannot be measured here and says so, because calling a tool the
-   * page has not marked safe is the one thing this probe will not do.
+   * NOT the extra property rule an earlier draft used. JSON Schema allows additional properties
+   * unless a schema says otherwise, so accepting one was never a defect. Breaking the tool's own
+   * required list is, because the browser enforces nothing on the script path and that array is a
+   * promise only the page can keep.
+   *
+   * Two kinds of page cannot be measured here and both say so rather than passing: one with no
+   * tools marked read only, because calling a tool the page has not marked safe is the thing this
+   * probe will not do, and one whose read only tools declare no required array, because there is
+   * then nothing to break.
    */
   P5(o) {
     need(o, ['attempted', 'ignored', 'noticed', 'skipped']);

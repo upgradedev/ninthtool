@@ -75,8 +75,8 @@ const MUTATIONS = {
     expect: /do not enforce/ },
 
   C4: { what: 'the tool never settles',
-    break: (o) => { o.settled = 'timeout'; o.waitedMs = 8016; },
-    expect: /8016 ms/ },
+    break: (o) => { o.settled = 'timeout'; o.waitedMs = 2502; },
+    expect: /2502 ms/ },
 
   D1: { what: 'no event fires on withdrawal',
     break: (o) => { o.onWithdraw = 0; },
