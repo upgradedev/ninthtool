@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { SCANNED_DIRS, SCANNED_EXTENSIONS, EXEMPT } from './style_config.mjs';
+import { SCANNED_DIRS, SCANNED_EXTENSIONS, EXEMPT, OTHER_COMPETITIONS } from './style_config.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
 
@@ -40,14 +40,6 @@ const BANNED_WORDS = [
 
 /** Phrases that are always a finding. */
 const BANNED_PHRASES = ['in today\'s world', 'in the world of', 'it is important to note that'];
-
-/** Other competitions. A judge who finds one of these is reading about somebody else's contest. */
-const OTHER_COMPETITIONS = [
-  'cockroach', 'backblaze', 'qwen', 'nebius', 'xprize', 'kaggle',
-  'claimready', 'cinemory', 'claimscene', 'datahub', 'kerdon', 'archon',
-];
-// Deliberately NOT in that list: the host platform of THIS hackathon. Linking the entry is
-// expected, and banning the word would make the submission checklist unwritable.
 
 /** Files where naming the sibling entry is required rather than forbidden. */
 const MAY_NAME_SIBLINGS = new Set(['README.md', 'docs/prior-art.md', 'docs/reuse.md']);

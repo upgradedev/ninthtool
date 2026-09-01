@@ -1,0 +1,42 @@
+name: Readiness
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # The live URL has to keep answering 200 through the judging window. A daily run is how we
+    # find out it stopped, rather than a judge finding out.
+    - cron: '17 6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    name: Readiness gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Where is Chrome
+        id: chrome
+        run: |
+          for c in /usr/bin/google-chrome /usr/bin/google-chrome-stable /opt/google/chrome/chrome; do
+            if [ -x "$c" ]; then echo "found=$c" >> "$GITHUB_OUTPUT"; echo "Chrome at $c"; exit 0; fi
+          done
+          echo "found=" >> "$GITHUB_OUTPUT"
+          echo "No Chrome on this runner."
+
+      - name: The gate proves it can fail
+        run: node scripts/readiness.mjs --selftest
+
+      # The browser row drives the LIVE judge URL and presses the button a visitor presses. It is
+      # mandatory, and a row that could not be run is never counted as a pass, so a runner with no
+      # Chrome makes this job red rather than quietly green.
+      - name: Readiness, live and driven
+        run: node scripts/readiness.mjs

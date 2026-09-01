@@ -21,12 +21,11 @@
  * Nothing is installed and there is no lock file.
  */
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { openSession } from '../src/probe/cdp.mjs';
+import { launchWithWebMCP } from '../src/probe/launch.mjs';
 import { judge } from '../src/judge/verdict.js';
 import { BEHAVIOURS, behaviourById, MEASURED_AGAINST } from '../src/judge/behaviours.js';
 
@@ -76,28 +75,6 @@ browser you drive yourself is chrome://flags/#enable-webmcp-testing.
 `;
 
 /* ------------------------------------------------------------------ the browser */
-
-function findChrome(explicit) {
-  if (explicit) return explicit;
-  const candidates = process.platform === 'win32'
-    ? [
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe'),
-      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    ]
-    : process.platform === 'darwin'
-      ? [
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-      ]
-      : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium',
-        '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge'];
-  for (const candidate of candidates) {
-    if (candidate && fs.existsSync(candidate)) return candidate;
-  }
-  return null;
-}
 
 /**
  * A static server for the bundled subject page, so the default run needs no arguments and no
@@ -204,13 +181,6 @@ if (args.behaviour && !behaviourById(args.behaviour)) {
   process.exit(2);
 }
 
-const binary = findChrome(args.chrome);
-if (!binary) {
-  console.error('No Chrome or Edge found. Pass one with --chrome PATH.');
-  console.error('WebMCP needs a Chromium browser; Firefox and Safari have no implementation.');
-  process.exit(2);
-}
-
 let served = null;
 let url = args.url;
 if (!url) {
@@ -218,23 +188,18 @@ if (!url) {
   url = `${served.origin}/${DEFAULT_SUBJECT}`;
 }
 
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'ninthtool-'));
-const child = spawn(binary, [
-  '--headless=new',
-  '--disable-gpu',
-  '--no-first-run',
-  '--no-default-browser-check',
-  '--enable-features=WebMCP',
-  `--remote-debugging-port=${args.port}`,
-  `--user-data-dir=${profile}`,
-  url,
-], { stdio: 'ignore', detached: false });
+let launched;
+try {
+  launched = await launchWithWebMCP({ url, port: args.port, chrome: args.chrome });
+} catch (error) {
+  console.error(`ninthtool: ${String((error && error.message) || error)}`);
+  if (served) served.server.close();
+  process.exit(2);
+}
 
 let socket = null;
 let exitCode = 0;
 try {
-  // Chrome needs a moment to open the debugging port and settle the page.
-  await new Promise((r) => setTimeout(r, 3500));
   const connection = await openSession(args.port);
   socket = connection.socket;
   const { session } = connection;
@@ -260,7 +225,7 @@ try {
 } finally {
   if (socket) socket.destroy();
   if (served) served.server.close();
-  if (!args.keepOpen) { try { child.kill(); } catch { /* already gone */ } }
+  if (!args.keepOpen) launched.close();
 }
 
 process.exit(exitCode);
