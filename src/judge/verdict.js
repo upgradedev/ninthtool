@@ -174,13 +174,37 @@ const RULES = {
   },
 
   /** Held only if both halves enforce the schema the same way. */
+  /**
+   * Held only when every constraint the schema declares is enforced on BOTH halves.
+   *
+   * It used to hold whenever two booleans matched, which meant it held when NEITHER half enforced
+   * anything: agreement between two absences read as conformance. It also tested different
+   * constraints on each side, so the two booleans were never comparable in the first place, and it
+   * contradicted C1, which had already measured the form path ignoring `required`.
+   *
+   * The same four bad calls now go to both halves against schemas that declare the same
+   * constraints, and a constraint nobody enforces is a failure rather than an agreement.
+   */
   C3(o) {
-    need(o, ['scriptPathEnforces', 'formPathEnforces']);
+    need(o, ['constraints']);
+    const constraints = Array.isArray(o.constraints) ? o.constraints : [];
+    const declared = constraints.filter((c) => c && c.declared);
+    if (!declared.length) {
+      throw new Error('the schema under test declares none of the constraints this row compares, '
+        + 'so there was nothing to enforce on either half');
+    }
+
+    const say = (c) => `${c.name}: script ${c.script}, form ${c.form}`;
+    const bothEnforce = declared.filter((c) => c.script === 'enforced' && c.form === 'enforced');
+    const neitherEnforces = declared.filter((c) => c.script !== 'enforced' && c.form !== 'enforced');
+    const disagree = declared.filter((c) => (c.script === 'enforced') !== (c.form === 'enforced'));
+
     return {
-      held: o.scriptPathEnforces === o.formPathEnforces,
-      expected: 'both halves of the standard enforce the declared schema alike',
-      observed: `script registered tools ${o.scriptPathEnforces ? 'enforce' : 'do not enforce'}`
-        + `, form derived tools ${o.formPathEnforces ? 'enforce' : 'do not enforce'}`,
+      held: bothEnforce.length === declared.length,
+      expected: `all ${declared.length} declared constraints are enforced on both halves`,
+      observed: `${bothEnforce.length} of ${declared.length} enforced on both`
+        + (disagree.length ? `; ${disagree.length} enforced on one half only: ${disagree.map(say).join(', ')}` : '')
+        + (neitherEnforces.length ? `; ${neitherEnforces.length} enforced by neither: ${neitherEnforces.map(say).join(', ')}` : ''),
     };
   },
 

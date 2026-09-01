@@ -501,32 +501,95 @@ export async function observeAll(ctx, options = {}) {
     // ------------------------------- C3 script half: is a declared schema enforced at all
     let scriptEnforces = null;
     await step('C3', async () => {
+      /*
+       * THE SAME FOUR CONSTRAINTS ON BOTH HALVES, ONE PROBE EACH.
+       *
+       * This row used to test different things on each side: `required` and a wrong type on the
+       * script path, an undeclared property on the form path. It then passed whenever the two
+       * booleans matched, which meant it passed when NEITHER path enforced anything. An audit was
+       * right to call that a fail open, and it also disagreed with C1, which had already measured
+       * the form path ignoring `required`.
+       *
+       * So the script tool below declares a schema that mirrors the fixture form's synthesised one,
+       * constraint for constraint, and both are sent the same four bad calls. What comes back is a
+       * matrix, not a pair of booleans, and a constraint nobody enforces is a failure rather than
+       * an agreement.
+       */
+      const form = await trustedFixture(FIXTURE_FORM_ANSWERS);
+      const formSchema = typeof form.inputSchema === 'string'
+        ? JSON.parse(form.inputSchema) : form.inputSchema;
+
+      // Mirror it. The browser synthesised the form's schema from markup, so this is the closest a
+      // script registered tool can come to declaring the same contract.
       const name = probeName('validation');
       let handlerSaw = null;
       await register({
         name,
-        description: 'Declares a required string, and reports whatever it is handed.',
-        inputSchema: { type: 'object', properties: { a: { type: 'string' } }, required: ['a'] },
+        description: 'Declares the same constraints as the fixture form, and reports what it is handed.',
+        inputSchema: formSchema,
         annotations: { readOnlyHint: true },
-        async execute(input) { handlerSaw = input; return { content: [{ type: 'text', text: 'ok' }] }; },
+        async execute(input) { handlerSaw = input; return { content: [{ type: 'text', text: 'script ok' }] }; },
       });
-      const tool = await toolNamed(ctx, name);
-      const missing = await settle(call(ctx, tool, {}), SETTLE_TIMEOUT_MS);
-      const wrongType = await settle(call(ctx, tool, { a: 123 }), SETTLE_TIMEOUT_MS);
-      scriptEnforces = missing.settled === 'rejected' && wrongType.settled === 'rejected';
+      const scriptTool = await toolNamed(ctx, name);
 
-      // The form half needs the bundled fixture, because measuring it means calling a form tool.
-      const form = await trustedFixture(FIXTURE_FORM_ANSWERS);
-      const bad = await settle(call(ctx, form, { not_a_real_parameter: 'x' }), SETTLE_TIMEOUT_MS);
-      const formEnforces = bad.settled === 'rejected';
+      const properties = formSchema.properties || {};
+      const required = Array.isArray(formSchema.required) ? formSchema.required : [];
+      const numeric = Object.keys(properties).find((k) => properties[k].type === 'number');
+      const enumerated = Object.keys(properties).find((k) => Array.isArray(properties[k].enum));
+      const valid = synthesiseArguments(formSchema);
+
+      // Does the mirrored schema actually express each constraint? A comparison of a constraint
+      // neither side declares proves nothing, and is reported as not comparable rather than passed.
+      const declares = {
+        required: required.length > 0,
+        type: Boolean(numeric),
+        enumerated: Boolean(enumerated),
+        unknownProperty: true,
+      };
+
+      const badCalls = {
+        required: declares.required ? (() => { const x = { ...valid }; delete x[required[0]]; return x; })() : null,
+        type: declares.type ? { ...valid, [numeric]: 'not-a-number' } : null,
+        enumerated: declares.enumerated ? { ...valid, [enumerated]: 'NINTHTOOL_NOT_AN_OPTION' } : null,
+        unknownProperty: { ...valid, ninthtool_undeclared_property: 'x' },
+      };
+
+      const constraints = [];
+      for (const key of ['required', 'type', 'enumerated', 'unknownProperty']) {
+        if (!declares[key] || badCalls[key] === null) {
+          constraints.push({ name: key, declared: false, script: 'not-declared', form: 'not-declared', detail: 'the schema does not express this constraint' });
+          continue;
+        }
+        handlerSaw = null;
+        const onScript = await settle(call(ctx, scriptTool, badCalls[key]), SETTLE_TIMEOUT_MS);
+        const scriptVerdict = onScript.settled === 'rejected' ? 'enforced' : 'ignored';
+        const sawOnScript = JSON.stringify(handlerSaw);
+
+        const onForm = await settle(call(ctx, form, badCalls[key]), SETTLE_TIMEOUT_MS);
+        const formVerdict = onForm.settled === 'rejected' ? 'enforced' : 'ignored';
+
+        constraints.push({
+          name: key,
+          declared: true,
+          script: scriptVerdict,
+          form: formVerdict,
+          detail: scriptVerdict === 'ignored'
+            ? `the script handler received ${sawOnScript}`
+            : 'the script path refused it',
+        });
+      }
+
+      // scriptValidation's own summary, kept for anything that still reads it.
+      scriptEnforces = constraints.filter((c) => c.declared).every((c) => c.script === 'enforced');
+
       return {
+        constraints,
+        formSchema: JSON.stringify(formSchema),
         scriptPathEnforces: scriptEnforces,
-        formPathEnforces: formEnforces,
-        handlerSawWhenRequiredMissing: JSON.stringify(handlerSaw),
+        formPathEnforces: constraints.filter((c) => c.declared).every((c) => c.form === 'enforced'),
       };
     });
 
-    // ------------------------------- B4, C1, C4, D2: the declarative half, from the fixture
     // B4 and D2 read a form derived tool. They prefer the fixture's, and fall back to whatever
     // declarative tool the page publishes, so they still measure something on a page of your own.
     const declarativeName = (pageTools.find((t) => t.name === FIXTURE_FORM_ANSWERS)

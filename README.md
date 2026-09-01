@@ -134,7 +134,7 @@ what a conformance pass over that half looks like while it is being written.
 |---|---|---|
 | C1 | a missing required property is **not refused, it is filled from the control's stale value** | a call omitting a required property resolved, and the handler was handed the name left in the DOM by the previous, unrelated call |
 | C2 | withdrawal only works via `registerTool(desc, { signal })` | `signal` on the descriptor registers a tool that can never withdraw, and throws nothing |
-| C3 | validation depends on which half registered the tool | script registered: none at all. Form derived: strict. The halves behave oppositely and neither says so |
+| C3 | validation depends on which half registered the tool | the same four bad calls: script registered refuses **0 of 4**, form derived refuses **4 of 4**. Read with C1: the form path enforces `required` against the **control**, not the call, so an untouched form refuses and a form left holding a previous value accepts |
 
 ### Deliberate, and the gap around it
 

@@ -47,7 +47,16 @@ export function conforming() {
         optionsBag: { presentBefore: true, presentAfter: false },
         onDescriptor: { presentBefore: true, presentAfter: false },
       },
-      C3: { scriptPathEnforces: true, formPathEnforces: true },
+      C3: {
+        constraints: [
+          { name: 'required', declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' },
+          { name: 'type', declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' },
+          { name: 'enumerated', declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' },
+          { name: 'unknownProperty', declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' },
+        ],
+        scriptPathEnforces: true,
+        formPathEnforces: true,
+      },
       C4: { settled: 'resolved', waitedMs: 17 },
       D1: { onRegister: 1, onWithdraw: 1 },
       D2: {
@@ -132,7 +141,21 @@ export function measuredChrome152() {
         optionsBag: { presentBefore: true, presentAfter: false },
         onDescriptor: { presentBefore: true, presentAfter: true },
       },
-      C3: { scriptPathEnforces: false, formPathEnforces: true },
+      // Measured 2026-09-01 against this suite's own subject page. The form column reads 'enforced'
+      // for `required` because this row sends its bad calls to an UNTOUCHED form, where the control
+      // is empty. C1 sends a complete call first and the same omission is then accepted from the
+      // stale control value. Both are true, and together they say the form path enforces `required`
+      // against the control rather than against the call.
+      C3: {
+        constraints: [
+          { name: 'required', declared: true, script: 'ignored', form: 'enforced', detail: 'the script handler received {"age":18,"severity":"dent"}' },
+          { name: 'type', declared: true, script: 'ignored', form: 'enforced', detail: 'the script handler received a string where a number was declared' },
+          { name: 'enumerated', declared: true, script: 'ignored', form: 'enforced', detail: 'the script handler received a value outside the enum' },
+          { name: 'unknownProperty', declared: true, script: 'ignored', form: 'enforced', detail: 'the script handler received an undeclared property' },
+        ],
+        scriptPathEnforces: false,
+        formPathEnforces: true,
+      },
       C4: { settled: 'timeout', waitedMs: 2502 },
       D1: { onRegister: 1, onWithdraw: 1 },
       D2: {
