@@ -30,3 +30,21 @@ export const IGNORED_DIRS = ['.git', 'node_modules', 'tmp'];
  * anything a judge will read.
  */
 export const EXEMPT = new Set(['package-lock.json', 'check_style.mjs', 'style_config.mjs']);
+
+/**
+ * Other competitions and other projects of ours. A judge who finds one of these is reading about
+ * somebody else's contest.
+ *
+ * ONE COPY, TWO READERS. The style gate scans for these and the readiness gate has a mandatory row
+ * asserting no judge facing file carries one. Keeping a second copy in the readiness script meant
+ * the style gate found that copy and went red, which is the gate working, and it also meant two
+ * lists that could drift. Deliberately NOT in the list: the host platform of this hackathon, since
+ * linking the entry is expected.
+ */
+export const OTHER_COMPETITIONS = [
+  'cockroach', 'backblaze', 'qwen', 'nebius', 'xprize', 'kaggle',
+  'claimready', 'cinemory', 'claimscene', 'datahub', 'kerdon', 'archon',
+];
+
+/** Judge facing files the readiness gate holds to that list. */
+export const JUDGE_FACING_FILES = ['README.md', 'index.html', 'docs/evidence.md', 'docs/prior-art.md'];

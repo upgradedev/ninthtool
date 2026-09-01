@@ -124,9 +124,43 @@ node --test tests/unit
 node scripts/check_style.mjs --selftest
 ```
 
+```bash
+node scripts/readiness.mjs
+```
+
 No dependencies, no lock file, nothing to install. Node 20 or later, and a Chromium browser for the
 runner. Firefox and Safari have no WebMCP implementation, so there is nothing for this to measure
 there.
+
+## The readiness gate
+
+Thirteen automated rows and four the owner has to close. It answers one question: could a stranger
+with no account reach every mandatory artifact right now?
+
+**It fetches the live URL and fails on anything but 200**, checks every asset that page needs, greps
+the **deployed bytes** rather than the source for the tools this README claims, and then opens the
+live origin in a real browser and presses the button a visitor presses. That last row asserts the
+audit judged all fourteen behaviours, that none was skipped, and that the conditional tool both
+appeared and withdrew.
+
+A file existence check and a regular expression over the source prove that something was written,
+not that anything is deployed. A gate elsewhere once stayed green through a two day outage because
+every check read the repository.
+
+Three things it will not do:
+
+- **A row that could not be run is not a pass.** It stays in the denominator, so skipping the
+  browser row drops the score to 92 percent and the gate exits 1. A gate that shrinks its own
+  denominator reports a higher score for doing less.
+- **Owner gated is a third status.** The four rows only a person can close are printed separately
+  with their exact manual step and never counted as credit.
+- **A threshold cannot be moved quietly.** Each number is pinned in `scripts/readiness_config.mjs`,
+  again in the fixture beside it, and again in `tests/unit/readiness_thresholds.test.js`. The gate
+  compares the first two before running anything and exits 2 with the disagreement named.
+
+Every row has been watched failing. `--selftest` feeds all thirteen a deliberately wrong input and
+requires each to go red, and the live rows were proved by pointing them at an origin that does not
+exist, which turned M4 through M7 and R5 red and took the run to 54 percent.
 
 ## The console is not silent during a run, on purpose
 
