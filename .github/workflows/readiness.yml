@@ -7,7 +7,8 @@ name: Readiness
 # a failure teaches everyone to ignore the gate.
 #
 # The rows that CAN be judged from a branch are already on the CI workflow: unit tests, the style
-# gate and its selftest. This one runs where its answer means something.
+# gate and its selftest, and the manifest freshness check. This one runs where its answer means
+# something.
 on:
   push:
     branches: [main]
@@ -30,49 +31,37 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Where is Chrome
-        id: chrome
-        run: |
-          for c in /usr/bin/google-chrome /usr/bin/google-chrome-stable /opt/google/chrome/chrome; do
-            if [ -x "$c" ]; then echo "found=$c" >> "$GITHUB_OUTPUT"; echo "Chrome at $c"; exit 0; fi
-          done
-          echo "found=" >> "$GITHUB_OUTPUT"
-          echo "No Chrome on this runner."
-
       - name: The gate proves it can fail
         run: node scripts/readiness.mjs --selftest
 
-      # WAIT FOR THE DEPLOYMENT, DO NOT WEAKEN THE CHECK. On a push to main this job starts before
-      # Pages has rebuilt, so the gate correctly reported that the deployment was behind and went
-      # red for a reason nobody could act on. The answer is to wait for the thing being measured,
-      # not to stop measuring it: this polls until the served catalogue matches the one in this
-      # commit, and gives up loudly after ten minutes rather than running against a stale origin.
       # WAIT ON THE MANIFEST, NOT ON ONE FILE.
       #
       # This step used to compare the served behaviours.js with the committed one. That is the
       # wrong signal twice over: it says nothing when the commit did not touch that file, and it
-      # said exactly nothing on the commit that ADDED runtime-manifest.json, so the gate ran
-      # against an origin with no manifest and correctly failed with a 404 nobody could act on.
+      # said exactly nothing on the commit that ADDED runtime-manifest.json, so the gate ran against
+      # an origin with no manifest and failed with a 404 nobody could act on.
       #
       # The manifest changes whenever any runtime file changes, and when nothing runtime changed
       # there is nothing to wait for. It is the right thing to poll.
+      #
+      # Line endings are stripped with tr rather than a regex. An earlier version put a JavaScript
+      # regex inside a YAML block scalar inside a shell string, and the escaping turned into real
+      # newlines and broke the workflow file itself, which failed in zero seconds with no log.
       - name: Wait for Pages to serve this commit
         run: |
           set -u
-          want=$(node -e "process.stdout.write(require('fs').readFileSync('runtime-manifest.json','utf8').replace(/
-/g,'
-'))" | md5sum | cut -d' ' -f1)
+          want=$(tr -d '\r' < runtime-manifest.json | md5sum | cut -d' ' -f1)
           echo "committed manifest $want"
           for i in $(seq 1 60); do
-            got=$(curl -fsS "https://upgradedev.github.io/ninthtool/runtime-manifest.json?cb=$i" 2>/dev/null               | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(d.replace(/
-/g,'
-')))"               | md5sum | cut -d' ' -f1) || got="not-served-yet"
-            if [ "$got" = "$want" ]; then echo "Pages is serving this manifest after ${i} tries."; exit 0; fi
+            got=$(curl -fsS "https://upgradedev.github.io/ninthtool/runtime-manifest.json?cb=$i" 2>/dev/null | tr -d '\r' | md5sum | cut -d' ' -f1) || got="not-served-yet"
+            if [ "$got" = "$want" ]; then
+              echo "Pages is serving this manifest after $i tries."
+              exit 0
+            fi
             echo "  try $i: served $got"
             sleep 10
           done
-          echo "Pages never served this commit's manifest. The gate would measure a stale origin,"
-          echo "so this fails here instead, where the message says why."
+          echo "Pages never served this commit's manifest, so the gate would measure a stale origin."
           exit 1
 
       # The browser row drives the LIVE judge URL and presses the button a visitor presses. It is
