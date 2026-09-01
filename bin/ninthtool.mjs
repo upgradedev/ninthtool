@@ -210,9 +210,11 @@ function printReport(result, transcript, only) {
   if (result.scope.refusedSteps && result.scope.refusedSteps.length) {
     console.log(`refused : ${result.scope.refusedSteps.join(', ')}, not authorised`);
   }
-  if (result.scope.fixture) {
-    console.log(`fixture : ${result.scope.fixture.trusted ? 'identity holds' : 'REFUSED'}`
-      + ` - ${result.scope.fixture.reason}`);
+  // ONE LINE PER TOOL. Identity is decided per tool now, because a decision about one tool used to
+  // authorise another one in a different document, and that document was written to.
+  for (const [name, decision] of Object.entries(result.scope.fixture || {})) {
+    console.log(`fixture : ${name} ${decision.trusted ? 'identity holds' : 'REFUSED'}`
+      + ` - ${decision.reason}`);
   }
   console.log(BAR);
   console.log(`${result.counts.fail} broken, ${result.counts.pass} kept`
@@ -318,9 +320,17 @@ try {
       + ` in state "${document_.readyState}" after ${document_.waitedMs} ms.`);
   }
 
-  const expectedOrigin = new URL(url).origin;
+  // THE PATH WE ASKED FOR, NOT THE ONE WE LANDED ON.
+  //
+  // The fixture identity check compares the registering document against an EXPECTED path, and that
+  // expectation has to come from the run's own intent. Deriving it from the loaded document would
+  // make it compare a value with itself, so `/attacker/fixtures/subject.html` would satisfy it by
+  // construction. Taking it from the requested URL means a redirect or a navigation that lands
+  // somewhere else is refused instead of silently audited.
+  const requested = new URL(url);
+  const expectedOrigin = requested.origin;
   const raw = await session.evaluate(probeExpression({
-    only: selected, allow, expectedOrigin,
+    only: selected, allow, expectedOrigin, expectedPath: requested.pathname,
   }), 120000);
   const transcript = JSON.parse(raw);
   const result = judge(transcript, { only: selected });

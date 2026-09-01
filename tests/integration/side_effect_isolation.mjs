@@ -144,9 +144,14 @@ console.log('2. --allow-fixture-forms, which must still fail the identity checks
 {
   const r = await runAgainstImpostor('forms', { only: null, allow: { fixtureForms: true } }, 9531);
   check('forms submitted on the foreign page', r.after.formSubmissions, 0);
-  const fixture = r.transcript.scope.fixture;
-  check('the identity check ran and refused', fixture && fixture.trusted, false);
-  console.log(`        reason: ${fixture && fixture.reason}`);
+  // Keyed by tool name since the per-tool binding fix. EVERY tool that was asked for must have been
+  // refused; a single trusted entry anywhere is the defect this file exists to catch.
+  const fixture = r.transcript.scope.fixture || {};
+  const decisions = Object.entries(fixture);
+  check('the identity check ran for at least one tool', decisions.length > 0, true);
+  check('no tool was trusted on the foreign page',
+    decisions.some(([, d]) => d.trusted), false);
+  for (const [name, d] of decisions) console.log(`        ${name}: ${d.reason}`);
 }
 
 console.log('');
