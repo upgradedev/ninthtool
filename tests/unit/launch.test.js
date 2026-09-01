@@ -19,10 +19,15 @@
  * it did rather than accommodating them: a target at the origin root satisfied a matcher built for
  * a deep path on that origin, and a target carrying no URL matched anything at all. Both were the
  * about:blank failure class, where the guard excludes one literal string instead of requiring the
- * right page. The matcher has since been tightened to exact equality on a normalised URL and
- * waitForPageTarget now calls it rather than keeping a second copy of the comparison, so the
- * expectations below are the corrected ones. One half of the same looseness is still live in
- * waitForDocument and is recorded, not endorsed, in its own test in that section.
+ * right page. The matcher has since been tightened to exact equality on a normalised URL, and
+ * waitForPageTarget and waitForDocument both call it now rather than keeping a copy of the
+ * comparison each, so the expectations below are the corrected ones.
+ *
+ * WHAT EACH TEST HOLDS WAS MEASURED, NOT ASSUMED. Deliberate mutations of launch.mjs were run
+ * against this file and the survivors were treated as findings about the tests. Two are recorded
+ * where they belong: the per evaluate timeout is asserted against a different overall deadline,
+ * because the two used to be the same number and the assertion proved nothing, and the no argument
+ * browser search is marked as holding only on a machine with no browser on it.
  *
  * ONE SOCKET IS TOUCHED. waitForDebugger is aimed at a loopback port that was bound, read and
  * released a moment earlier, so the connection is refused straight away. Nothing leaves this
@@ -298,11 +303,14 @@ test('waitForDocument refuses a blank document even when that is what was asked 
 });
 
 test('waitForDocument does NOT accept the origin root as a deep page', async () => {
-  // targetFor and waitForPageTarget were tightened to exact equality on a normalised URL.
-  // waitForDocument was not. It still prefix tests both ways, so a document at
-  // http://127.0.0.1:8412/, which is the runner's own page on the same origin, satisfies a wait
-  // for /fixtures/subject.html. The two siblings now disagree about which page is the right page,
-  // Brought into line: all three now share targetFor.
+  // Written while waitForDocument still prefix tested both ways, when targetFor and
+  // waitForPageTarget had already been tightened to exact equality on a normalised URL. A document
+  // at http://127.0.0.1:8412/, which is the runner's own page on the same origin, satisfied a wait
+  // for /fixtures/subject.html, so the three functions disagreed about which page was the right
+  // page. The test recorded that rather than accommodating it and the module has since been
+  // brought into line: all three share targetFor now, so the page this waits for and the target
+  // openSession attaches to cannot be two different pages. That drift is what the module's own
+  // opening docblock was written about.
   const session = scriptedSession([document('http://127.0.0.1:8412/', 'complete')]);
 
   const result = await waitForDocument(session, WANTED, 400);
