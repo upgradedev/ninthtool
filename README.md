@@ -273,10 +273,29 @@ added to the catalogue without a mutation proving its rule can fail.
 
 ## Run it
 
-With no arguments and no separate terminal. It starts a loopback server, launches your Chrome with
-the feature enabled in a throwaway profile, drives this page and prints the report. It audits the
-page itself rather than the subject frame, because same origin frames contribute their tools to the
-top document, so from there both halves of the standard are on one surface at once:
+**With no checkout at all.** One line, against a page of your own:
+
+```bash
+npx --yes https://github.com/upgradedev/ninthtool/tarball/main https://your-page.example
+```
+
+It has no dependencies, so there is nothing to resolve and nothing to audit before it runs. Node 20
+or later, and a Chromium browser with WebMCP enabled.
+
+That is the tarball URL rather than the tidier `npx github:upgradedev/ninthtool`, and the reason is
+measured rather than stylistic: on npm 10.8.2 the shorthand fails with
+`GitFetcher requires an Arborist constructor to pack a tarball`. The end to end job tries the
+shorthand first on every run, so the day npm fixes it this README gets shorter.
+
+**The CI end to end job runs this exact line on a clean machine with no checkout**, and asserts the
+help text is the shipped one, that a bad `--fail-on` still exits 2 before launching anything, and
+that `--behaviour A1` reports one behaviour tested. The command here has been executed rather than
+written down.
+
+From a checkout, with no arguments and no separate terminal. It starts a loopback server, launches
+your Chrome with the feature enabled in a throwaway profile, drives this page and prints the report.
+It audits the page itself rather than the subject frame, because same origin frames contribute their
+tools to the top document, so from there both halves of the standard are on one surface at once:
 
 ```bash
 node bin/ninthtool.mjs
