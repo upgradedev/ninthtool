@@ -22,7 +22,7 @@
  * right page. The matcher has since been tightened to exact equality on a normalised URL and
  * waitForPageTarget now calls it rather than keeping a second copy of the comparison, so the
  * expectations below are the corrected ones. One half of the same looseness is still live in
- * waitForDocument and is recorded, not endorsed, in its own test near the end of that section.
+ * waitForDocument and is recorded, not endorsed, in its own test in that section.
  *
  * ONE SOCKET IS TOUCHED. waitForDebugger is aimed at a loopback port that was bound, read and
  * released a moment earlier, so the connection is refused straight away. Nothing leaves this
