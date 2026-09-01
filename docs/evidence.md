@@ -11,7 +11,13 @@ taken. Nothing here is copied from documentation.
 | Launched with | `--headless=new --disable-gpu --enable-features=WebMCP --remote-debugging-port=9333 --user-data-dir=<throwaway>` |
 | Pages served by | `python -m http.server --bind 127.0.0.1` |
 | Driver | `src/probe/cdp.mjs`, a dependency free Chrome DevTools Protocol client |
-| Date | **2026-09-01** |
+| Date | catalogue measured **2026-09-01**; headline re-measured **2026-09-02** after the P5 oracle was tightened |
+
+The end-to-end figures below come from readiness row M8, which opens the **live** judge URL in a real
+browser, presses the button a visitor presses, judges the raw transcript in Node and then requires
+the page's own rendering to agree. The run that produced them is
+[actions/runs/33566970105](https://github.com/upgradedev/ninthtool/actions/runs/33566970105), and it
+prints the counts in its log rather than asking you to take this file's word for them.
 
 The documented route for enabling the feature in a browser you drive yourself is
 `chrome://flags/#enable-webmcp-testing`. The command line switch above is what these runs used.
@@ -34,8 +40,19 @@ node bin/ninthtool.mjs --behaviour B1
 
 ## What was measured, on the day
 
-Both surfaces, the page and the command line runner, produced the same verdict:
-**14 of 20 promises broken, 6 kept, 0 unobserved.**
+Driving the live page end to end, judged from the raw transcript and cross checked against what the
+page rendered: **14 of 20 promises broken, 5 kept, 1 unsettled.** Nineteen rows reached a verdict.
+
+The unsettled row is P5, and it is the most interesting row here, so it is not rounded away. An
+earlier version of this document reported P5 as **holding**, on the grounds that the tool "answered
+differently when the required argument was omitted". That oracle was unsound: answering differently
+is equally consistent with a tool that simply echoed its arguments back, so it could have passed
+with nothing enforced at all. P5 now has three outcomes and passes only on a demonstrated refusal,
+and it abstains on this page. **The count went down because the ruler got stricter, and that is the
+honest direction for a number to move.**
+
+A count with a hidden `unobserved` column is the exact dishonesty this suite exists to catch, so
+every figure below names its subject and its authorisation.
 
 Fourteen of the twenty are facts about the host and are the same wherever you point this. The six in
 the your-page group read the tools the page under test published, snapshotted before the probe
@@ -61,7 +78,7 @@ registered anything of its own.
 | P2 | **holds** | all 5 schemas parsed |
 | P3 | **holds** | all 5 tools and every parameter described |
 | P4 | broken | 2 tools came from another same origin document, the subject frame |
-| P5 | **holds** | the one read only tool that declares `required` answered differently when it was omitted |
+| P5 | **unsettled** | the tool answered when its `required` argument was omitted, and did not demonstrably refuse. Answering differently is not a refusal, so this abstains rather than passing |
 | P6 | **holds** | 2 read only tools, neither changed what the other answers |
 
 **Two of those six failures are this page's own, and both are owned rather than hidden.** P1 fails
@@ -85,7 +102,7 @@ Pressed the button a visitor presses, through the same flagged Chrome:
 |---|---|
 | the page boots | 20 cards, 5 groups, 3 tools published, no blocking message |
 | tool aggregation | 5 tools visible: 3 from the page, 2 from the same origin subject frame |
-| the audit | 14 broken, 6 kept, 0 unobserved, in **4920 ms** |
+| the audit | 14 broken, 5 kept, 1 unsettled, in **4806 ms**, and the page agreed with the transcript |
 | the ninth tool appears | 5 tools before the run, **6 after**, `nt_get_findings` present |
 | an agent reads the findings | `executeTool` returned the findings as structured JSON |
 | the ninth tool withdraws | 6 tools before clearing, **5 after**, `nt_get_findings` gone |
