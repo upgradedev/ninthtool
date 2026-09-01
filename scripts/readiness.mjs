@@ -42,6 +42,7 @@ import { buildManifest, readManifest, manifestDrift, hashOf } from './build_mani
 import { OTHER_COMPETITIONS, JUDGE_FACING_FILES, SIBLING_ENTRY, SIBLING_MAY_BE_NAMED_IN,
   SIBLING_MUST_BE_NAMED_IN } from './style_config.mjs';
 import { BEHAVIOURS } from '../src/judge/behaviours.js';
+import { judge } from '../src/judge/verdict.js';
 import { launchWithWebMCP, waitForPageTarget, targetFor, waitForDocument } from '../src/probe/launch.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -204,26 +205,58 @@ const ROWS = [
       }
       const narrow = result.narrow || {};
 
-      // A ROW MAY ABSTAIN, AND A BROWSER MAY NOT ABSTAIN ON EVERYTHING. This used to require zero
-      // unobserved rows, which was right when every row could always reach a verdict. P5 now
-      // abstains by design when nothing was demonstrated either way, and calling that a broken
-      // deployment would push the next person towards a rule that passes on a guess. So the row
-      // keeps a FLOOR instead: most of the catalogue must reach a real verdict, which still fails
-      // closed on the host that observed nothing at all and reported it as zero broken.
-      const settled = result.counts.pass + result.counts.fail;
+      /*
+       * THIS ROW JUDGES, IT NO LONGER READS THE PAGE'S CONCLUSIONS.
+       *
+       * It used to count rendered card classes, which are what the page decided. A judge that had
+       * gone wrong would have been agreed with rather than caught, and the gate whose subject is
+       * pages that report things that are not so was doing exactly that.
+       *
+       * So the raw transcript is fetched from the subject frame and judged HERE, in Node, by the
+       * same pure module the page uses. Two things are then required: the independent verdict must
+       * itself be sound, and the page's rendering must AGREE with it. A disagreement between what
+       * the observations say and what the visitor is shown is a defect in its own right and is now
+       * a failure rather than an invisible drift.
+       */
+      if (!result.transcript) {
+        throw new Error(`the raw transcript could not be read from the subject frame, so this row `
+          + `could only have checked the page's own conclusions: ${result.transcriptError || 'no reason given'}`);
+      }
+      const independent = judge(result.transcript);
+
+      const settled = independent.counts.pass + independent.counts.fail;
       const floor = BEHAVIOURS.length - 2;
+
+      const disagreements = [];
+      if (independent.counts.fail !== result.counts.fail) {
+        disagreements.push(`the page rendered ${result.counts.fail} broken and the observations say `
+          + `${independent.counts.fail}`);
+      }
+      if (independent.counts.pass !== result.counts.pass) {
+        disagreements.push(`the page rendered ${result.counts.pass} kept and the observations say `
+          + `${independent.counts.pass}`);
+      }
+      if (independent.counts.notApplicable !== result.counts.notApplicable) {
+        disagreements.push(`the page rendered ${result.counts.notApplicable} unsettled and the `
+          + `observations say ${independent.counts.notApplicable}`);
+      }
+
       const ok = result.cards === BEHAVIOURS.length
-        && result.counts.total === BEHAVIOURS.length
+        && independent.counts.total === BEHAVIOURS.length
         && settled >= floor
+        && disagreements.length === 0
         && result.findingsToolAppeared === true
         && result.findingsToolWithdrew === true
         && result.namesItsOwnTools === true
         && narrow.sideScroll === false;
+
       return {
         ok,
-        evidence: `${result.cards} cards, audit gave ${result.counts.fail} broken / ${result.counts.pass} kept`
-          + ` / ${result.counts.notApplicable} unsettled in ${result.elapsedMs} ms`
-          + ` (${settled} reached a verdict, floor ${floor})`
+        evidence: `${result.cards} cards. Judged here from the raw transcript: `
+          + `${independent.counts.fail} broken / ${independent.counts.pass} kept / `
+          + `${independent.counts.notApplicable} unsettled (${settled} reached a verdict, floor ${floor})`
+          + `, and the page agrees${disagreements.length ? ` EXCEPT: ${disagreements.join('; ')}` : ''}`
+          + `. Run took ${result.elapsedMs} ms`
           + `, nt_get_findings appeared=${result.findingsToolAppeared} withdrew=${result.findingsToolWithdrew}`
           + `, its own tools named on the page=${result.namesItsOwnTools}`
           + `, at 375 px document is ${narrow.scrollWidth} px wide with sideways scroll=${narrow.sideScroll}`,
@@ -468,6 +501,17 @@ async function driveLivePage() {
       out.findingsToolWithdrew = during.includes('nt_get_findings') && !after.includes('nt_get_findings');
       out.namesItsOwnTools = ['nt_list_behaviours', 'nt_explain_behaviour', 'nt_run_audit', 'nt_get_findings']
         .every(n => document.body.textContent.includes(n));
+
+      // THE RAW OBSERVATIONS, not the page's conclusions. This row used to read the rendered card
+      // classes, which are what the page decided; a judge that had gone wrong would have been
+      // agreed with rather than caught. The transcript is fetched so this gate can judge it
+      // itself, in Node, and compare.
+      try {
+        const frame = document.querySelector('[data-el="subject"]');
+        out.transcript = await frame.contentWindow.__ninthtool_observe();
+      } catch (error) {
+        out.transcriptError = String(error && error.message || error);
+      }
       return out;
     })()`, 150000);
     // A judge opens this on a phone. A page that scrolls sideways there is a page that looks
@@ -514,6 +558,10 @@ async function selftest() {
     ['M7 with a body that lost the sentence', () => ({ ok: flat('<html>nothing</html>').includes(flat(FLAGSHIP)) })],
     ['M8 with an audit that judged nothing', () => ({ ok: 0 >= BEHAVIOURS.length - 2 })],
     ['M8 with an audit that abstained on most of the catalogue', () => ({ ok: 3 >= BEHAVIOURS.length - 2 })],
+    ['M8 with the page disagreeing with the observations', () => ({
+      ok: ['the page rendered 14 broken and the observations say 12'].length === 0,
+    })],
+    ['M8 with no raw transcript to judge', () => ({ ok: Boolean(null) })],
     ['R1 with a behaviour that has no mutation', () => ({ ok: ['C4'].length === 0 })],
     ['R2 with failing tests', () => ({ ok: '3' === '0' })],
     ['R3 with a style gate that never proved itself', () => ({ ok: /style gate: PASS/.test('style gate: PASS') && false })],
