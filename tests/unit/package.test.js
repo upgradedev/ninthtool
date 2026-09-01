@@ -84,6 +84,8 @@ test('it declares the Node it needs', () => {
 
 test('the README tells a reader the command that actually works', () => {
   const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
-  assert.match(readme, /npx github:upgradedev\/ninthtool/,
-    'the README must carry the one line a reader with no checkout can run');
+  // The form CI proves, not the tidier one that does not work on npm 10.8.2. The e2e job
+  // tries the shorthand first every run, so if npm fixes it this assertion is what changes.
+  assert.match(readme, /npx --yes https:\/\/github\.com\/upgradedev\/ninthtool\/tarball\/main/,
+    'the README must carry the one line a reader with no checkout can actually run');
 });
