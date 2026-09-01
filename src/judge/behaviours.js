@@ -239,14 +239,24 @@ export const BEHAVIOURS = Object.freeze([
     id: 'C3',
     group: 'silent-trap',
     subject: 'browser',
-    title: 'The two halves of the standard validate oppositely',
-    promise: 'The declared schema is enforced.',
-    contract: 'One schema format, one executeTool, two ways to register.',
-    measured: 'Script registered: nothing is enforced. A tool declaring required: ["a"] and a '
-      + 'string property was handed {} and { a: 123 }, and the handler received both unchanged. '
-      + 'Form derived: the same shape is refused before the form is submitted.',
-    why: 'A developer’s mental model is wrong on one of the two paths whichever way they guess, '
-      + 'and a page that trusts its own schema is handing unvalidated model input to its handler.',
+    title: 'The two halves of the standard enforce different parts of one schema',
+    promise: 'Every constraint the declared schema expresses is enforced.',
+    contract: 'One schema format, one executeTool, two ways to register. Nothing in the standard '
+      + 'says the two should behave differently.',
+    measured: 'The same four bad calls, against schemas declaring the same constraints: a missing '
+      + 'required property, a wrong type, a value outside an enum, and an undeclared property. '
+      + 'Script registered: 0 of 4 refused, and the handler received every one unchanged. Form '
+      + 'derived: 4 of 4 refused. Read that second number with C1 beside it, because together they '
+      + 'say something neither says alone: the form path enforces `required` against the CONTROL, '
+      + 'not against the call. This row sends its bad calls to an untouched form, so the control is '
+      + 'empty and the call is refused. C1 sends a complete call first, and the omitted property is '
+      + 'then filled from what that call left in the control and accepted. Same rule, opposite '
+      + 'outcome, decided by state the caller cannot see.',
+    why: 'A developer’s mental model is wrong on one of the two paths whichever way they guess: '
+      + 'write the descriptor yourself and nothing you declared is checked. An earlier version of '
+      + 'this row compared a different constraint on each half and passed whenever the two answers '
+      + 'matched, so it passed when neither half enforced anything. It now reports a constraint by '
+      + 'constraint matrix, and a constraint nobody enforces is a failure rather than an agreement.',
     reproduce: 'node bin/ninthtool.mjs --behaviour C3',
   },
   {

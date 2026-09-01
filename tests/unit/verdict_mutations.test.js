@@ -70,9 +70,18 @@ const MUTATIONS = {
     break: (o) => { o.onDescriptor = { presentBefore: true, presentAfter: true }; },
     expect: /does NOT withdraw/ },
 
-  C3: { what: 'the two halves disagree about validation',
-    break: (o) => { o.scriptPathEnforces = false; },
-    expect: /do not enforce/ },
+  C3: { what: 'a constraint is enforced on one half only',
+    break: (o) => { o.constraints[0].script = 'ignored'; },
+    expect: /enforced on one half only/ },
+
+  // The fail open an audit found: agreement between two absences used to read as conformance.
+  C3b: { id: 'C3', what: 'a constraint is enforced by neither half',
+    break: (o) => { o.constraints.forEach((c) => { c.script = 'ignored'; c.form = 'ignored'; }); },
+    expect: /enforced by neither/ },
+
+  C3c: { id: 'C3', what: 'the schema declares none of the constraints compared',
+    break: (o) => { o.constraints.forEach((c) => { c.declared = false; }); },
+    expectNotApplicable: /declares none of the constraints/ },
 
   C4: { what: 'the tool never settles',
     break: (o) => { o.settled = 'timeout'; o.waitedMs = 2502; },
