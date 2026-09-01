@@ -174,11 +174,10 @@ test('the matcher refuses about:blank, which is the whole reason it exists', () 
   assert.equal(targetFor(WANTED)({ url: 'about:blank' }), false);
 
   // The second line is what actually holds the guard in place, and it was worth finding out.
-  // Deleting the guard leaves the line above still passing, because an http URL never prefix
-  // matches about:blank in either direction, so the ordinary comparison already refuses it. The
-  // guard only bites when the comparison would say yes, which is a run pointed at about:blank
-  // itself. Refusing that is right: a blank document carries no registration to measure, so ok
-  // there would be nought measurements dressed up as a pass.
+  // Delete the guard and the line above still passes, because no http URL equals about:blank and
+  // the comparison refuses it anyway. The guard bites only where the comparison would say yes,
+  // which is a run pointed at about:blank itself. Refusing that is right: a blank document carries
+  // no registration to measure, so ok there would be nought measurements dressed up as a pass.
   assert.equal(targetFor('about:blank')({ url: 'about:blank' }), false);
 });
 
@@ -213,6 +212,11 @@ test('a target carrying no URL matches nothing', () => {
   assert.equal(targetFor(WANTED)({}), false);
   assert.equal(targetFor(WANTED)({ url: '' }), false);
   assert.equal(targetFor(WANTED)({ url: null }), false);
+
+  // The other half of the same guard, and the only thing holding it now that the comparison is
+  // exact. A matcher built from a URL that never arrived must match nothing, rather than matching
+  // every blank target on the strength of two empty strings being equal.
+  assert.equal(targetFor('')({ url: '' }), false);
 });
 
 /* ------------------------------------------------------------------ waitForDocument */

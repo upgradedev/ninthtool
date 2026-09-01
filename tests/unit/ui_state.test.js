@@ -465,7 +465,7 @@ test('a failed second run returns nothing rather than the first run answer', asy
   assert.equal(parsed.measured, false);
   assert.equal(result.isError, true);
   assert.equal(parsed.counts, undefined, 'the previous run counts came back');
-  assert.equal(parsed.run.id, 'run-2-' + parsed.run.id.split('-')[2], 'a new run identity');
+  assert.match(parsed.run.id, /^run-2-\d+$/, 'a failed run still gets its own identity');
   assert.notEqual(parsed.run.id, first.run.id);
 
   assert.equal(page.tools.has('nt_get_findings'), false, 'a stale answer is still readable');
