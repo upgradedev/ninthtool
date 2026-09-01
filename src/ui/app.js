@@ -42,6 +42,12 @@ const GROUP_COPY = {
     heading: 'It works, but the obvious way to write it fails silently',
     note: 'Nothing is thrown and nothing is logged. The page believes it did the thing.',
   },
+  'by-design': {
+    heading: 'Deliberate, and the gap around it',
+    note: 'The behaviour itself is intended. What is reported is what the tool surface does not '
+      + 'tell you about it. Counting these as broken promises would inflate the number with '
+      + 'somebody else\'s design decision.',
+  },
   holds: {
     heading: 'And these hold',
     note: 'A suite that only ever prints failures cannot be trusted to notice a pass, so the '
@@ -88,9 +94,39 @@ function refuse(said) {
   return { content: [{ type: 'text', text: said }] };
 }
 
-/** The last judged result, and the handle that withdraws the tool that reads it. */
+/**
+ * The run state machine, and it is a state machine because the alternative was a bug.
+ *
+ * `lastResult` used to survive a failed run. An audit completed a valid audit, made the subject
+ * unavailable, ran again, and got the previous successful counts back from both the page and
+ * `nt_run_audit`. A tool whose whole subject is pages that report success when they failed was
+ * doing exactly that.
+ *
+ *   idle -> running -> complete | incomplete | error
+ *
+ * Entering `running` clears the previous result AND withdraws `nt_get_findings` before anything
+ * else happens, so there is no window in which a stale answer is readable. Only `complete` and a
+ * deliberately labelled `incomplete` publish it again, and `incomplete` never uses success wording.
+ */
+const RUN_STATES = ['idle', 'running', 'complete', 'incomplete', 'error'];
+
+let runState = 'idle';
 let lastResult = null;
+let lastRun = null;
+let runCounter = 0;
 let findingsToolController = null;
+
+/** A run identity nothing else can be mistaken for. */
+function beginRun(url) {
+  runCounter += 1;
+  return {
+    id: `run-${runCounter}-${String(Math.floor(performance.now()))}`,
+    subject: url,
+    userAgent: typeof navigator === 'undefined' ? null : navigator.userAgent,
+    startedAt: new Date().toISOString(),
+    catalogueMeasuredAgainst: MEASURED_AGAINST,
+  };
+}
 
 /* ------------------------------------------------------------------ rendering */
 
@@ -181,15 +217,23 @@ function renderSummary(result) {
     tile.append(text('span', null, label));
     tiles.append(tile);
   };
-  add(result.counts.fail, 'promises broken', 'is-fail');
-  add(result.counts.pass, 'promises kept', 'is-pass');
-  if (result.counts.notApplicable) add(result.counts.notApplicable, 'could not be run', 'is-na');
-  add(result.counts.total, 'behaviours tested');
+  // "0 promises broken" is a lie when nothing was measured, so the tiles say what happened.
+  if (result.counts.total === result.counts.notApplicable) {
+    add(result.counts.notApplicable, 'unobserved, nothing measured', 'is-na');
+    add(0, 'behaviours this browser could run');
+  } else {
+    add(result.counts.fail, 'promises broken', 'is-fail');
+    add(result.counts.pass, 'promises kept', 'is-pass');
+    if (result.counts.notApplicable) add(result.counts.notApplicable, 'could not be run', 'is-na');
+    add(result.counts.total, 'behaviours tested');
+  }
 
+  const gaps = Object.keys(result.completeness || {}).filter((k) => result.completeness[k] === false);
   el('env').textContent = `${result.environment.userAgent || 'unknown browser'}`
     + ` · host object ${result.environment.api || 'none'}`
     + ` · subject ${result.environment.url || 'unknown'}`
-    + (result.complete ? '' : ' · INCOMPLETE, some behaviours were never observed');
+    + ` · run ${lastRun ? lastRun.id : 'unknown'}`
+    + (result.complete ? '' : ` · INCOMPLETE: ${gaps.join(', ')}`);
   el('summary').hidden = false;
 }
 
@@ -198,37 +242,91 @@ function renderSummary(result) {
 async function runAudit() {
   const button = el('run');
   const status = el('status');
+
+  // ENTERING running IS THE FIRST THING THAT HAPPENS, and it invalidates everything from before.
+  // Nothing readable may survive into a run that has not produced its own answer yet.
+  runState = 'running';
+  lastResult = null;
+  withdrawFindingsTool();
+  renderGroups(null);
+  el('summary').hidden = true;
   button.disabled = true;
-  status.textContent = 'Driving the subject page.';
+
+  const frame = el('subject');
+  const run = beginRun(frame && frame.src ? frame.src : null);
+  lastRun = run;
+  status.textContent = 'Driving the subject page. Previous findings have been cleared and '
+    + 'nt_get_findings has been withdrawn.';
 
   try {
-    const frame = el('subject');
     const inner = frame.contentWindow;
     if (!inner || typeof inner.__ninthtool_observe !== 'function') {
-      throw new Error('The subject page has not finished loading. Give it a moment and try again.');
+      throw new Error('The subject page has not finished loading, or this browser did not run its '
+        + 'script. Nothing was measured.');
     }
     const transcript = await inner.__ninthtool_observe();
     const result = judge(transcript);
-    lastResult = result;
+    result.run = run;
 
+    // A run that measured nothing is not a run that found nothing.
+    const measuredAnything = result.counts.total > result.counts.notApplicable;
+    runState = result.complete ? 'complete' : (measuredAnything ? 'incomplete' : 'error');
+
+    lastResult = result;
     renderGroups(result);
     renderSummary(result);
+
+    if (runState === 'error') {
+      // THE HOST CANNOT RUN THIS AUDIT. Measured in one judge surface: three top document tools,
+      // no iframe tools, no declarative tools, and every row unobserved. The old code called that
+      // "0 of 20 promises broken" and published the findings tool. It says what happened now.
+      status.textContent = `Nothing could be measured here. All ${result.counts.total} behaviours `
+        + 'were unobserved, so this is not a result about your page. The full audit needs Chrome or '
+        + 'Edge with WebMCP enabled at chrome://flags/#enable-webmcp-testing. '
+        + 'nt_get_findings has not been published.';
+      showBlocker(`This browser exposed a WebMCP host object but the audit could not observe a `
+        + `single behaviour through it. Every row below is marked NOT RUN with its reason. The most `
+        + `common cause is a host that does not discover tools registered inside frames, or that `
+        + `does not implement the declarative half of the standard, in which case the subject page `
+        + `contributes nothing to measure. Open this page in Chrome or Edge with WebMCP enabled to `
+        + `run it in full.`);
+      return;
+    }
+
     await publishFindingsTool();
 
-    const broken = result.counts.fail;
-    status.textContent = `Done. ${broken} of ${result.counts.total} promises broken.`
-      + (transcript.errors && transcript.errors.length
-        ? ` ${transcript.errors.length} behaviour(s) could not be observed.` : '')
-      + ' The tool nt_get_findings is now published.';
+    if (runState === 'incomplete') {
+      status.textContent = `PARTIAL. ${result.counts.fail} broken and ${result.counts.pass} kept of `
+        + `${result.counts.total}, and ${result.counts.notApplicable} could not be observed, so this `
+        + 'run is incomplete. nt_get_findings is published and labelled partial.';
+      return;
+    }
+
+    status.textContent = `Done. ${result.counts.fail} of ${result.counts.total} promises broken. `
+      + 'The tool nt_get_findings is now published.';
   } catch (error) {
-    status.textContent = `The audit did not finish: ${String((error && error.message) || error)}`;
+    runState = 'error';
+    lastResult = null;
+    withdrawFindingsTool();
+    el('summary').hidden = true;
+    status.textContent = `The audit did not finish, and no earlier result is being shown: `
+      + `${String((error && error.message) || error)}`;
   } finally {
     button.disabled = false;
   }
 }
 
+/** Render a reason beside the disabled control, or anywhere the page must explain itself. */
+function showBlocker(said) {
+  const blocker = el('blocker');
+  blocker.textContent = said;
+  blocker.hidden = false;
+}
+
 function clearFindings() {
+  runState = 'idle';
   lastResult = null;
+  lastRun = null;
   renderGroups(null);
   el('summary').hidden = true;
   withdrawFindingsTool();
@@ -246,7 +344,10 @@ function clearFindings() {
  */
 async function publishFindingsTool() {
   const found = findModelContext(document, navigator);
+  // Published only for a run that produced findings. An audit watched this tool get published after
+  // a run that observed nothing at all, which handed an agent an empty answer shaped like a result.
   if (!found.ctx || !lastResult) return;
+  if (lastResult.counts.total === lastResult.counts.notApplicable) return;
   withdrawFindingsTool();
   findingsToolController = new AbortController();
   try {
@@ -276,9 +377,13 @@ async function publishFindingsTool() {
           content: [{
             type: 'text',
             text: JSON.stringify({
+              run: lastRun,
+              state: runState,
+              partial: runState === 'incomplete',
               environment: lastResult.environment,
               counts: lastResult.counts,
               complete: lastResult.complete,
+              completeness: lastResult.completeness,
               findings: chosen,
             }, null, 1),
           }],
@@ -386,13 +491,37 @@ async function publishStandingTools(ctx) {
       const checked = onlyDeclared(input, []);
       if (!checked.ok) return refuse(checked.said);
       await runAudit();
-      if (!lastResult) return { content: [{ type: 'text', text: 'The audit did not finish.' }] };
+
+      // THE SAME ANSWER THE SCREEN GIVES. These disagreed once: the page said "0 of 20 promises
+      // broken" while this returned 0 pass, 0 fail and 20 unobserved. Both now read the same
+      // state machine, so a caller and a viewer cannot be told different things.
+      if (runState === 'error' || !lastResult) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              run: lastRun,
+              state: 'error',
+              complete: false,
+              measured: false,
+              said: 'Nothing could be measured in this browser, so there is no result about this '
+                + 'page. This is not a finding of zero defects. The full audit needs Chrome or Edge '
+                + 'with WebMCP enabled at chrome://flags/#enable-webmcp-testing.',
+            }, null, 1),
+          }],
+          isError: true,
+        };
+      }
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            run: lastRun,
+            state: runState,
+            partial: runState === 'incomplete',
             counts: lastResult.counts,
             complete: lastResult.complete,
+            completeness: lastResult.completeness,
             environment: lastResult.environment,
             broken: lastResult.findings.filter((f) => f.verdict === 'fail').map((f) => `${f.id} ${f.title}`),
           }, null, 1),
