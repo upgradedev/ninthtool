@@ -29,6 +29,7 @@ import { launchWithWebMCP, waitForPageTarget, targetFor, waitForDocument } from 
 import { judge } from '../src/judge/verdict.js';
 import { BEHAVIOURS, behaviourById, MEASURED_AGAINST } from '../src/judge/behaviours.js';
 import { stepsFor, permittedSteps, refusedModes, modesFor } from '../src/probe/steps.js';
+import { serveRuntime } from '../src/probe/serve.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -139,32 +140,6 @@ browser you drive yourself is chrome://flags/#enable-webmcp-testing.
 `;
 
 /* ------------------------------------------------------------------ the browser */
-
-/**
- * A static server for the bundled subject page, so the default run needs no arguments and no
- * separate terminal. It binds to the loopback address only and is closed when the run ends.
- */
-async function serveRepo() {
-  const http = await import('node:http');
-  const types = {
-    '.html': 'text/html; charset=utf-8',
-    '.js': 'text/javascript; charset=utf-8',
-    '.mjs': 'text/javascript; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json; charset=utf-8',
-  };
-  const server = http.createServer((req, res) => {
-    const wanted = decodeURIComponent(String(req.url).split('?')[0]);
-    const target = path.join(ROOT, wanted === '/' ? 'index.html' : wanted);
-    if (!target.startsWith(ROOT) || !fs.existsSync(target) || fs.statSync(target).isDirectory()) {
-      res.writeHead(404); res.end('not found'); return;
-    }
-    res.writeHead(200, { 'content-type': types[path.extname(target)] || 'application/octet-stream' });
-    res.end(fs.readFileSync(target));
-  });
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  return { server, origin: `http://127.0.0.1:${server.address().port}` };
-}
 
 /**
  * The probe, turned from an ES module into an expression the page can evaluate.
@@ -308,7 +283,7 @@ if (!runnableSteps.length) {
 let served = null;
 let url = args.url;
 if (!url) {
-  served = await serveRepo();
+  served = await serveRuntime(ROOT);
   url = `${served.origin}/${DEFAULT_SUBJECT}`;
 }
 
