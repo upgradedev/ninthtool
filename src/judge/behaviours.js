@@ -17,10 +17,17 @@
  * all. A reader who checks one row, finds it is not a browser defect and discounts the rest would
  * have been right to. So:
  *
+ *   your-page        a defect in the page under test, and the only group a build should fail on
  *   spec-divergence  the browser does something its own IDL and the W3C draft say it should not
  *   standard-gap     the standard provides no way to do this, and the draft sometimes says so
  *   silent-trap      it works, but the obvious way to write it fails and nothing is thrown
+ *   by-design        the behaviour is deliberate; what is reported is a gap around it, not a defect
  *   holds            it works as documented, and the suite says so rather than staying quiet
+ *
+ * `by-design` was added after an audit pointed out that C4 was counting somebody's deliberate
+ * human-in-the-loop design decision as a broken promise, which inflated the headline. A taxonomy
+ * that calls every observation the same kind of thing is a taxonomy that cannot be trusted on any
+ * single row.
  *
  * SUBJECT MATTERS AS MUCH AS GROUP. `browser` rows are facts about the host and are the same
  * whatever page you point this at. `page` rows are defects in the page under test. Reporting a
@@ -40,10 +47,17 @@ export const MEASURED_AGAINST = 'Chrome 152.0.7977.65';
 export const MEASURED_ON = '2026-09-01';
 
 /** The groups, in the order the page and the README present them. */
-export const GROUPS = ['your-page', 'spec-divergence', 'standard-gap', 'silent-trap', 'holds'];
+export const GROUPS = ['your-page', 'spec-divergence', 'standard-gap', 'silent-trap', 'by-design', 'holds'];
 
 /** What a check can conclude. `not-applicable` is a real answer and is never counted as a pass. */
-export const VERDICTS = ['pass', 'fail', 'not-applicable'];
+export const VERDICTS = ['pass', 'fail', 'not-applicable', 'out-of-scope'];
+
+/**
+ * `out-of-scope` exists because a run may deliberately observe one behaviour. Judging the whole
+ * catalogue against such a run reported nineteen unobserved rows and called it incomplete, which
+ * was true of the catalogue and useless about the run. Out of scope rows are still printed, so
+ * nothing vanishes, and are not counted.
+ */
 
 /**
  * The catalogue.
@@ -112,17 +126,22 @@ export const BEHAVIOURS = Object.freeze([
     id: 'B1',
     group: 'standard-gap',
     subject: 'browser',
-    title: 'A tool cannot tell the agent why it refused',
-    promise: 'A page that refuses a write says what was wrong and what to send next.',
-    contract: 'None. The W3C draft notes its own gap: "Support more granular errors than '
-      + '“UnknownError”, based on each failure case."',
-    measured: 'Three routes, one message. Returning { isError: true } RESOLVES, so the agent reads '
-      + 'success. Throwing an Error REJECTS as UnknownError with '
-      + '"Tool was executed but the invocation failed. For example, the script function threw an '
-      + 'error". Rejecting with a named DOMException gives byte-identical text. The page’s own '
-      + 'words never reach the caller.',
-    why: 'This is the flagship. A refusal a page took care to write cannot reach the model that '
-      + 'needs it. The page either looks like it succeeded, or it fails anonymously.',
+    title: 'No route makes a refusal both a failure and readable',
+    promise: 'A page that refuses a write signals a failure AND says what was wrong.',
+    contract: 'None. WebMCP assigns no native failure semantics to the MCP error envelope. The W3C '
+      + 'draft notes its own gap: "Support more granular errors than “UnknownError”, based on each '
+      + 'failure case."',
+    measured: 'Three routes, none of which does both. Returning { isError: true } RESOLVES: the '
+      + 'refusal text and the flag ARE in the resolved value, so a caller that reads the payload '
+      + 'can see them, but the promise carries no failure signal. Throwing an Error REJECTS as '
+      + 'UnknownError with "Tool was executed but the invocation failed. For example, the script '
+      + 'function threw an error", and the page\'s own words are gone. A named DOMException gives '
+      + 'byte-identical text.',
+    why: 'An earlier version of this row said a tool cannot tell the agent why it refused, and that '
+      + 'its own transcript disproves: the reason is present in the resolved value. What is missing '
+      + 'is native failure SEMANTICS. A caller that branches on the promise settling sees success, '
+      + 'and a caller that branches on the rejection has lost the reason. Whether a given model then '
+      + 'reports success is a question about that model, and no experiment here has asked it.',
     reproduce: 'node bin/ninthtool.mjs --behaviour B1',
   },
   {
@@ -232,18 +251,27 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'C4',
-    group: 'silent-trap',
+    // MOVED OUT OF silent-trap. An audit was right that this is the declarative API working as
+    // designed: without toolautosubmit the call fills the controls and waits for a person, which is
+    // the human-in-the-loop path the explainer describes. Counting it as a broken promise inflated
+    // the headline with somebody's deliberate design decision. What remains, and is real, is that
+    // nothing on the tool surface distinguishes a tool that will answer from one that is waiting
+    // for a human, so an agent finds out by waiting.
+    group: 'by-design',
     subject: 'browser',
-    title: 'A declarative form without toolautosubmit never answers',
-    promise: 'A published tool answers the agent that calls it.',
+    title: 'Nothing says which declarative tools wait for a human',
+    promise: 'An agent can tell, before calling, whether a tool will answer it.',
     contract: 'toolautosubmit makes an agent’s call fill the controls and submit. Without it the '
-      + 'controls are filled and a person is expected to act.',
+      + 'controls are filled and a person is expected to act, which is the human-in-the-loop path '
+      + 'the declarative explainer describes. That pause is the design, not a defect.',
     measured: 'Called through the shipped probe, which waits 2500 ms: still pending when that '
-      + 'deadline expired, at 2502 ms. Chrome imposed no deadline of its own inside it, so the '
-      + 'promise had neither resolved nor rejected. Reproduced across a same origin frame as well '
-      + 'as in the same document.',
-    why: 'Nothing on the tool surface distinguishes a tool that will answer from one that waits for '
-      + 'a person. Same shape, same schema, no annotation, no flag. An agent finds out by waiting.',
+      + 'deadline expired, at 2502 ms. Chrome imposed no deadline of its own. Reproduced across a '
+      + 'same origin frame as well as in the same document. Pressing the button by hand settles it, '
+      + 'which is the design working.',
+    why: 'The pause is intentional and this row does not call it a defect. What it reports is that '
+      + 'the two kinds of tool are indistinguishable on the surface: same shape, same schema, no '
+      + 'annotation, no flag. An agent finds out which it called by waiting, with no deadline to '
+      + 'wait against.',
     reproduce: 'node bin/ninthtool.mjs --behaviour C4',
   },
 
@@ -414,6 +442,7 @@ export function headlineCounts() {
     standardGap: behavioursInGroup('standard-gap').length,
     silentTrap: behavioursInGroup('silent-trap').length,
     holds: behavioursInGroup('holds').length,
+    byDesign: behavioursInGroup('by-design').length,
     yourPage: behavioursInGroup('your-page').length,
     browserSubject: BEHAVIOURS.filter((b) => b.subject === 'browser').length,
     pageSubject: BEHAVIOURS.filter((b) => b.subject === 'page').length,

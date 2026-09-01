@@ -3,9 +3,10 @@
 **Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the standard
 silently drops, with the command that reproduces each one.**
 
-Named for the tool that has to disappear. A page registers eight tools, a ninth appears when the
-state that justifies it appears, and it is supposed to withdraw when that state goes away. Write the
-withdrawal the obvious way and it never happens, and nothing is thrown.
+Named for the tool that has to disappear. A conditional tool appears when the state that justifies
+it appears, and it is supposed to withdraw when that state goes away. Write the withdrawal the
+obvious way, with the abort signal on the descriptor rather than in the options bag, and it never
+happens, and nothing is thrown.
 
 **Live, no account, no install: <https://upgradedev.github.io/ninthtool/>**
 It needs a Chromium browser with WebMCP enabled at `chrome://flags/#enable-webmcp-testing`. On any
@@ -29,10 +30,17 @@ more from nothing but HTML attributes.
 | `nt_run_audit` | runs the audit and returns the counts. **Marked not read only**, because it drives forms on the subject page, and saying otherwise would be exactly the dishonest annotation this suite exists to catch | `false` |
 | `nt_get_findings` | reads the findings from the run. **Does not exist until an audit has produced some, and is withdrawn when they are cleared** | `true` |
 
-`nt_get_findings` is the ninth tool. It is registered with the abort signal in the options bag,
-which is the only place that works, and behaviour C2 below exists because putting it on the
-descriptor fails silently. The tool count on the page moves from three to four and back, so the
-thing this project is named after is visible rather than described.
+`nt_get_findings` is registered with the abort signal in the options bag, which is the only place
+that works, and behaviour C2 below exists because putting it on the descriptor fails silently. The
+tool count on the page moves from three to four and back, so the behaviour this project is named
+after is visible rather than described.
+
+**On the name.** It is named after the behaviour, not after a position in this page's tool list. A
+conditional tool is one that appears when the state justifying it appears and has to disappear when
+that state goes away, and the eight-then-nine-then-eight shape is how anyone first meets the
+problem. An earlier version of this file called `nt_get_findings` "the ninth tool", which was simply
+wrong arithmetic: it is the fourth tool this page registers and the sixth on the aggregate surface a
+flagged Chrome sees. The count was never the point. The withdrawal is.
 
 Every one of them validates its own arguments, because behaviour C3 measured that the browser
 validates none, and every one refuses by returning a result rather than throwing, because behaviour
@@ -48,8 +56,10 @@ measurements below say that is where the defects are. A page can pass every meta
 correct in a tool inspector, and still tell an agent that a write succeeded when it was refused.
 
 Twenty behaviours. **Six read the tools your page publishes and are the ones you can fix.** The
-other fourteen are the host, and are the same wherever you point this. Every one carries one command
-that reproduces it.
+other fourteen are the host, and are the same wherever you point this. They are not all the same
+kind of thing, and they are not all defects: three are divergences from the specification, five are
+gaps the standard cannot express, three are traps that fail silently, one is deliberate design with
+a gap around it, and two hold. Every row carries one command that reproduces it.
 
 ## Your page
 
@@ -103,7 +113,7 @@ what a conformance pass over that half looks like while it is being written.
 
 | # | What a page needs to do | WebMCP today |
 |---|---|---|
-| B1 | **tell the agent why it refused** | **impossible.** Resolving reads as success. Rejecting flattens every error, a named `DOMException` included, to `UnknownError` with one generic sentence |
+| B1 | **signal a failure and say why in one answer** | no route does both. `{ isError: true }` **resolves**, so the reason is readable in the payload but the promise carries no failure signal. Rejecting flattens every error, a named `DOMException` included, to `UnknownError`, and the reason is gone |
 | B2 | mark a result as failed in band | `isError` is ordinary payload. The promise still resolves and the agent reads success |
 | B3 | warn that a tool is destructive | no such field. `destructiveHint`, `idempotentHint` and `openWorldHint` are backend MCP's and vanish silently |
 | B4 | annotate a declarative tool | form derived tools carry **no annotations at all**, not even `readOnlyHint` |
@@ -116,7 +126,16 @@ what a conformance pass over that half looks like while it is being written.
 | C1 | a missing required property is **not refused, it is filled from the control's stale value** | a call omitting a required property resolved, and the handler was handed the name left in the DOM by the previous, unrelated call |
 | C2 | withdrawal only works via `registerTool(desc, { signal })` | `signal` on the descriptor registers a tool that can never withdraw, and throws nothing |
 | C3 | validation depends on which half registered the tool | script registered: none at all. Form derived: strict. The halves behave oppositely and neither says so |
-| C4 | a declarative form without `toolautosubmit` | produces a real tool that **never answers**. Still pending when the probe's 2500 ms deadline expired, and Chrome imposed none of its own |
+
+### Deliberate, and the gap around it
+
+| # | The behaviour | What is actually reported |
+|---|---|---|
+| C4 | a declarative form without `toolautosubmit` fills the controls and waits for a person | **the pause is the design**, not a defect, and this row does not call it one. What it reports is that nothing on the surface distinguishes a tool that will answer from one waiting for a human. Same shape, same schema, no annotation. An agent finds out by waiting, with no deadline to wait against |
+
+An earlier version of this file counted C4 as a broken promise. It is somebody's deliberate
+human-in-the-loop design, and counting it inflated the headline. A taxonomy that calls every
+observation the same kind of thing cannot be trusted on any single row.
 
 ### And two that hold
 
@@ -239,17 +258,35 @@ entries in the console that read like errors and are the instrument doing its jo
 while the audit runs, they come from tools this suite registered and withdrew, and the page is quiet
 before and after.
 
-## Reused components
+## Relationship to our other entry, and what was reused
 
-The rules require pre-existing work to be named. One file is carried over from an earlier project by
-the same author:
+The same author has a second entry in this hackathon, **ClaimReady**. The rules allow more than one
+submission provided each is unique and substantially different, and whether these two are is the
+Sponsor's and Devpost's call, not ours. What follows is the material they would need to make it.
 
-| File | What it is |
-|---|---|
-| `src/probe/cdp.mjs` | a dependency free Chrome DevTools Protocol client, about 200 lines, enough for `Runtime.evaluate` and watching the console |
+|  | ClaimReady | Ninth Tool |
+|---|---|---|
+| Who uses it | a person making an insurance claim, and their agent | a developer who ships a WebMCP page |
+| What it does | first notice of loss on an insurer's page: policy rules, requirements, a filed claim | runs a behavioural conformance catalogue against a WebMCP tool surface |
+| The workflow | fill a claim draft, satisfy insurer requirements, file it | point it at a page, read which of its promises hold |
+| The interface | a claim desk | a report, and a command line runner |
+| The value | the claim is right before it is filed | the page does not lie to an agent |
+| Domain code | insurance policy, coverage, excess, requirements | none |
 
-Everything else is new: the catalogue, the judge, the mutation suite, the probe, the subject page,
-the page, its tools, the runner, the style gate and the tests.
+**Exactly one file was reused.** `src/probe/cdp.mjs`, a dependency free Chrome DevTools Protocol
+client of about 200 lines, copied from ClaimReady's `evidence/impact/page_client.mjs` at commit
+`2d7a6098236b5a78092307423d3a7731251f58c1`. It was modified here: the docblock was rewritten to record the reuse, and `openSession` gained
+an optional target matcher after a run attached to `about:blank` and measured nothing.
+
+**What was not reused:** no ClaimReady user interface, no styling, no domain logic, no policy or
+coverage or claim model, no fixtures, no evidence, no copy, no assets, and no tests. The catalogue,
+the judge, the mutation suite, the probe, the step table, the fixture identity checks, the subject
+page, this page, its tools, the runner, the launcher, the style gate, the readiness gate and every
+test are new to this repository, whose first commit is 2026-09-01.
+
+The two entries share one motif, the conditional tool that has to withdraw, because both were built
+against the same standard and that is the behaviour the standard makes hardest to get right. They
+share no code that expresses it.
 
 ## What it does not do
 

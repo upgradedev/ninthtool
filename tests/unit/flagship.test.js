@@ -77,7 +77,7 @@ test('the README group counts agree with the catalogue', () => {
     'the README tables and the catalogue disagree about which behaviours exist',
   );
   assert.equal(
-    counts.yourPage + counts.specDivergence + counts.standardGap + counts.silentTrap,
+    counts.yourPage + counts.specDivergence + counts.standardGap + counts.silentTrap + counts.byDesign,
     catalogueIds.length,
   );
 });

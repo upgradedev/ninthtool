@@ -91,7 +91,7 @@ const RULES = {
       .join(' | ');
     return {
       held: usable.length > 0,
-      expected: 'at least one route where the caller sees a failure AND the page’s own reason',
+      expected: 'at least one route where the promise signals failure AND carries the page’s reason',
       observed: described,
     };
   },
@@ -377,6 +377,7 @@ export function judgeBehaviour(id, transcript) {
 
   const observations = (transcript && transcript.observations) || {};
   const observation = observations[id];
+  const skipped = (transcript && transcript.skipped) || {};
 
   const base = {
     id: behaviour.id,
@@ -387,7 +388,10 @@ export function judgeBehaviour(id, transcript) {
   };
 
   if (observation === undefined) {
-    return { ...base, verdict: 'not-applicable', expected: behaviour.promise, observed: '', reason: NOT_OBSERVED };
+    // A row the probe REFUSED carries its reason, which is a different thing from a row that was
+    // simply never covered, and a reader has to be able to tell them apart. Neither is a pass.
+    const reason = skipped[id] || NOT_OBSERVED;
+    return { ...base, verdict: 'not-applicable', expected: behaviour.promise, observed: '', reason };
   }
 
   let outcome;
@@ -422,20 +426,82 @@ export function judgeBehaviour(id, transcript) {
  * @param {object} transcript
  * @returns {{findings: object[], counts: object, environment: object, complete: boolean}}
  */
-export function judge(transcript) {
-  const findings = BEHAVIOURS.map((behaviour) => judgeBehaviour(behaviour.id, transcript));
+export function judge(transcript, options = {}) {
+  /*
+   * WHAT IS IN SCOPE.
+   *
+   * A run may deliberately observe one behaviour. Judging the whole catalogue against it then
+   * reports nineteen unobserved rows and calls the run incomplete, which is true of the catalogue
+   * and useless about the run. So the scope is the behaviours the transcript says were selected,
+   * and when the transcript says nothing the scope is everything.
+   *
+   * Rows outside the scope are still returned, marked out-of-scope, so nothing disappears from the
+   * report. They are simply not counted, and they cannot make a scoped run look incomplete.
+   */
+  const scope = (transcript && transcript.scope) || {};
+  const requested = options.only && options.only.length
+    ? options.only
+    : (Array.isArray(scope.requestedBehaviours) && scope.requestedBehaviours.length
+      ? scope.requestedBehaviours
+      : null);
 
+  const inScope = (id) => {
+    if (!requested) return true;
+    if (requested.includes(id)) return true;
+    // A refused row that was asked for stays in scope, so the refusal is counted and visible.
+    return Boolean((transcript && transcript.skipped && transcript.skipped[id]));
+  };
+
+  const findings = BEHAVIOURS.map((behaviour) => {
+    const finding = judgeBehaviour(behaviour.id, transcript);
+    return inScope(behaviour.id) ? finding : { ...finding, verdict: 'out-of-scope', reason: 'not selected for this run' };
+  });
+
+  const counted = findings.filter((f) => f.verdict !== 'out-of-scope');
   const counts = {
-    total: findings.length,
-    pass: findings.filter((f) => f.verdict === 'pass').length,
-    fail: findings.filter((f) => f.verdict === 'fail').length,
-    notApplicable: findings.filter((f) => f.verdict === 'not-applicable').length,
+    total: counted.length,
+    pass: counted.filter((f) => f.verdict === 'pass').length,
+    fail: counted.filter((f) => f.verdict === 'fail').length,
+    notApplicable: counted.filter((f) => f.verdict === 'not-applicable').length,
+    outOfScope: findings.length - counted.length,
+    catalogue: findings.length,
   };
 
   const meta = (transcript && transcript.meta) || {};
+
+  /*
+   * COMPLETENESS FAILS CLOSED.
+   *
+   * It used to mean only "no row was unobserved". That let a run be complete with a null host
+   * object and with fatal errors in the transcript, which is exactly the shape of a run that proved
+   * nothing while reporting cleanly. All four conditions are now required, and each is reported
+   * separately so a reader can see which one failed.
+   */
+  const fatalErrors = Array.isArray(transcript && transcript.errors) ? transcript.errors : [];
+  const environmentIdentified = Boolean(meta.api) && Boolean(meta.url);
+  const completeness = {
+    everySelectedObserved: counts.notApplicable === 0,
+    environmentIdentified,
+    noFatalErrors: fatalErrors.length === 0,
+    anythingMeasured: counted.length > 0,
+  };
+  const complete = completeness.everySelectedObserved
+    && completeness.environmentIdentified
+    && completeness.noFatalErrors
+    && completeness.anythingMeasured;
+
   return {
     findings,
     counts,
+    scope: {
+      requested: requested ? [...requested] : null,
+      steps: Array.isArray(scope.steps) ? scope.steps : null,
+      refusedSteps: Array.isArray(scope.refusedSteps) ? scope.refusedSteps : [],
+      allow: scope.allow || null,
+      fixture: scope.fixture || null,
+    },
+    completeness,
+    errors: fatalErrors,
     // The page's own surface as it was before the probe touched it. Every your-page finding is
     // checkable against this without rerunning anything.
     pageTools: Array.isArray(transcript && transcript.pageTools) ? transcript.pageTools : [],
@@ -446,8 +512,6 @@ export function judge(transcript) {
       catalogueMeasuredAgainst: MEASURED_AGAINST,
       catalogueMeasuredOn: MEASURED_ON,
     },
-    // Complete means every behaviour was actually observed. It is not the same as everything
-    // passing, and the page prints the two separately.
-    complete: counts.notApplicable === 0,
+    complete,
   };
 }

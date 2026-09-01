@@ -39,10 +39,40 @@ judging surface for this event.
 So the promise "give it any URL" was never deliverable from a page, and the part that is deliverable
 was taken.
 
-## What none of them does
+## The claim, narrowed after a second search
+
+**An earlier version of this file said no existing tool executes a page's WebMCP tools and asserts
+runtime semantics. That was too broad and it is withdrawn.** A second search, prompted by an
+adversarial audit on 2026-09-01, found work that does execute tools:
+
+| Also found | What it is | Checked |
+|---|---|---|
+| `WebMCP-org/npm-packages`, `docs/TESTING.md` | a testing guide for that monorepo's own packages. Its own words: it covers "the runtime testing lanes in this monorepo", and its end to end lane registers tools "inside the real runtime, discovered through that runtime's public boundary". It asserts package integration, not the standard's semantics. **It does refer to upstream WebMCP Web Platform Tests and native Chrome contract testing**, which is the closest neighbour to a conformance suite named anywhere in this document | read, 2026-09-01 |
+| `Skopaq-AI/webmcpregistry` | named in the audit as carrying a conformance package | **not read.** Named here rather than left out |
+| `github/awesome-copilot`, the `webmcpify` verification flow | named in the audit as a verification flow | **not read.** Named here rather than left out |
+
+Two of those three were not opened, and this document says so rather than implying a search that did
+not happen. **Web Platform Tests for WebMCP, if they exist upstream, are the closest thing to this
+and would be the right place for several of these rows to end up.**
+
+## What is left that is distinctive
+
+Not "nobody executes tools". What survives is narrower and can be checked in one visit:
+
+- the catalogue runs **live, in the visitor's own browser**, against a subject page served beside it,
+  rather than in a CI harness or a package test lane
+- the auditor is **itself a WebMCP page**, so a visitor's agent runs the audit through tools the
+  auditor publishes, and one of those tools appears and withdraws while it happens
+- every row carries **the command that reproduces it** and separates a fact about the browser from a
+  defect in the page under test, which is the distinction that decides whether a build should fail
+
+Those three together are what this entry claims, and each is visible on the live page in under a
+minute. Everything wider than that has been removed.
+
+## What the products in the first table do not do
 
 Every product in that table reads a page's **declared metadata**: names, descriptions, schemas,
-readability. Not one of them **calls a tool and checks what happens afterwards**.
+readability. None of them calls a tool and checks what happens afterwards.
 
 Seven probe runs against Chrome 152.0.7977.65 on 2026-09-01 say that is where the defects are. A
 page can pass every one of those tools, render correctly in the Tool Inspector, and still:
@@ -61,11 +91,15 @@ None of those is visible in metadata. All four are visible in one run of this su
 > Every WebMCP tool that exists reads what a page **declares**. This one calls the tools and reports
 > what the page and the browser actually **do**, which is where all four of the defects above live.
 
-## What would falsify this
+## What would falsify what is left
 
-A tool that executes a page's WebMCP tools and asserts runtime semantics: withdrawal, refusal
-reachability, schema enforcement, or settlement. If one is found, this document is wrong and the
-claim in the README must change the same day. As of 2026-09-01 the search above found none.
+A tool that runs a behavioural WebMCP catalogue **live in an ordinary visitor's browser**, publishing
+its own WebMCP tools so an agent can drive it. If one is found, this document is wrong and the README
+changes the same day.
+
+The broader claim, that nothing executes WebMCP tools and asserts runtime semantics, has already been
+falsified and withdrawn above. Upstream Web Platform Tests would falsify it further, and finding them
+would be good news for the standard and a reason to narrow this entry again.
 
 The MCP Inspector is the honest edge case. It calls backend MCP tools by hand, which is execution.
 It is a manual instrument for a different protocol, it asserts nothing, and it has no notion of a

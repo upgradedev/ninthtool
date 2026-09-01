@@ -22,6 +22,10 @@
  * verdict from one is comparable with a verdict from the other.
  */
 
+import { STEPS, STEP_ORDER, stepsFor, behavioursFrom, permittedSteps, refusalReason }
+  from './steps.js';
+import { checkFixtureIdentity, answerCarriesNonce, makeNonce } from './fixture_identity.js';
+
 /** The two form tool names a fixture must publish for the declarative rows to be observable. */
 export const FIXTURE_FORM_ANSWERS = 'nt_form_answers';
 export const FIXTURE_FORM_SILENT = 'nt_form_silent';
@@ -189,9 +193,37 @@ function synthesiseArguments(schema) {
  * @param {{url?: string, userAgent?: string}} [meta]
  * @returns {Promise<{meta: object, observations: object, errors: string[]}>}
  */
-export async function observeAll(ctx, meta = {}) {
+export async function observeAll(ctx, options = {}) {
+  const meta = options.meta || {};
   const observations = {};
   const errors = [];
+  const skipped = {};
+
+  /*
+   * WHAT WILL RUN IS DECIDED HERE, BEFORE ANYTHING RUNS.
+   *
+   * `only` is a list of behaviour ids. It selects the steps that produce them plus each step's
+   * declared dependencies, and nothing else. Selecting A1 therefore registers one tool of our own
+   * and calls it, and does not touch the page's tools, its forms, or any other row.
+   *
+   * `allow` is the authorisation. A step whose mode was not authorised is not run and the reason is
+   * recorded, so the report says "not authorised" rather than pretending the row passed or that the
+   * page was at fault.
+   */
+  const allow = options.allow || {};
+  const requestedSteps = stepsFor(options.only && options.only.length ? options.only : null);
+  const runnableSteps = permittedSteps(requestedSteps, allow);
+  const selected = new Set(behavioursFrom(runnableSteps));
+
+  for (const stepName of requestedSteps) {
+    if (runnableSteps.includes(stepName)) continue;
+    for (const id of STEPS[stepName].produces || []) skipped[id] = refusalReason(stepName);
+  }
+
+  // The per run nonce, and the fixture identity verdict, both established before any form is
+  // touched. `fixtureTrust` is null until a fixture step asks for it.
+  const nonce = makeNonce(options.random);
+  let fixtureTrust = null;
 
   // BEFORE ANYTHING ELSE. Read the page's own surface while it is still only the page's own
   // surface. Everything in the your-page group is judged against this.
@@ -208,10 +240,44 @@ export async function observeAll(ctx, meta = {}) {
   /** Register a throwaway tool that this run will withdraw. */
   const register = (descriptor) => ctx.registerTool(descriptor, opts);
 
-  /** Run one measurement, and record why it could not be taken rather than losing the run. */
+  /**
+   * Run one measurement, if it was selected and authorised, and record why not otherwise.
+   *
+   * A row that was not selected is absent from the transcript entirely, which is what lets a
+   * scoped run report only what was asked for. A row that was selected and refused is recorded in
+   * `skipped`, which the judge turns into not-applicable with the reason. Neither is ever a pass.
+   */
   const step = async (id, fn) => {
+    if (!selected.has(id)) return;
     try { observations[id] = await fn(); }
     catch (error) { errors.push(`${id}: ${String((error && error.message) || error)}`); }
+  };
+
+  /**
+   * The bundled fixture, or null with the reason.
+   *
+   * Called only by steps whose mode is fixture-form. Four checks, all of which must hold, and the
+   * fourth hands the document a nonce that its own handler has to echo. A page that merely declares
+   * the tool name gets nothing submitted to it. Resolved once per run and cached, because the
+   * checks write the nonce and repeating that is pointless.
+   */
+  const trustedFixture = async (toolName) => {
+    if (fixtureTrust === null) {
+      const candidate = await toolNamed(ctx, FIXTURE_FORM_ANSWERS)
+        || await toolNamed(ctx, FIXTURE_FORM_SILENT);
+      fixtureTrust = checkFixtureIdentity(candidate, {
+        expectedOrigin: options.expectedOrigin
+          || (typeof location === 'undefined' ? '' : location.origin),
+        nonce,
+      });
+    }
+    if (!fixtureTrust.trusted) {
+      throw new Error(`this page is not the bundled fixture, so nothing was submitted to it: `
+        + `${fixtureTrust.reason}`);
+    }
+    const tool = await toolNamed(ctx, toolName);
+    if (!tool) throw new Error(`the bundled fixture does not publish ${toolName}`);
+    return tool;
   };
 
   try {
@@ -449,16 +515,10 @@ export async function observeAll(ctx, meta = {}) {
       const wrongType = await settle(call(ctx, tool, { a: 123 }), SETTLE_TIMEOUT_MS);
       scriptEnforces = missing.settled === 'rejected' && wrongType.settled === 'rejected';
 
-      // The form half is measured against the fixture's own form, if the fixture published one.
-      const form = await toolNamed(ctx, FIXTURE_FORM_ANSWERS);
-      let formEnforces = null;
-      if (form) {
-        const bad = await settle(call(ctx, form, { not_a_real_parameter: 'x' }), SETTLE_TIMEOUT_MS);
-        formEnforces = bad.settled === 'rejected';
-      }
-      if (formEnforces === null) {
-        throw new Error(`no fixture form named ${FIXTURE_FORM_ANSWERS} on this page, so the form half could not be measured`);
-      }
+      // The form half needs the bundled fixture, because measuring it means calling a form tool.
+      const form = await trustedFixture(FIXTURE_FORM_ANSWERS);
+      const bad = await settle(call(ctx, form, { not_a_real_parameter: 'x' }), SETTLE_TIMEOUT_MS);
+      const formEnforces = bad.settled === 'rejected';
       return {
         scriptPathEnforces: scriptEnforces,
         formPathEnforces: formEnforces,
@@ -487,18 +547,18 @@ export async function observeAll(ctx, meta = {}) {
     });
 
     await step('C1', async () => {
-      // THIS ROW SUBMITS A FORM, WHICH IS A WRITE. It is therefore measured only against the
-      // subject page this suite ships, never against a page somebody else owns. On any other page
-      // it reports not applicable with this reason, which is the honest answer and also the rule.
-      const form = await toolNamed(ctx, FIXTURE_FORM_ANSWERS);
-      if (!form) {
-        throw new Error(`measuring this submits a form, so it runs only against the bundled subject `
-          + `page, which publishes ${FIXTURE_FORM_ANSWERS}. Nothing was called on this page`);
-      }
-      // First a complete call, which leaves values in the controls.
+      // THIS ROW SUBMITS A FORM, WHICH IS A WRITE. It runs only against a page that passes all four
+      // identity checks, and the first call's answer must carry this run's nonce or nothing further
+      // is sent. Declaring the tool name is not enough and never was.
+      const form = await trustedFixture(FIXTURE_FORM_ANSWERS);
       const seeded = 'M. Okafor';
-      await settle(call(ctx, form, { witness_name: seeded, age: 40, severity: 'dent' }), SETTLE_TIMEOUT_MS);
-      // Then a call that omits the property the synthesised schema marks required.
+      const first = await settle(call(ctx, form, { witness_name: seeded, age: 40, severity: 'dent' }), SETTLE_TIMEOUT_MS);
+      const firstText = first.settled === 'resolved' ? String(first.value ?? '') : '';
+      if (!answerCarriesNonce(firstText, nonce)) {
+        throw new Error('the form answered without echoing this run\'s nonce, so it is not the '
+          + 'bundled fixture handler. One call was made and no further call was sent');
+      }
+      // Only now, with the handler proved, the call that omits the required property.
       const second = await settle(call(ctx, form, { age: 41 }), SETTLE_TIMEOUT_MS);
       const text = second.settled === 'resolved' ? String(second.value ?? '') : '';
       return {
@@ -506,17 +566,14 @@ export async function observeAll(ctx, meta = {}) {
         handlerSawStaleValue: text.includes(seeded),
         staleValue: text.includes(seeded) ? seeded : null,
         callerSaw: text.slice(0, 200),
+        nonceEchoed: true,
       };
     });
 
     await step('C4', async () => {
-      // Same rule as C1: calling an unannotated form tool could submit it, so this runs only
-      // against the subject page this suite ships.
-      const silent = await toolNamed(ctx, FIXTURE_FORM_SILENT);
-      if (!silent) {
-        throw new Error(`measuring this calls a form tool that carries no annotations, so it runs `
-          + `only against the bundled subject page, which publishes ${FIXTURE_FORM_SILENT}`);
-      }
+      // Same rule as C1. Calling a form tool that carries no annotations could submit it, so this
+      // runs only against a page that passes the identity checks.
+      const silent = await trustedFixture(FIXTURE_FORM_SILENT);
       const outcome = await settle(call(ctx, silent, { anything: 'x' }), SETTLE_TIMEOUT_MS);
       return { settled: outcome.settled, waitedMs: outcome.waitedMs };
     });
@@ -670,6 +727,18 @@ export async function observeAll(ctx, meta = {}) {
     },
     observations,
     errors,
+    // What was asked for, what was allowed to run, and what was refused. A reader can tell a row
+    // that was never selected from a row that was selected and refused, and neither reads as a pass.
+    scope: {
+      requestedBehaviours: options.only && options.only.length ? [...options.only] : null,
+      steps: runnableSteps,
+      refusedSteps: requestedSteps.filter((name) => !runnableSteps.includes(name)),
+      selectedBehaviours: [...selected],
+      allow: { toolCalls: allow.toolCalls === true, fixtureForms: allow.fixtureForms === true },
+      nonceIssued: Boolean(nonce),
+      fixture: fixtureTrust ? { trusted: fixtureTrust.trusted, reason: fixtureTrust.reason } : null,
+    },
+    skipped,
     // The page's own surface, as it was before this probe touched it. A reader can check every
     // your-page finding against this without rerunning anything.
     pageTools: pageTools.map((tool) => ({
