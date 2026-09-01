@@ -373,32 +373,39 @@ export const BEHAVIOURS = Object.freeze([
     id: 'P5',
     group: 'your-page',
     subject: 'page',
-    title: 'Your read only tools notice a call that breaks their own required list',
+    title: 'Your read only tools demonstrably refuse a call that breaks their own required list',
     promise: 'A tool enforces the schema it published, because the browser does not.',
     contract: 'None on the script path, where the browser enforces nothing at all. A required array '
       + 'in your schema is a promise only your handler can keep.',
     measured: 'A script registered tool declaring required: ["a"] was called with an empty object '
       + 'and the handler received it unchanged, so nothing but the page can refuse it.',
-    why: 'Unvalidated arguments from a model are unvalidated input from a stranger. An earlier draft '
-      + 'of this row sent a property that was not in the schema at all, which was wrong: JSON Schema '
-      + 'allows additional properties unless you say otherwise, so accepting one is not a defect. '
-      + 'Breaking your own required list is. This row calls only tools you marked read only, twice '
-      + 'each, once well formed and once omitting a required property, and reports the tools that '
-      + 'answered both the same way.',
+    why: 'Unvalidated arguments from a model are unvalidated input from a stranger. This row has '
+      + 'been wrong twice and both corrections are recorded here. It first sent a property that was '
+      + 'in no schema, which JSON Schema permits, so accepting one was never a defect. It then '
+      + 'passed on "answered differently", which is consistent with a refusal and equally '
+      + 'consistent with the tool echoing its arguments, so it could pass with nothing '
+      + 'demonstrated. It now reports three outcomes and passes on only one: a rejection, which is '
+      + 'the single failure signal the standard has. An identical answer proves a defect. Anything '
+      + 'else is reported as inconclusive rather than scored.',
     reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P5',
   },
   {
     id: 'P6',
     group: 'your-page',
     subject: 'page',
-    title: 'A tool you marked read only does not move state your other read tools can see',
-    promise: 'readOnlyHint is true when it says it is.',
+    title: 'Calling one read only tool does not change what another one answers',
+    promise: 'A tool marked read only leaves the state your other read tools report alone.',
     contract: 'readOnlyHint, default false, says the tool does not modify its environment.',
-    measured: 'Checked as a differential: read every read only tool, call each one, read them all '
-      + 'again, and report any whose answer changed after a call that claimed to change nothing.',
-    why: 'An annotation nobody checks is a promise nobody keeps, and an agent that trusts a false '
-      + 'readOnlyHint will call it freely. This closes only when your page has read tools covering '
-      + 'the state a write would move, and says so plainly when it does not.',
+    measured: 'A differential, with a control. The read only tools are read twice with nothing '
+      + 'called in between; if those two reads disagree the surface is not stable and this row '
+      + 'abstains. Otherwise each tool is called with arguments its own schema says are valid, and '
+      + 'the others are read again.',
+    why: 'This row deliberately claims less than it used to. It CANNOT prove readOnlyHint is honest: '
+      + 'a tool can change state no tool on your page reports, and nothing observable from here '
+      + 'would show it. What it can say is whether one read only tool moved what another one '
+      + 'reports, which is a real defect when it happens and is stated as the narrow observation it '
+      + 'is. It also reports a tool whose own answer drifts, which the earlier version structurally '
+      + 'could not name because it skipped itself and blamed the next tool called.',
     reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P6',
   },
 ]);

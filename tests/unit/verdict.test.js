@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 
 import { judge, judgeBehaviour } from '../../src/judge/verdict.js';
 import { BEHAVIOURS, BEHAVIOUR_IDS, headlineCounts } from '../../src/judge/behaviours.js';
-import { conforming, measuredChrome152, CHROME_152_FAILURES, CHROME_152_PASSES } from '../support/transcripts.mjs';
+import { conforming, measuredChrome152, CHROME_152_FAILURES, CHROME_152_PASSES,
+  CHROME_152_INCONCLUSIVE } from '../support/transcripts.mjs';
 
 test('a conforming transcript passes every behaviour in the catalogue', () => {
   const result = judge(conforming());
@@ -35,8 +36,16 @@ test('the measured Chrome 152 transcript fails exactly the behaviours it failed'
   assert.deepEqual(failed, [...CHROME_152_FAILURES],
     'the set of behaviours a real browser failed is a measurement and must not drift silently');
   assert.deepEqual(passed, [...CHROME_152_PASSES]);
-  assert.equal(result.counts.notApplicable, 0, 'the measured transcript covers every behaviour');
-  assert.equal(result.complete, true);
+
+  // Rows the run could not conclude about. They are not passes and not failures, and after the
+  // oracle rewrite P5 is honestly one of them on this page: its tool answers a broken call
+  // differently, which is consistent with a refusal and with echoing the arguments.
+  const abstained = result.findings.filter((f) => f.verdict === 'not-applicable').map((f) => f.id);
+  assert.deepEqual(abstained, [...CHROME_152_INCONCLUSIVE],
+    'the set of rows a real browser could not settle is a measurement too');
+  assert.equal(result.counts.notApplicable, CHROME_152_INCONCLUSIVE.length);
+  assert.equal(result.complete, false,
+    'a run with an unsettled row is not complete, and saying otherwise is the fail open this gate exists to stop');
 });
 
 test('every behaviour in the catalogue has a rule that judges it', () => {
