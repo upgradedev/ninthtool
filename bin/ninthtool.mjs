@@ -25,7 +25,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { openSession } from '../src/probe/cdp.mjs';
-import { launchWithWebMCP } from '../src/probe/launch.mjs';
+import { launchWithWebMCP, waitForPageTarget, targetFor, waitForDocument } from '../src/probe/launch.mjs';
 import { judge } from '../src/judge/verdict.js';
 import { BEHAVIOURS, behaviourById, MEASURED_AGAINST } from '../src/judge/behaviours.js';
 
@@ -116,10 +116,10 @@ function probeExpression() {
     ${source}
     const found = findModelContext(document, navigator);
     if (!found.ctx) {
-      return JSON.stringify({ meta: { url: location.href, userAgent: navigator.userAgent, api: null },
+      return JSON.stringify({ meta: { url: document.URL, userAgent: navigator.userAgent, api: null },
         observations: {}, errors: [found.reason] });
     }
-    const transcript = await observeAll(found.ctx, { url: location.href, userAgent: navigator.userAgent });
+    const transcript = await observeAll(found.ctx, { url: document.URL, userAgent: navigator.userAgent });
     transcript.meta.api = found.where;
     return JSON.stringify(transcript);
   })()`;
@@ -200,10 +200,24 @@ try {
 let socket = null;
 let exitCode = 0;
 try {
-  const connection = await openSession(args.port);
+  // The browser opens about:blank first and navigates afterwards. Attaching to whichever page
+  // target exists first raced that navigation and once audited a blank document.
+  const target = await waitForPageTarget(args.port, url);
+  if (!target.ok) {
+    throw new Error(`the browser never opened ${url}. Page targets seen: ${target.seen.join(', ') || 'none'}`);
+  }
+  const connection = await openSession(args.port, targetFor(url));
   socket = connection.socket;
   const { session } = connection;
   await session.send('Runtime.enable');
+
+  // The target list reports the new URL before the page's context has committed to it, so the
+  // document is asked directly whether it is the right one and finished loading.
+  const document_ = await waitForDocument(session, url);
+  if (!document_.ok) {
+    throw new Error(`${url} never finished loading. The attached document is "${document_.url}"`
+      + ` in state "${document_.readyState}" after ${document_.waitedMs} ms.`);
+  }
 
   const raw = await session.evaluate(probeExpression(), 90000);
   const transcript = JSON.parse(raw);

@@ -123,10 +123,10 @@ document.getElementById('silent').addEventListener('submit', (event) => {
  */
 window.__ninthtool_observe = async function observe() {
   const found = findModelContext(document, navigator);
-  if (!found.ctx) return { meta: { url: location.href, userAgent: navigator.userAgent, api: null },
+  if (!found.ctx) return { meta: { url: document.URL, userAgent: navigator.userAgent, api: null },
     observations: {}, errors: [found.reason] };
   log('audit running');
-  const transcript = await observeAll(found.ctx, { url: location.href, userAgent: navigator.userAgent });
+  const transcript = await observeAll(found.ctx, { url: document.URL, userAgent: navigator.userAgent });
   transcript.meta.api = found.where;
   log(`audit done, ${Object.keys(transcript.observations).length} observations`);
   return transcript;

@@ -38,7 +38,7 @@ import {
 } from './readiness_config.mjs';
 import { OTHER_COMPETITIONS, JUDGE_FACING_FILES } from './style_config.mjs';
 import { BEHAVIOURS } from '../src/judge/behaviours.js';
-import { launchWithWebMCP } from '../src/probe/launch.mjs';
+import { launchWithWebMCP, waitForPageTarget, targetFor, waitForDocument } from '../src/probe/launch.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -312,10 +312,19 @@ async function driveLivePage() {
 
   let socket = null;
   try {
-    const connection = await openSession(port);
+    const target = await waitForPageTarget(port, LIVE_URL);
+    if (!target.ok) {
+      throw new Error(`the browser never opened ${LIVE_URL}. Page targets seen: ${target.seen.join(', ') || 'none'}`);
+    }
+    const connection = await openSession(port, targetFor(LIVE_URL));
     socket = connection.socket;
     const { session } = connection;
     await session.send('Runtime.enable');
+    const loaded = await waitForDocument(session, LIVE_URL);
+    if (!loaded.ok) {
+      throw new Error(`${LIVE_URL} never finished loading. The attached document is "${loaded.url}"`
+        + ` in state "${loaded.readyState}" after ${loaded.waitedMs} ms.`);
+    }
 
     return await session.evaluate(`(async () => {
       const ctx = document.modelContext;

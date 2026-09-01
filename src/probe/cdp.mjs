@@ -148,10 +148,21 @@ class Session {
   }
 }
 
-export async function openSession(port) {
+/**
+ * @param {(string|number)} port the remote debugging port
+ * @param {function(object): boolean} [match] choose which page target to attach to. Without it the
+ *   first page target wins, which is what every caller wanted until a run attached to `about:blank`
+ *   while the real page was still loading and reported fourteen behaviours unobserved.
+ */
+export async function openSession(port, match) {
   const targets = await getJson(port, '/json');
-  const page = targets.find((target) => target.type === 'page' && target.webSocketDebuggerUrl);
-  if (!page) throw new Error('Chrome is running but has no page target. Give it the page URL.');
+  const pages = targets.filter((target) => target.type === 'page' && target.webSocketDebuggerUrl);
+  const page = match ? pages.find(match) : pages[0];
+  if (!page) {
+    throw new Error(match
+      ? `Chrome has no page target matching the requested URL. Open targets: ${pages.map((t) => t.url).join(', ') || 'none'}`
+      : 'Chrome is running but has no page target. Give it the page URL.');
+  }
   const address = new URL(page.webSocketDebuggerUrl);
   const socket = net.connect(Number(address.port), address.hostname);
   await new Promise((resolve) => socket.once('connect', resolve));
