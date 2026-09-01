@@ -47,18 +47,32 @@ jobs:
       # red for a reason nobody could act on. The answer is to wait for the thing being measured,
       # not to stop measuring it: this polls until the served catalogue matches the one in this
       # commit, and gives up loudly after ten minutes rather than running against a stale origin.
+      # WAIT ON THE MANIFEST, NOT ON ONE FILE.
+      #
+      # This step used to compare the served behaviours.js with the committed one. That is the
+      # wrong signal twice over: it says nothing when the commit did not touch that file, and it
+      # said exactly nothing on the commit that ADDED runtime-manifest.json, so the gate ran
+      # against an origin with no manifest and correctly failed with a 404 nobody could act on.
+      #
+      # The manifest changes whenever any runtime file changes, and when nothing runtime changed
+      # there is nothing to wait for. It is the right thing to poll.
       - name: Wait for Pages to serve this commit
         run: |
           set -u
-          want=$(node -e "const fs=require('fs');process.stdout.write(fs.readFileSync('src/judge/behaviours.js','utf8').replace(/\s+/g,' ').trim())" | md5sum | cut -d' ' -f1)
-          echo "want $want"
+          want=$(node -e "process.stdout.write(require('fs').readFileSync('runtime-manifest.json','utf8').replace(/
+/g,'
+'))" | md5sum | cut -d' ' -f1)
+          echo "committed manifest $want"
           for i in $(seq 1 60); do
-            got=$(curl -fsS "https://upgradedev.github.io/ninthtool/src/judge/behaviours.js?cb=$i"               | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(d.replace(/\s+/g,' ').trim()))"               | md5sum | cut -d' ' -f1) || got="fetch-failed"
-            if [ "$got" = "$want" ]; then echo "Pages is serving this commit after ${i} tries."; exit 0; fi
+            got=$(curl -fsS "https://upgradedev.github.io/ninthtool/runtime-manifest.json?cb=$i" 2>/dev/null               | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(d.replace(/
+/g,'
+')))"               | md5sum | cut -d' ' -f1) || got="not-served-yet"
+            if [ "$got" = "$want" ]; then echo "Pages is serving this manifest after ${i} tries."; exit 0; fi
             echo "  try $i: served $got"
             sleep 10
           done
-          echo "Pages never served this commit. The gate would measure a stale origin, so this fails here instead."
+          echo "Pages never served this commit's manifest. The gate would measure a stale origin,"
+          echo "so this fails here instead, where the message says why."
           exit 1
 
       # The browser row drives the LIVE judge URL and presses the button a visitor presses. It is
