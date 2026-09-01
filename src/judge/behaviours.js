@@ -49,6 +49,25 @@ export const MEASURED_ON = '2026-09-01';
 /** The groups, in the order the page and the README present them. */
 export const GROUPS = ['your-page', 'spec-divergence', 'standard-gap', 'silent-trap', 'by-design', 'holds'];
 
+/**
+ * How a row could be decided by a checker that only READS the tool surface: the names, the
+ * descriptions, the schemas, the annotations and the origins the page publishes.
+ *
+ *   metadata   readable from getTools() alone, calling nothing and registering nothing
+ *   execution  needs a tool to be called, or a tool of the checker's own to be registered
+ *
+ * THIS IS THE ENTRY'S ONE COMPARATIVE NUMBER, and it is a property of this catalogue rather than a
+ * survey of anybody's product. Every existing WebMCP checker found in docs/prior-art.md reads
+ * declared metadata. Counting how much of this catalogue that reaches is therefore a fair, and
+ * fairly narrow, statement about where these defects live. Recount it yourself:
+ *
+ *   node -e "import('./src/judge/behaviours.js').then(m=>console.log(m.decidability()))"
+ *
+ * The limitation, stated: a checker with a different catalogue would score differently, and this
+ * says nothing about how well any named product implements the metadata half.
+ */
+export const DECIDABLE_FROM = ['metadata', 'execution'];
+
 /** What a check can conclude. `not-applicable` is a real answer and is never counted as a pass. */
 export const VERDICTS = ['pass', 'fail', 'not-applicable', 'out-of-scope'];
 
@@ -78,6 +97,7 @@ export const BEHAVIOURS = Object.freeze([
   // ---------------------------------------------------------------- spec divergence
   {
     id: 'A1',
+    decidableFrom: 'execution',
     group: 'spec-divergence',
     subject: 'browser',
     title: 'The execute callback receives one argument, not two',
@@ -94,6 +114,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'A2',
+    decidableFrom: 'metadata',
     group: 'spec-divergence',
     subject: 'browser',
     title: 'inputSchema is written as an object and read back as a string',
@@ -107,6 +128,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'A3',
+    decidableFrom: 'execution',
     group: 'spec-divergence',
     subject: 'browser',
     title: 'consequentialHint is in the IDL and not in this build',
@@ -124,6 +146,7 @@ export const BEHAVIOURS = Object.freeze([
   // ---------------------------------------------------------------- standard gap
   {
     id: 'B1',
+    decidableFrom: 'execution',
     group: 'standard-gap',
     subject: 'browser',
     title: 'No route makes a refusal both a failure and readable',
@@ -146,6 +169,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'B2',
+    decidableFrom: 'execution',
     group: 'standard-gap',
     subject: 'browser',
     title: 'isError is payload, not a signal',
@@ -160,6 +184,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'B3',
+    decidableFrom: 'execution',
     group: 'standard-gap',
     // Measured by registering a tool of our own and reading it back, so this is a fact about the
     // host and not a defect in the page under test. Six rows were labelled `page` for one commit,
@@ -178,6 +203,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'B4',
+    decidableFrom: 'metadata',
     group: 'standard-gap',
     subject: 'browser',
     title: 'A declarative tool carries no annotations at all',
@@ -190,6 +216,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'B5',
+    decidableFrom: 'execution',
     group: 'standard-gap',
     subject: 'browser',
     title: 'The caller cannot tell whether to parse the result',
@@ -207,6 +234,7 @@ export const BEHAVIOURS = Object.freeze([
   // ---------------------------------------------------------------- silent trap
   {
     id: 'C1',
+    decidableFrom: 'execution',
     group: 'silent-trap',
     subject: 'browser',
     title: 'A missing required property is filled from the control’s stale value',
@@ -222,6 +250,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'C2',
+    decidableFrom: 'execution',
     group: 'silent-trap',
     subject: 'browser',
     title: 'A tool withdraws only when the signal is in the options bag',
@@ -237,6 +266,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'C3',
+    decidableFrom: 'execution',
     group: 'silent-trap',
     subject: 'browser',
     title: 'The two halves of the standard enforce different parts of one schema',
@@ -261,6 +291,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'C4',
+    decidableFrom: 'execution',
     // MOVED OUT OF silent-trap. An audit was right that this is the declarative API working as
     // designed: without toolautosubmit the call fills the controls and waits for a person, which is
     // the human-in-the-loop path the explainer describes. Counting it as a broken promise inflated
@@ -288,6 +319,7 @@ export const BEHAVIOURS = Object.freeze([
   // ---------------------------------------------------------------- holds
   {
     id: 'D1',
+    decidableFrom: 'execution',
     group: 'holds',
     subject: 'browser',
     title: 'toolchange fires on both registration and withdrawal',
@@ -300,6 +332,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'D2',
+    decidableFrom: 'metadata',
     group: 'holds',
     subject: 'browser',
     title: 'A form derived schema is built richly and correctly from markup',
@@ -324,6 +357,7 @@ export const BEHAVIOURS = Object.freeze([
   // know a tool is safe gives an agent no way either.
   {
     id: 'P1',
+    decidableFrom: 'metadata',
     group: 'your-page',
     subject: 'page',
     title: 'Every tool you publish says whether it writes',
@@ -338,6 +372,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'P2',
+    decidableFrom: 'metadata',
     group: 'your-page',
     subject: 'page',
     title: 'Every tool you publish declares a schema an agent can read',
@@ -352,6 +387,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'P3',
+    decidableFrom: 'metadata',
     group: 'your-page',
     subject: 'page',
     title: 'Every tool you publish describes itself, and every parameter is described',
@@ -366,6 +402,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'P4',
+    decidableFrom: 'metadata',
     group: 'your-page',
     subject: 'page',
     title: 'Your tool surface carries nothing registered by a frame you may not control',
@@ -381,6 +418,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'P5',
+    decidableFrom: 'execution',
     group: 'your-page',
     subject: 'page',
     title: 'Your read only tools demonstrably refuse a call that breaks their own required list',
@@ -401,6 +439,7 @@ export const BEHAVIOURS = Object.freeze([
   },
   {
     id: 'P6',
+    decidableFrom: 'execution',
     group: 'your-page',
     subject: 'page',
     title: 'Calling one read only tool does not change what another one answers',
@@ -419,6 +458,24 @@ export const BEHAVIOURS = Object.freeze([
     reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P6',
   },
 ]);
+
+/**
+ * How much of this catalogue a metadata only checker could reach, computed rather than typed.
+ *
+ * @returns {{total: number, metadata: number, execution: number, yourPageMetadata: number,
+ *            yourPageExecution: number}}
+ */
+export function decidability() {
+  const metadata = BEHAVIOURS.filter((b) => b.decidableFrom === 'metadata');
+  const yourPage = BEHAVIOURS.filter((b) => b.group === 'your-page');
+  return {
+    total: BEHAVIOURS.length,
+    metadata: metadata.length,
+    execution: BEHAVIOURS.length - metadata.length,
+    yourPageMetadata: yourPage.filter((b) => b.decidableFrom === 'metadata').length,
+    yourPageExecution: yourPage.filter((b) => b.decidableFrom === 'execution').length,
+  };
+}
 
 /** Every id, in catalogue order. Used by the runners so nothing is silently skipped. */
 export const BEHAVIOUR_IDS = Object.freeze(BEHAVIOURS.map((b) => b.id));

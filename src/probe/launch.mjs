@@ -173,8 +173,11 @@ export async function waitForPageTarget(port, url, timeoutMs = 30000) {
       const response = await fetch(`http://127.0.0.1:${port}/json`);
       const targets = await response.json();
       seen = targets.filter((t) => t.type === 'page').map((t) => String(t.url));
-      const hit = seen.find((u) => u === wanted || u.startsWith(wanted) || wanted.startsWith(u.replace(/\/$/, '')));
-      if (hit && hit !== 'about:blank') {
+      // The same rule targetFor uses, so the target this waits for and the target openSession
+      // attaches to cannot be two different pages.
+      const match = targetFor(url);
+      const hit = seen.find((u) => match({ url: u }));
+      if (hit) {
         return { ok: true, url: hit, seen, waitedMs: Date.now() - started };
       }
     } catch {
@@ -185,12 +188,41 @@ export async function waitForPageTarget(port, url, timeoutMs = 30000) {
   return { ok: false, url: null, seen, waitedMs: Date.now() - started };
 }
 
-/** A target matcher for openSession, for the page this launcher was asked to open. */
+/**
+ * Normalise a URL for comparison: drop the fragment and any trailing slashes, and nothing else.
+ *
+ * Query strings are KEPT, because a different query is a different page as far as anything this
+ * drives is concerned.
+ */
+function normaliseUrl(value) {
+  return String(value === undefined || value === null ? '' : value).split('#')[0].replace(/\/+$/, '');
+}
+
+/**
+ * A target matcher for openSession, for the page this launcher was asked to open.
+ *
+ * IT USED TO PREFIX MATCH IN BOTH DIRECTIONS, AND THAT WAS TWO DEFECTS.
+ *
+ * A test written against it found them and recorded them rather than accommodating them. First, a
+ * target at the origin root matched a matcher built for a deep path, because the clause that
+ * stripped a trailing slash then tested the other way round: `http://host/` satisfied a matcher for
+ * `http://host/fixtures/subject.html`. The runner serves the page and its subject frame from one
+ * loopback origin, so both targets exist at once and whichever the browser listed first would have
+ * been driven. That is the about:blank class of bug again: the guard excluded one literal string
+ * rather than requiring the right page.
+ *
+ * Second, a target carrying no url matched anything at all, because every string starts with the
+ * empty string.
+ *
+ * It is exact equality on the normalised URL now. A page that is not the page asked for is not a
+ * near miss to be accepted, it is the wrong page.
+ */
 export function targetFor(url) {
-  const wanted = String(url).replace(/#.*$/, '');
+  const wanted = normaliseUrl(url);
   return (target) => {
-    const seen = String(target.url || '');
-    return seen !== 'about:blank' && (seen === wanted || seen.startsWith(wanted) || wanted.startsWith(seen.replace(/\/$/, '')));
+    const seen = normaliseUrl(target && target.url);
+    if (!seen || seen === 'about:blank') return false;
+    return seen === wanted;
   };
 }
 

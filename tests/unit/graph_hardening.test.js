@@ -135,3 +135,42 @@ test('a query string and a fragment do not create a different file', () => {
   assert.deepEqual(unresolved, []);
   assert.ok(files.includes('src/app.js'));
 });
+
+test('a commented out import is not followed, and a real one still is', () => {
+  /*
+   * A docblock in behaviours.js shows a reader how to recount a number, and the example contains
+   * `import('./src/judge/behaviours.js')`. The dynamic import pattern matched it, the path resolved
+   * relative to src/judge/ into a file that does not exist, and the build stopped on a reference
+   * nothing loads. A walker that reads commented imports invents files, and would equally miss a
+   * real import somebody had commented out while debugging.
+   */
+  const { files, unresolved } = walkTree({
+    'index.html': '<script type="module" src="src/app.js"></script>',
+    'src/app.js': [
+      "// import { fake } from './commented-out.js';",
+      '/* an example in a docblock:',
+      " *   node -e \"import('./does-not-exist.js')\"",
+      ' */',
+      "import { real } from './real.js';",
+    ].join(String.fromCharCode(10)),
+    'src/real.js': 'export const real = 1;',
+  });
+  assert.deepEqual(unresolved, [], 'a commented import was followed and reported as missing');
+  assert.ok(files.includes('src/real.js'), 'the real import next to the comments was lost');
+  assert.ok(!files.includes('src/commented-out.js'));
+});
+
+test('the comment stripper does not eat a string that looks like a comment', () => {
+  const { files, unresolved } = walkTree({
+    'index.html': '<script type="module" src="src/app.js"></script>',
+    'src/app.js': [
+      "const notAComment = 'http://example.com/x'; // trailing comment",
+      "const alsoNot = \"/* not a block */\";",
+      "import { real } from './real.js';",
+    ].join(String.fromCharCode(10)),
+    'src/real.js': 'export const real = 1;',
+  });
+  assert.deepEqual(unresolved, []);
+  assert.ok(files.includes('src/real.js'),
+    'a string containing comment characters confused the stripper and the real import was lost');
+});
