@@ -26,6 +26,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+// `openSession` and `evaluateInPage` are imported and never called. That is deliberate, and it is
+// the only honest check this file can make on them. A named import of a missing export is a link
+// time SyntaxError, so if either export were dropped this whole file would fail to load rather than
+// quietly stop covering them. A test asserting `typeof openSession === 'function'` used to sit at
+// the bottom of this file. It was removed because it could never fail: the import below had already
+// done the work, and the test passed against stubs with no behaviour in them at all.
 import { Session, openSession, evaluateInPage } from '../../src/probe/cdp.mjs';
 
 /* ------------------------------------------------------------------ the wire format, by hand */
@@ -194,10 +200,13 @@ test('a control frame between fragments does not corrupt the message', () => {
   const session = new Session(fakeSocket());
   session.feed(serverFrame(text.slice(0, 10), { opcode: 1, final: false }));
   session.feed(serverFrame('ping', { opcode: 9, final: true }));
-  session.feed(serverFrame(text.slice(10), { opcode: 0, final: true }));
+  // Asserted here rather than at the end, where the closing frame would have emptied the buffer
+  // anyway and the check could not tell the two apart. Ten bytes held, and not fourteen.
+  assert.equal(session.buffer.length, 0, 'the ping was left in the buffer rather than stepped over');
+  assert.equal(session.partial.length, 10, 'the ping was appended to the message being reassembled');
 
+  session.feed(serverFrame(text.slice(10), { opcode: 0, final: true }));
   assert.deepEqual(session.answers.get(8).result, { value: 'held together' });
-  assert.equal(session.buffer.length, 0, 'the ping should have been consumed, not left in place');
 });
 
 /* ------------------------------------------------------------------ chunk boundaries */
@@ -314,13 +323,11 @@ test('problems picks up errors and warnings, and leaves ordinary console output 
   ]);
 });
 
-test('problems is empty when the page behaved', () => {
-  const session = new Session(fakeSocket());
-  session.feed(serverFrame(JSON.stringify({
-    method: 'Runtime.consoleAPICalled', params: { type: 'log', args: [{ value: 'all well' }] },
-  })));
-  assert.deepEqual(session.problems(), []);
-});
+// REMOVED: a test that fed one console.log and asserted `problems()` came back empty. An empty
+// result is also what a `problems()` that returns [] unconditionally gives, and what a `feed()`
+// that does nothing gives, so it passed either way and could not fail. The test above already makes
+// the same point and can fail making it: its deepEqual runs against an exact four line array, from
+// a batch that includes a console.log, a console.info, and Log.entryAdded at info and at verbose.
 
 test('a long problem is cut short rather than carried whole', () => {
   const session = new Session(fakeSocket());
@@ -413,8 +420,15 @@ test('evaluate throws when the page threw, rather than returning undefined', asy
 });
 
 test('evaluate returns undefined when the answer carries no result object', async () => {
-  const session = new Session(fakeSocket());
+  // `result.result` is absent when there is nothing to hand back, and the guard must return
+  // undefined rather than read `.value` off nothing. Asserting undefined on its own would pass
+  // against an evaluate that did nothing whatsoever, because that returns undefined too. So the
+  // command is read back off the socket first, which makes the undefined mean something.
+  const socket = fakeSocket();
+  const session = new Session(socket);
   const pending = session.evaluate('void 0', 2000);
+  assert.equal(JSON.parse(readClientFrame(socket.writes[0])).params.expression, 'void 0');
+
   session.feed(serverFrame(JSON.stringify({ id: 1, result: {} })));
   assert.equal(await pending, undefined);
 });
@@ -432,7 +446,13 @@ test('a command too long for a small header goes out through the 16 bit header',
   assert.ok((written[1] & 0x80) !== 0, 'the frame must stay masked at any size');
   assert.equal(written[1] & 0x7f, 126, 'a command of this size must use the 16 bit header');
   const text = readClientFrame(written);
-  assert.equal(written.readUInt16BE(2), Buffer.byteLength(text),
+  // Checked against the bytes on the wire, not against itself. `written.length - 8` is the payload,
+  // because 4 header bytes and 4 mask bytes precede it, and that arithmetic is only sound because
+  // the marker was asserted to be 126 on the line above. Comparing the declared length to the
+  // decoded text instead would pass on an under declared header, since the decoder reads that same
+  // declared length and subarray then clamps to whatever is really there. Measured: a header
+  // declaring 40 bytes too few sails through that version and fails this one.
+  assert.equal(written.readUInt16BE(2), written.length - 8,
     'the declared length must match the payload, most significant byte first');
   assert.equal(JSON.parse(text).params.expression.length, 300);
 
@@ -449,7 +469,9 @@ test('a command over 65535 bytes goes out through the 64 bit header', async () =
   assert.ok((written[1] & 0x80) !== 0, 'the frame must stay masked at any size');
   assert.equal(written[1] & 0x7f, 127, 'a command of this size must use the 64 bit header');
   const text = readClientFrame(written);
-  assert.equal(Number(written.readBigUInt64BE(2)), Buffer.byteLength(text),
+  // As above, against the wire rather than against itself. Ten header bytes and four mask bytes at
+  // this width, sound only because the marker was asserted to be 127 on the line above.
+  assert.equal(Number(written.readBigUInt64BE(2)), written.length - 14,
     'the declared length must match the payload, most significant byte first');
   assert.equal(JSON.parse(text).params.expression.length, 70000);
 
@@ -475,11 +497,6 @@ test('every frame carries its own mask', async () => {
 });
 
 /* ------------------------------------------------------------------ what is left uncovered */
-
-test('openSession and evaluateInPage are exported', () => {
-  assert.equal(typeof openSession, 'function');
-  assert.equal(typeof evaluateInPage, 'function');
-});
 
 test('openSession picks the right target and completes the upgrade', {
   skip: 'openSession does an HTTP GET for /json and then net.connect. There is no honest unit '

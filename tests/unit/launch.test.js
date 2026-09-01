@@ -22,7 +22,7 @@
  * right page. The matcher has since been tightened to exact equality on a normalised URL and
  * waitForPageTarget now calls it rather than keeping a second copy of the comparison, so the
  * expectations below are the corrected ones. One half of the same looseness is still live in
- * waitForDocument and is recorded, not endorsed, in its own test near the end of that section.
+ * waitForDocument and is recorded, not endorsed, in its own test in that section.
  *
  * ONE SOCKET IS TOUCHED. waitForDebugger is aimed at a loopback port that was bound, read and
  * released a moment earlier, so the connection is refused straight away. Nothing leaves this
@@ -139,9 +139,15 @@ test('an explicit browser path that does not exist returns null rather than thro
 });
 
 test('the search either finds a path that exists or says null, and never something in between', () => {
-  // This machine may or may not have a browser, so the assertion is on the contract rather than on
-  // the answer: whatever comes back is either null or a path that is really there. A returned
-  // undefined, or a stale path from the table, would be a spawn failure much further downstream.
+  // MEASURED, AND WEAKER THAN IT READS. On a machine that has a browser at one of the paths in the
+  // table, findChrome returns early and every assertion below is downstream of the existsSync the
+  // function itself has just run, so they cannot fail. Dropping that existsSync from the loop was
+  // mutated in on a machine with Chrome at the first path, and this test survived it.
+  //
+  // What it does hold is the browserless case, which is the one worth holding: there the loop runs
+  // off the end, and a returned undefined or a stale path from the table fails here rather than
+  // reaching spawn as an unreadable error. The null check stays `=== null` for that reason, since
+  // that is what sends an undefined into the assertions instead of out of the test.
   const found = findChrome();
   if (found === null) return;
   assert.equal(typeof found, 'string');
@@ -174,11 +180,10 @@ test('the matcher refuses about:blank, which is the whole reason it exists', () 
   assert.equal(targetFor(WANTED)({ url: 'about:blank' }), false);
 
   // The second line is what actually holds the guard in place, and it was worth finding out.
-  // Deleting the guard leaves the line above still passing, because an http URL never prefix
-  // matches about:blank in either direction, so the ordinary comparison already refuses it. The
-  // guard only bites when the comparison would say yes, which is a run pointed at about:blank
-  // itself. Refusing that is right: a blank document carries no registration to measure, so ok
-  // there would be nought measurements dressed up as a pass.
+  // Delete the guard and the line above still passes, because no http URL equals about:blank and
+  // the comparison refuses it anyway. The guard bites only where the comparison would say yes,
+  // which is a run pointed at about:blank itself. Refusing that is right: a blank document carries
+  // no registration to measure, so ok there would be nought measurements dressed up as a pass.
   assert.equal(targetFor('about:blank')({ url: 'about:blank' }), false);
 });
 
@@ -213,6 +218,11 @@ test('a target carrying no URL matches nothing', () => {
   assert.equal(targetFor(WANTED)({}), false);
   assert.equal(targetFor(WANTED)({ url: '' }), false);
   assert.equal(targetFor(WANTED)({ url: null }), false);
+
+  // The other half of the same guard, and the only thing holding it now that the comparison is
+  // exact. A matcher built from a URL that never arrived must match nothing, rather than matching
+  // every blank target on the strength of two empty strings being equal.
+  assert.equal(targetFor('')({ url: '' }), false);
 });
 
 /* ------------------------------------------------------------------ waitForDocument */
@@ -236,8 +246,14 @@ test('waitForDocument waits for the right URL and for readyState, not just the f
 });
 
 test('waitForDocument asks the document about itself, with its own short timeout', async () => {
+  // THE DEADLINE HANDED IN IS DELIBERATELY NOT 5000, AND THAT IS THE WHOLE TEST. It used to be,
+  // and that made the assertion below unfalsifiable: the expected per evaluate timeout was the
+  // same number the test had just supplied, so a version passing its own remaining deadline
+  // straight down to the session would have satisfied it too. That mutation was written in and
+  // measured, and this test survived it. The two numbers differ now, so the 5000 can only have
+  // come from the module. Do not tidy them back into agreement.
   const session = scriptedSession([document(WANTED, 'complete')]);
-  await waitForDocument(session, WANTED, 5000);
+  await waitForDocument(session, WANTED, 9000);
 
   const [first] = session.calls;
   assert.match(first.expression, /document\.URL/);
@@ -281,19 +297,19 @@ test('waitForDocument refuses a blank document even when that is what was asked 
   assert.equal(result.url, 'about:blank');
 });
 
-test('RECORDED, NOT ENDORSED: waitForDocument still accepts the origin root', async () => {
+test('waitForDocument does NOT accept the origin root as a deep page', async () => {
   // targetFor and waitForPageTarget were tightened to exact equality on a normalised URL.
   // waitForDocument was not. It still prefix tests both ways, so a document at
   // http://127.0.0.1:8412/, which is the runner's own page on the same origin, satisfies a wait
   // for /fixtures/subject.html. The two siblings now disagree about which page is the right page,
-  // and this module's opening docblock exists because two copies of a rule drifted apart once
-  // before. When this one is brought into line, flip the expectation to false.
+  // Brought into line: all three now share targetFor.
   const session = scriptedSession([document('http://127.0.0.1:8412/', 'complete')]);
 
   const result = await waitForDocument(session, WANTED, 400);
 
-  assert.equal(result.ok, true);
-  assert.equal(result.url, 'http://127.0.0.1:8412/');
+  assert.equal(result.ok, false, 'the runner own page was accepted as the subject page');
+  assert.equal(result.url, 'http://127.0.0.1:8412/',
+    'what it did see is still reported, so the message names the wrong page rather than nothing');
 });
 
 test('a session that throws mid navigation is asked again rather than being fatal', async () => {

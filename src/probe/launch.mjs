@@ -255,8 +255,13 @@ export async function waitForDocument(session, url, timeoutMs = 30000) {
         'JSON.stringify({ url: document.URL, readyState: document.readyState })', 5000,
       ));
       last = seen;
-      const matches = seen.url === wanted || seen.url.startsWith(wanted) || wanted.startsWith(seen.url.replace(/\/$/, ''));
-      if (matches && seen.url !== 'about:blank' && seen.readyState === 'complete') {
+      // THE SAME MATCHER THE OTHER TWO USE. This kept its own loose prefix test after targetFor
+      // and waitForPageTarget were made exact, so for one commit the function that decides "are we
+      // on the right page" and the function that decides "attach to this target" disagreed about
+      // what the right page is. A test recorded that rather than accommodating it. One copy of the
+      // rule now serves all three, which is what this module's opening docblock is about.
+      const matches = targetFor(url)({ url: seen.url });
+      if (matches && seen.readyState === 'complete') {
         return { ok: true, url: seen.url, readyState: seen.readyState, waitedMs: Date.now() - started };
       }
     } catch {
