@@ -79,6 +79,41 @@ transcript that passes everything, changes one field, and requires that behaviou
 structural assertion at the bottom of that file fails the build if a behaviour is added to the
 catalogue without a mutation proving its rule can fail.
 
+## Run it
+
+Against the bundled subject page, with no arguments and no separate terminal. It starts a loopback
+server, launches your Chrome with the feature enabled in a throwaway profile, drives the page and
+prints the report:
+
+```bash
+node bin/ninthtool.mjs
+```
+
+Against a page of your own, on any origin:
+
+```bash
+node bin/ninthtool.mjs https://your-page.example
+```
+
+One behaviour only, which is what every `reproduce` line in the report gives you:
+
+```bash
+node bin/ninthtool.mjs --behaviour B1
+```
+
+In a build, where a defect in your page should stop the run. A broken promise is the expected
+finding of this instrument rather than an error in running it, so the exit code is zero by default
+whenever the run completed, and `--fail-on` is how you ask for the other behaviour:
+
+```bash
+node bin/ninthtool.mjs https://your-page.example --fail-on page
+```
+
+`--fail-on page` exits 1 on a defect in the page under test and ignores facts about the browser,
+because your build should not go red over something Chrome does to everybody. `--fail-on any` exits
+1 on anything. An incomplete run always exits 3, because a behaviour that was never observed is not
+a behaviour that passed.
+
 ## Run the checks
 
 ```bash
@@ -89,7 +124,29 @@ node --test tests/unit
 node scripts/check_style.mjs --selftest
 ```
 
-No dependencies, no lock file, nothing to install. Node 20 or later.
+No dependencies, no lock file, nothing to install. Node 20 or later, and a Chromium browser for the
+runner. Firefox and Safari have no WebMCP implementation, so there is nothing for this to measure
+there.
+
+## The console is not silent during a run, on purpose
+
+Behaviour B1 asks whether a refusal can reach the caller, and the only way to ask is to throw inside
+a tool handler and to reject with a `DOMException`. Chrome logs both. So an audit leaves four
+entries in the console that read like errors and are the instrument doing its job. They appear only
+while the audit runs, they come from tools this suite registered and withdrew, and the page is quiet
+before and after.
+
+## Reused components
+
+The rules require pre-existing work to be named. One file is carried over from an earlier project by
+the same author:
+
+| File | What it is |
+|---|---|
+| `src/probe/cdp.mjs` | a dependency free Chrome DevTools Protocol client, about 200 lines, enough for `Runtime.evaluate` and watching the console |
+
+Everything else is new: the catalogue, the judge, the mutation suite, the probe, the subject page,
+the page, its tools, the runner, the style gate and the tests.
 
 ## What it does not do
 

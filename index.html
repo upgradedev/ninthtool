@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ninth Tool, a behavioural conformance suite for WebMCP</title>
+<meta name="description" content="Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the standard silently drops, with the command that reproduces each one.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>9</text></svg>">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Ninth Tool</p>
+    <!-- J5. This sentence is identical, word for word, in the README and in the submitted
+         description. tests/unit/flagship.test.js reads all three and refuses a drift. -->
+    <h1 class="flagship" data-el="flagship">Ninth Tool executes your page's WebMCP tools in the
+      browser and shows which promises the standard silently drops, with the command that
+      reproduces each one.</h1>
+    <p class="sub">Named for the tool that has to disappear. A page registers eight tools, a ninth
+      appears when the state that justifies it appears, and it is supposed to withdraw when that
+      state goes away. Write the withdrawal the obvious way and it never happens, and nothing is
+      thrown.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="run" aria-labelledby="run-h">
+    <h2 id="run-h" class="section-h">Run it</h2>
+    <p class="lede">This drives the subject page below through your browser's own WebMCP and judges
+      what happened. Nothing is sent anywhere, nothing is stored, and no tool that writes is ever
+      called.</p>
+
+    <div class="run-row">
+      <button type="button" class="primary" data-el="run">Run the audit</button>
+      <p class="status" data-el="status" role="status" aria-live="polite">Ready.</p>
+    </div>
+
+    <!-- H2. When the control is disabled the reason is rendered right here, never left blank. -->
+    <p class="blocker" data-el="blocker" hidden></p>
+  </section>
+
+  <section class="summary" data-el="summary" hidden aria-labelledby="sum-h">
+    <h2 id="sum-h" class="section-h">What your browser did</h2>
+    <div class="tiles" data-el="tiles"></div>
+    <p class="env" data-el="env"></p>
+  </section>
+
+  <section class="findings" aria-labelledby="find-h">
+    <h2 id="find-h" class="section-h">The behaviours</h2>
+    <p class="lede" data-el="catalogue-lede"></p>
+    <div data-el="groups" class="groups"></div>
+  </section>
+
+  <section class="subject" aria-labelledby="subj-h">
+    <h2 id="subj-h" class="section-h">The subject page</h2>
+    <p class="lede">A real page on this origin with two forms promoted to tools by HTML attributes.
+      It is loaded in a frame and driven live. You can fill either form in yourself: they are
+      ordinary controls when no agent is involved.</p>
+    <iframe class="subject-frame" data-el="subject" src="fixtures/subject.html"
+            title="The subject page Ninth Tool drives"></iframe>
+  </section>
+
+  <section class="limits" aria-labelledby="lim-h">
+    <h2 id="lim-h" class="section-h">What this does not do, and why</h2>
+    <p><strong>It does not scan other people's sites.</strong> A page cannot reach another origin's
+      tool surface. The <code>tools</code> Permissions Policy defaults to <code>self</code>, and a
+      cross origin frame was measured contributing zero tools while a same origin frame contributed
+      its whole list. That boundary is the reason this is a suite you run against your own page
+      rather than a scanner you point at a stranger's.</p>
+    <p>To audit a page on another origin, run the command line runner against it from a machine you
+      control:</p>
+    <pre class="cmd"><code>node bin/ninthtool.mjs https://your-page.example</code></pre>
+    <p>No writes, anywhere, ever. The probe calls only tools it registered itself, plus the two
+      forms this subject page declares. No account, no backend, no crawling, and no verdict is
+      published about anybody's named page.</p>
+  </section>
+
+  <section class="honesty" aria-labelledby="hon-h">
+    <h2 id="hon-h" class="section-h">Where the numbers come from</h2>
+    <p>Every stored measurement in the catalogue was taken on <strong>2026-09-01</strong> against
+      <strong>Chrome 152.0.7977.65</strong> launched with <code>--enable-features=WebMCP</code>.
+      Nothing in it is copied from documentation. Where documentation disagrees with the
+      measurement, the row says what the documentation promised and is reported as a divergence
+      rather than as a defect in your page.</p>
+    <p>The reading above is not that stored measurement. It is what <em>your</em> browser did, just
+      now, and it may differ. Where it does, your browser is the newer fact.</p>
+  </section>
+
+</main>
+
+<footer class="wrap foot">
+  <p>MIT licensed. <a href="https://github.com/upgradedev/ninthtool">Source on GitHub</a>.
+     Built for the WebMCP Challenge.</p>
+</footer>
+
+<script type="module" src="src/ui/app.js"></script>
+</body>
+</html>
