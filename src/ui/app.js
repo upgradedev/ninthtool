@@ -284,12 +284,26 @@ async function runAudit() {
         + 'were unobserved, so this is not a result about your page. The full audit needs Chrome or '
         + 'Edge with WebMCP enabled at chrome://flags/#enable-webmcp-testing. '
         + 'nt_get_findings has not been published.';
-      showBlocker(`This browser exposed a WebMCP host object but the audit could not observe a `
-        + `single behaviour through it. Every row below is marked NOT RUN with its reason. The most `
-        + `common cause is a host that does not discover tools registered inside frames, or that `
-        + `does not implement the declarative half of the standard, in which case the subject page `
-        + `contributes nothing to measure. Open this page in Chrome or Edge with WebMCP enabled to `
-        + `run it in full.`);
+      // THE TRANSCRIPT ALREADY SAYS WHY, SO THE PAGE NO LONGER GUESSES.
+      //
+      // This block used to assert "This browser exposed a WebMCP host object" and then list the
+      // "most common cause". Both halves were wrong to state, measured in the ChatGPT desktop
+      // in-app browser (Chromium 151) on 2026-09-02: the TOP DOCUMENT did expose one and published
+      // three tools, while the SUBJECT FRAME exposed none. Neither sentence named its scope, so a
+      // reader saw "exposed a WebMCP host object" directly above "host object none". The real
+      // reason was sitting unrendered in result.errors the whole time.
+      //
+      // Both scopes are now named and the reason is the measured one. A suite whose whole premise
+      // is "measured, not asserted" cannot narrate a cause it did not observe.
+      const top = findModelContext(document, navigator);
+      const measured = (result.errors || []).filter(Boolean).map(String);
+      showBlocker(`The top document exposed ${top.where || 'no WebMCP host object'}. `
+        + `The subject frame at ${result.environment.url || 'an unknown URL'} exposed `
+        + `${result.environment.api || 'no host object'}`
+        + (measured.length ? `: ${measured.join(' ')}` : '.')
+        + ` Every row below is marked NOT RUN with its reason, so nothing here is a result about `
+        + `the subject page. Open this page in Chrome or Edge with WebMCP enabled at `
+        + `chrome://flags/#enable-webmcp-testing to run it in full.`);
       return;
     }
 
