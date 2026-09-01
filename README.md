@@ -273,10 +273,21 @@ added to the catalogue without a mutation proving its rule can fail.
 
 ## Run it
 
-With no arguments and no separate terminal. It starts a loopback server, launches your Chrome with
-the feature enabled in a throwaway profile, drives this page and prints the report. It audits the
-page itself rather than the subject frame, because same origin frames contribute their tools to the
-top document, so from there both halves of the standard are on one surface at once:
+**With no checkout at all.** One line, against a page of your own:
+
+```bash
+npx github:upgradedev/ninthtool https://your-page.example
+```
+
+It has no dependencies, so there is nothing to resolve and nothing to audit before it runs. Node 20
+or later, and a Chromium browser with WebMCP enabled. The CI end to end job runs exactly this line
+on a clean machine on every push, so the command in this README is one that has been executed rather
+than one that was written down.
+
+From a checkout, with no arguments and no separate terminal. It starts a loopback server, launches
+your Chrome with the feature enabled in a throwaway profile, drives this page and prints the report.
+It audits the page itself rather than the subject frame, because same origin frames contribute their
+tools to the top document, so from there both halves of the standard are on one surface at once:
 
 ```bash
 node bin/ninthtool.mjs

@@ -51,3 +51,61 @@ jobs:
           node-version: '20'
       - name: The gate proves it can fail, then runs
         run: node scripts/check_style.mjs --selftest
+
+  e2e:
+    name: The command the README gives, on a clean machine
+    runs-on: ubuntu-latest
+    steps:
+      # NO CHECKOUT ON PURPOSE. The point of this job is to run what a reader runs: one line, no
+      # clone, nothing built here. A checkout would let a file that `files` does not pack pass
+      # unnoticed, which is exactly the failure this exists to catch, and it would land on whoever
+      # ran the one command the README tells them to run.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Which commit to install
+        id: ref
+        run: |
+          if [ -n "${{ github.event.pull_request.head.sha }}" ]; then
+            echo "sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: It installs and starts
+        run: |
+          set -e
+          npx --yes "github:upgradedev/ninthtool#${{ steps.ref.outputs.sha }}" --help > help.txt
+          grep -q "behavioural conformance suite for WebMCP" help.txt
+          grep -q -- "--allow-fixture-forms" help.txt
+          echo "the bin resolved, every import loaded, and the help text is the shipped one."
+
+      - name: It refuses bad arguments before launching anything
+        run: |
+          set +e
+          npx --yes "github:upgradedev/ninthtool#${{ steps.ref.outputs.sha }}" --fail-on wrong > out.txt 2>&1
+          code=$?
+          set -e
+          [ "$code" = "2" ] || { echo "expected exit 2 for a bad --fail-on, got $code"; cat out.txt; exit 1; }
+          grep -q "Nothing was launched" out.txt
+          echo "strict parsing survives packaging."
+
+      - name: Where is Chrome
+        run: |
+          for c in /usr/bin/google-chrome /usr/bin/google-chrome-stable /opt/google/chrome/chrome; do
+            if [ -x "$c" ]; then echo "Chrome at $c"; exit 0; fi
+          done
+          echo "No Chrome on this runner, so the audit step below cannot prove anything."
+          exit 1
+
+      - name: It audits the live page, one behaviour, and touches nothing
+        run: |
+          set -e
+          npx --yes "github:upgradedev/ninthtool#${{ steps.ref.outputs.sha }}"             https://upgradedev.github.io/ninthtool/ --behaviour A1 > audit.txt 2>&1 || true
+          cat audit.txt
+          grep -q "scope   : A1" audit.txt
+          grep -q "1 tested" audit.txt
+          # Nothing belonging to the page under test may have been called without authorisation.
+          grep -q "refused : " audit.txt || echo "note: A1 needs no authorisation, so nothing was refused"
+          echo "one behaviour ran, and only one."

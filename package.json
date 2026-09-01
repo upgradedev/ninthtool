@@ -4,10 +4,34 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "This file exists to set type=module so the .js files under src and tests are ES modules for Node exactly as they already are for the browser. It declares no dependencies and never will. Nothing is installed, there is no lock file, and no CI step runs a package manager.",
+  "description": "Runs WebMCP's own promises against your browser and shows which ones the standard silently drops, with the command that reproduces each. No dependencies, no lock file, and no step here runs a package manager.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/upgradedev/ninthtool.git"
+  },
+  "homepage": "https://upgradedev.github.io/ninthtool/",
+  "bin": {
+    "ninthtool": "bin/ninthtool.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "scripts/build_manifest.mjs",
+    "scripts/runtime_graph.mjs",
+    "index.html",
+    "assets",
+    "fixtures",
+    "runtime-manifest.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "node --test tests/unit",
     "style": "node scripts/check_style.mjs",
-    "readiness": "node scripts/readiness.mjs"
+    "readiness": "node scripts/readiness.mjs",
+    "manifest": "node scripts/build_manifest.mjs"
   }
 }
