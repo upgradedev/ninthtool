@@ -21,22 +21,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { SCANNED_DIRS, SCANNED_EXTENSIONS, EXEMPT } from './style_config.mjs';
+
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
-
-/** Directories walked, by path. Adding a directory of judge facing prose means adding it here. */
-const SCANNED_DIRS = ['', 'docs', 'src', 'src/judge', 'src/probe', 'src/ui', 'scripts', 'fixtures', 'tests', 'tests/unit', 'tests/support'];
-const SCANNED_EXTENSIONS = ['.md', '.js', '.mjs', '.html', '.css', '.json', '.yml'];
-
-/**
- * Files exempt from the word rules, by exact name, each with a stated reason.
- *
- * `check_style.mjs` is the only source file here, and it is exempt because it CONTAINS the banned
- * list. Scanning the definition of a rule against itself finds the rule and reports it, which is a
- * gate failing on its own vocabulary rather than on any prose a judge will read. This is the one
- * exemption, it is by exact filename rather than a pattern, and the selftest below still exercises
- * every rule on deliberate samples, so exempting this file removes no coverage of anything real.
- */
-const EXEMPT = new Set(['package-lock.json', 'check_style.mjs']);
 
 const EM_DASH = String.fromCharCode(0x2014);
 const EN_DASH = String.fromCharCode(0x2013);
