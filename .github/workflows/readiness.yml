@@ -1,9 +1,16 @@
 name: Readiness
 
+# DELIBERATELY NOT ON pull_request. This gate measures the DEPLOYED submission: it opens the live
+# judge URL in a browser, presses the button, and compares the served bytes with the tree. A branch
+# is not deployed, so on a pull request those rows can only report that the deployment is behind,
+# which is true and useless. Asking a question with no meaningful answer and then calling the result
+# a failure teaches everyone to ignore the gate.
+#
+# The rows that CAN be judged from a branch are already on the CI workflow: unit tests, the style
+# gate and its selftest. This one runs where its answer means something.
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
   schedule:
     # The live URL has to keep answering 200 through the judging window. A daily run is how we
