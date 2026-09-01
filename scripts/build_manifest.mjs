@@ -47,7 +47,7 @@ export function hashOf(text) {
 
 /** Build the manifest from the working tree. */
 export function buildManifest(root = ROOT) {
-  const { files, unresolved } = runtimeGraph(root);
+  const { files, unresolved, refused } = runtimeGraph(root);
   const entries = {};
   for (const relative of files) {
     if (relative === MANIFEST_PATH) continue;
@@ -61,6 +61,7 @@ export function buildManifest(root = ROOT) {
     entryPoint: 'index.html',
     fileCount: Object.keys(entries).length,
     unresolved,
+    refused,
     files: entries,
   };
 }
@@ -96,6 +97,13 @@ if (invokedDirectly) {
   if (fresh.unresolved.length) {
     console.error('build_manifest: the page references files that are not in the tree:');
     for (const u of fresh.unresolved) console.error(`  - ${u.from} references ${u.reference}`);
+    process.exit(1);
+  }
+  // A refusal is a thing a browser would load and this walk cannot follow. Guessing would put a
+  // manifest on the origin that describes something other than what is served.
+  if (fresh.refused.length) {
+    console.error('build_manifest: the page does something this graph cannot follow:');
+    for (const r of fresh.refused) console.error(`  - ${r}`);
     process.exit(1);
   }
   if (process.argv.includes('--check')) {

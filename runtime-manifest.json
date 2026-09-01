@@ -3,6 +3,7 @@
  "entryPoint": "index.html",
  "fileCount": 9,
  "unresolved": [],
+ "refused": [],
  "files": {
   "assets/styles.css": "0b3a7a77cff217c2218fed43f37b733848ec1a691a03ea00a1cbc262c31791eb",
   "fixtures/subject.html": "d3f152c4870d8d7be281c28f9c53257cb27225e946ac646f8aab41ecd18b2158",
