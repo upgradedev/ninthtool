@@ -104,7 +104,7 @@ Pressed the button a visitor presses, through the same flagged Chrome:
 |---|---|
 | the page boots | 20 cards, 5 groups, 3 tools published, no blocking message |
 | tool aggregation | 5 tools visible: 3 from the page, 2 from the same origin subject frame |
-| the audit | 14 broken, 5 kept, 1 unsettled, in **4806 ms**, and the page agreed with the transcript |
+| the audit | 14 broken, 5 kept, 1 unsettled, and the page agreed with the transcript. Around **4.5 to 5 seconds**; the exact figure moves run to run and is printed by the gate rather than pinned here |
 | the ninth tool appears | 5 tools before the run, **6 after**, `nt_get_findings` present |
 | an agent reads the findings | `executeTool` returned the findings as structured JSON |
 | the ninth tool withdraws | 6 tools before clearing, **5 after**, `nt_get_findings` gone |
