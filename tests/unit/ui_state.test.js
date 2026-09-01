@@ -693,3 +693,76 @@ test('nt_run_audit refuses an argument nobody declared, and does not run', async
   assert.equal(page.el('summary').hidden, true);
   assert.equal(page.tools.size, 3);
 });
+
+/* ------------------------------------------------------- the page's own P5 row, on the page */
+
+/*
+ * THE DEFECT THIS SUITE MEASURES, IN THE SUITE'S OWN TOOLS.
+ *
+ * Behaviour P5 asks whether a read-only tool demonstrably refuses a call that breaks its own
+ * required list. `nt_explain_behaviour` declares `required: ['id']`. It was answering anyway:
+ * `onlyDeclared` filtered UNDECLARED keys and never read the schema's `required`, so `{}` passed
+ * validation, `undefined` was coerced to `''`, and the tool returned "No behaviour ...".
+ *
+ * That is why P5 abstains on this page rather than passing, and it is why `docs/evidence.md` saying
+ * "They do now" of argument checking was false. The handler comment claimed "this handler validates
+ * its own argument. Every tool on this page does." It validated half of one thing.
+ *
+ * A page that ships an auditor for this exact behaviour and then fails it is the finding. It is
+ * fixed rather than explained away, and these are the tests that hold it fixed.
+ */
+test('a tool that declares required refuses when it is missing, and says so', async (t) => {
+  const page = await mount();
+  t.after(() => page.dispose());
+
+  const result = await page.call('nt_explain_behaviour', {});
+  const said = result.content[0].text;
+
+  assert.match(said, /^Refused\./,
+    `nt_explain_behaviour declares required: ['id'] and answered without one: ${said}`);
+  assert.match(said, /\bid\b/, 'the refusal must name the argument that was missing');
+  assert.ok(!/Known ids:/.test(said),
+    'it answered the question instead of refusing, which is exactly what P5 measures');
+});
+
+test('the refusal is a result, not a throw, because B1 measured that throwing erases the reason', async (t) => {
+  const page = await mount();
+  t.after(() => page.dispose());
+
+  // Must not reject. B1 measured that a thrown error reaches the caller as UnknownError with the
+  // page's own reason gone, so every refusal on this page is a returned result.
+  const result = await page.call('nt_explain_behaviour', {});
+  assert.ok(result && result.content && result.content[0], 'the refusal was not a readable result');
+});
+
+test('a required argument present but empty is still a refusal', async (t) => {
+  const page = await mount();
+  t.after(() => page.dispose());
+
+  // The coercion that hid the defect: String(undefined || '') and String('' ) are the same value,
+  // so a check that only tested for the KEY would still answer here.
+  const said = (await page.call('nt_explain_behaviour', { id: '   ' })).content[0].text;
+  assert.match(said, /^Refused\./, `an empty required argument was accepted: ${said}`);
+});
+
+test('every property a tool declares required is one onlyDeclared actually enforces', async (t) => {
+  const page = await mount();
+  t.after(() => page.dispose());
+
+  // THE DRIFT GUARD. The defect was a schema saying `required: ['id']` while the handler enforced a
+  // different, shorter contract. This walks the SHIPPED schemas and calls each tool with that
+  // property removed, so adding a `required` to any tool without enforcing it fails here.
+  let checked = 0;
+  for (const [name, descriptor] of page.tools) {
+    const schema = descriptor && descriptor.inputSchema;
+    const required = (schema && schema.required) || [];
+    if (!required.length) continue;
+    const said = (await page.call(name, {})).content[0].text;
+    assert.match(said, /^Refused\./,
+      `${name} declares required: ${JSON.stringify(required)} but answered without them`);
+    checked += 1;
+  }
+  assert.ok(checked > 0,
+    'no tool on this page declares a required property, so this guard proved nothing. If that is '
+    + 'deliberate the guard should be deleted rather than left passing vacuously');
+});

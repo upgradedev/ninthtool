@@ -357,7 +357,7 @@ with no account reach every mandatory artifact right now?
 **It fetches the live URL and fails on anything but 200**, checks every asset that page needs, greps
 the **deployed bytes** rather than the source for the tools this README claims, and then opens the
 live origin in a real browser and presses the button a visitor presses. That last row asserts the
-audit judged all fourteen behaviours, that none was skipped, and that the conditional tool both
+audit judged all twenty behaviours, that at most two abstained, and that the conditional tool both
 appeared and withdrew.
 
 A file existence check and a regular expression over the source prove that something was written,
@@ -439,7 +439,8 @@ from documentation. Where the documentation disagrees with the measurement, the 
 documentation promised and is reported as a divergence.
 
 `tests/support/transcripts.mjs` holds the transcript that browser actually produced, transcribed
-rather than summarised, so the fourteen failures and six passes are reproducible from a checkout
+rather than summarised, so the fourteen failures, five passes and one inconclusive row reproduce
+from a checkout
 without a browser at all.
 
 ## Licence

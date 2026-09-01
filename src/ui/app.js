@@ -65,8 +65,15 @@ const VERDICT_WORD = { pass: 'HOLDS', fail: 'BROKEN', 'not-applicable': 'NOT RUN
  * WHY EVERY TOOL ON THIS PAGE CALLS THIS. Behaviour C3 measured that the browser enforces nothing
  * at all on a script registered tool: a declared `required` is ignored and a declared string
  * accepts 123. So the schema is documentation, and the only validation that exists is the one the
- * page writes. Row P5 checks whether a page did, and this page failed its own row P5 on the first
- * run that measured it: both read only tools accepted a property that was in nobody's schema.
+ * page writes. Row P5 checks whether a page did, and this page has failed its own row P5 twice.
+ *
+ * FIRST: both read only tools accepted a property that was in nobody's schema. Fixed by the unknown
+ * key filter below. SECOND, found later and worse: the fix stopped there. A declared `required` was
+ * still never read, so a tool that promised it needed an argument answered without one. The first
+ * fix made the page look like it had passed while the row it claimed to enforce still failed.
+ *
+ * Both halves run now, and `docs/evidence.md` no longer says the page checks its arguments when it
+ * checked one of the two things that phrase means.
  *
  * The refusal returns a normal result rather than throwing, because behaviour B1 measured that
  * throwing erases the message. A caller gets the reason this way, and reads it as a result, which
@@ -74,9 +81,10 @@ const VERDICT_WORD = { pass: 'HOLDS', fail: 'BROKEN', 'not-applicable': 'NOT RUN
  *
  * @param {object} input whatever the caller sent
  * @param {string[]} allowed the property names this tool declares
+ * @param {string[]} required the property names its schema says it cannot work without
  * @returns {{ok: true, value: object}|{ok: false, said: string}}
  */
-function onlyDeclared(input, allowed) {
+function onlyDeclared(input, allowed, required = []) {
   const given = input && typeof input === 'object' ? input : {};
   const unknown = Object.keys(given).filter((key) => !allowed.includes(key));
   if (unknown.length) {
@@ -86,6 +94,37 @@ function onlyDeclared(input, allowed) {
         + ` and was sent ${unknown.join(', ')}. Nothing was read and nothing changed.`,
     };
   }
+
+  /*
+   * THE HALF THAT WAS MISSING, AND IT WAS THIS PAGE'S OWN P5 ROW.
+   *
+   * This function filtered UNDECLARED keys and never read the schema's `required`. So
+   * `nt_explain_behaviour`, which declares `required: ['id']`, accepted `{}`: the missing value was
+   * coerced by `String(undefined || '')` to the empty string and the tool ANSWERED, with "No
+   * behaviour "". Known ids: ...". The handler comment above claimed every tool here validates its
+   * own argument. It validated half of one thing.
+   *
+   * P5 is the row that asks whether a read-only tool demonstrably refuses a call that breaks its own
+   * required list, so the suite was shipping an auditor for a behaviour its own page failed. That is
+   * why P5 abstains on this page, and it is the second defect this suite found in its author's page.
+   *
+   * A blank string counts as missing. Otherwise the exact coercion that hid the defect would still
+   * let `{ id: '   ' }` through, and a check that only tested for the KEY would prove nothing.
+   */
+  const missing = required.filter((key) => {
+    if (!Object.prototype.hasOwnProperty.call(given, key)) return true;
+    const value = given[key];
+    if (value === undefined || value === null) return true;
+    return typeof value === 'string' && value.trim() === '';
+  });
+  if (missing.length) {
+    return {
+      ok: false,
+      said: `Refused. This tool requires ${required.join(', ')} and ${missing.join(', ')} was `
+        + `missing or blank. Nothing was read and nothing changed.`,
+    };
+  }
+
   return { ok: true, value: given };
 }
 
@@ -145,7 +184,7 @@ function renderCard(behaviour, finding) {
   const top = text('div', 'card-top');
   top.append(text('span', 'chip', behaviour.id));
   if (verdict) top.append(text('span', 'verdict', VERDICT_WORD[verdict]));
-  // NOT "a defect in the page". Four of the six your-page rows hold, so that wording rendered a
+  // NOT "a defect in the page". Three of the six your-page rows hold, so that wording rendered a
   // green HOLDS chip beside the words "a defect" on the same line. This field names WHAT WAS
   // MEASURED, not what was concluded, and the command line runner already words it correctly.
   top.append(text('span', 'subject-tag',
@@ -474,8 +513,10 @@ async function publishStandingTools(ctx) {
     annotations: { readOnlyHint: true, untrustedContentHint: false },
     async execute(input) {
       // The browser enforces nothing on a script registered tool, which is behaviour C3, so this
-      // handler validates its own argument. Every tool on this page does.
-      const checked = onlyDeclared(input, ['id']);
+      // handler validates its own argument: both that nothing undeclared was sent, AND that the
+      // `required: ['id']` it publishes is actually present. Enforcing only the first is what made
+      // this page fail its own P5 row while reading as fixed.
+      const checked = onlyDeclared(input, ['id'], ['id']);
       if (!checked.ok) return refuse(checked.said);
       const wanted = String(checked.value.id || '').trim().toUpperCase();
       const behaviour = BEHAVIOURS.find((b) => b.id === wanted);
