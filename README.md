@@ -8,12 +8,34 @@ it appears, and it is supposed to withdraw when that state goes away. Write the 
 obvious way, with the abort signal on the descriptor rather than in the options bag, and it never
 happens, and nothing is thrown.
 
+[![CI](https://github.com/upgradedev/ninthtool/actions/workflows/ci.yml/badge.svg)](https://github.com/upgradedev/ninthtool/actions/workflows/ci.yml)
+[![Readiness](https://github.com/upgradedev/ninthtool/actions/workflows/readiness.yml/badge.svg)](https://github.com/upgradedev/ninthtool/actions/workflows/readiness.yml)
+[![Licence: MIT](https://img.shields.io/github/license/upgradedev/ninthtool)](LICENSE)
+
 **Live, no account, no install: <https://upgradedev.github.io/ninthtool/>**
 It needs a Chromium browser with WebMCP enabled at `chrome://flags/#enable-webmcp-testing`. On any
 other browser the page still renders every row and what was measured, and says why it cannot run.
 
 Also here: [the prior art search](docs/prior-art.md) that killed this project's first design, and
 [every measurement with the command that produced it](docs/evidence.md).
+
+---
+
+## Contents
+
+- [It is a WebMCP page as well as a WebMCP auditor](#it-is-a-webmcp-page-as-well-as-a-webmcp-auditor)
+- [What this is](#what-this-is)
+- [How it fits together](#how-it-fits-together)
+- [Your page](#your-page), the six rows you can fix
+- [The host](#the-host), the fourteen that are the same wherever you point it
+- [How it decides](#how-it-decides)
+- [What it is allowed to touch](#what-it-is-allowed-to-touch)
+- [Run it](#run-it)
+- [Run the checks](#run-the-checks)
+- [The readiness gate](#the-readiness-gate)
+- [Relationship to our other entry](#relationship-to-our-other-entry-and-what-was-reused)
+- [What it does not do](#what-it-does-not-do)
+- [Evidence](#evidence)
 
 ---
 
@@ -60,6 +82,70 @@ other fourteen are the host, and are the same wherever you point this. They are 
 kind of thing, and they are not all defects: three are divergences from the specification, five are
 gaps the standard cannot express, three are traps that fail silently, one is deliberate design with
 a gap around it, and two hold. Every row carries one command that reproduces it.
+
+## How it fits together
+
+Two front ends, one judge. The judge cannot reach a browser at all, which is what makes a stored
+verdict checkable by somebody who does not trust us.
+
+```mermaid
+flowchart LR
+  subgraph browser["A browser with WebMCP enabled"]
+    page["index.html<br/>publishes 3 tools,<br/>plus a 4th that withdraws"]
+    frame["fixtures/subject.html<br/>2 tools from HTML attributes"]
+    page -- "same origin frame,<br/>tools join one surface" --> frame
+  end
+
+  subgraph node["Node, no dependencies"]
+    cli["bin/ninthtool.mjs"]
+    cdp["cdp.mjs<br/>speaks the frames itself"]
+    cli --> cdp
+  end
+
+  probe["probe/observe.js<br/>gathers, decides nothing"]
+  judge["judge/verdict.js<br/>PURE. no DOM, no network,<br/>no clock"]
+  report["20 findings:<br/>expected, observed,<br/>and the command"]
+
+  page --> probe
+  cdp -- "injects the same probe<br/>into any origin" --> probe
+  probe -- "transcript" --> judge
+  judge --> report
+```
+
+The two paths meet at the transcript, so a verdict from the page and a verdict from the command line
+are the same kind of thing and can be compared. Readiness row M8 does exactly that: it fetches the
+raw transcript from the live page, judges it here, and fails if the page's own rendering disagrees.
+
+## What it is allowed to touch
+
+Every step declares a mode, and the runner refuses a mode it was not authorised for **before a
+browser is launched**. This exists because an audit pointed the runner at a page that merely used
+the same tool name as the bundled fixture and watched two forms get submitted on it.
+
+```mermaid
+flowchart TD
+  start["ninthtool &lt;url&gt;"] --> pick["select steps for the behaviours asked for,<br/>plus their declared dependencies"]
+  pick --> mode{"what does each step need?"}
+
+  mode -- "metadata<br/>reads the tool surface" --> always["always allowed"]
+  mode -- "register<br/>calls only tools we registered" --> always
+  mode -- "readonly-call<br/>calls YOUR tools" --> flagA{"--allow-tool-calls?"}
+  mode -- "fixture-form<br/>submits a form" --> flagB{"--allow-fixture-forms?"}
+
+  flagA -- no --> refuse1["refused, and the reason<br/>is printed as the finding"]
+  flagA -- yes --> run["run"]
+
+  flagB -- no --> refuse2["refused"]
+  flagB -- yes --> identity{"four identity checks:<br/>origin, document path,<br/>build marker, nonce echo"}
+  identity -- "any fails" --> refuse3["nothing is submitted,<br/>and the failing check is named"]
+  identity -- "all hold" --> run
+
+  always --> run
+```
+
+With no URL the target is the subject page this repository ships and serves itself, so both
+authorisations are on. With a URL, neither is, unless asked for by name.
+
 
 ## Your page
 
