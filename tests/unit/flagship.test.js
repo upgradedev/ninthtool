@@ -68,7 +68,7 @@ test('the README group counts agree with the catalogue', () => {
 
   // Count the table rows under each group heading by their id prefix, which is how the README
   // renders them. If a behaviour is added to the catalogue and not to the README, this fails.
-  const rowIds = [...readme.matchAll(/^\|\s*([A-D]\d)\s*\|/gm)].map((m) => m[1]);
+  const rowIds = [...readme.matchAll(/^\|\s*([A-DP]\d)\s*\|/gm)].map((m) => m[1]);
   const catalogueIds = BEHAVIOURS.filter((b) => b.group !== 'holds').map((b) => b.id);
 
   assert.deepEqual(
@@ -77,7 +77,7 @@ test('the README group counts agree with the catalogue', () => {
     'the README tables and the catalogue disagree about which behaviours exist',
   );
   assert.equal(
-    counts.specDivergence + counts.standardGap + counts.silentTrap,
+    counts.yourPage + counts.specDivergence + counts.standardGap + counts.silentTrap,
     catalogueIds.length,
   );
 });

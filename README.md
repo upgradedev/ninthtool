@@ -16,16 +16,42 @@ names, descriptions, schemas. This one **calls the tools and watches what happen
 measurements below say that is where the defects are. A page can pass every metadata linter, look
 correct in a tool inspector, and still tell an agent that a write succeeded when it was refused.
 
-Fourteen behaviours, each measured against the shipping browser, each with one command that
-reproduces it.
+Twenty behaviours. **Six read the tools your page publishes and are the ones you can fix.** The
+other fourteen are the host, and are the same wherever you point this. Every one carries one command
+that reproduces it.
 
-## The findings, and they are three different kinds of thing
+## Your page
 
-An earlier draft of this work reported one number: "the browser ignores six of these". That was an
-overstatement. Three of the six were never the browser failing to implement anything, they were
-fields that do not exist in WebMCP at all. A reader who checked one row and found it was not a
-browser defect would have been right to discount the rest. So the findings are three separate
-claims, each defensible on its own terms.
+These read the tool surface as it was **before this probe registered anything of its own**, so a
+failure here is a defect a page author can act on today. This is the group a build should go red on,
+which is what `--fail-on page` does.
+
+| # | The row | What it catches |
+|---|---|---|
+| P1 | every tool you publish says whether it writes | a tool with no `readOnlyHint` is one an agent has to guess about, and the safe guess is not to call it |
+| P2 | every tool declares a schema an agent can read | a missing or unparseable schema, in a standard where the browser validates nothing on the script path |
+| P3 | every tool and every parameter is described | an undescribed parameter is one a model fills with something plausible |
+| P4 | nothing on your surface came from a frame you may not control | anything you embed same origin can put a tool in front of an agent on your page, under your origin |
+| P5 | your read only tools notice a call that breaks their own required list | the browser ignores `required`, so the promise is yours to keep |
+| P6 | a tool you marked read only does not move state your other read tools can see | an annotation nobody checks is a promise nobody keeps |
+
+**This page fails two of its own six, and owns both.** P1 fails because two of its tools come from
+HTML forms and the standard has no way to annotate those at all, which is behaviour B4 below. P4
+fails because this page deliberately embeds a subject frame whose tools join its surface, and
+nothing on that surface says where they came from. That is the finding, not an accident.
+
+P5 also failed here on the first run that measured it, and that one was a real defect: the tools on
+this page did not check their own arguments. They do now.
+
+## The host
+
+Fourteen rows that are the same whatever page you point this at, and they are three different kinds
+of thing.
+
+An earlier draft reported one number: "the browser ignores six of these". That was an overstatement.
+Three of the six were never the browser failing to implement anything, they were fields that do not
+exist in WebMCP at all. A reader who checked one row and found it was not a browser defect would
+have been right to discount the rest. So they are separate claims, each defensible on its own terms.
 
 ### The browser diverges from the specification it implements
 
@@ -81,9 +107,10 @@ catalogue without a mutation proving its rule can fail.
 
 ## Run it
 
-Against the bundled subject page, with no arguments and no separate terminal. It starts a loopback
-server, launches your Chrome with the feature enabled in a throwaway profile, drives the page and
-prints the report:
+With no arguments and no separate terminal. It starts a loopback server, launches your Chrome with
+the feature enabled in a throwaway profile, drives this page and prints the report. It audits the
+page itself rather than the subject frame, because same origin frames contribute their tools to the
+top document, so from there both halves of the standard are on one surface at once:
 
 ```bash
 node bin/ninthtool.mjs
@@ -109,10 +136,15 @@ whenever the run completed, and `--fail-on` is how you ask for the other behavio
 node bin/ninthtool.mjs https://your-page.example --fail-on page
 ```
 
-`--fail-on page` exits 1 on a defect in the page under test and ignores facts about the browser,
-because your build should not go red over something Chrome does to everybody. `--fail-on any` exits
-1 on anything. An incomplete run always exits 3, because a behaviour that was never observed is not
-a behaviour that passed.
+`--fail-on page` exits 1 on any of the six your-page rows failing, and ignores the fourteen host
+rows, because your build should not go red over something Chrome does to everybody. `--fail-on any`
+exits 1 on anything. An incomplete run always exits 3, because a behaviour that was never observed
+is not a behaviour that passed.
+
+The probe **calls only tools your page has marked `readOnlyHint`**. A tool carrying no annotations is
+never called, and that refusal is reported as a finding, because a page that gives an auditor no way
+to know a tool is safe gives an agent no way either. Two rows submit a form, which is a write, and
+they run only against the subject page this repository ships.
 
 ## Run the checks
 

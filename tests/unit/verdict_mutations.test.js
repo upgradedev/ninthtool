@@ -85,6 +85,29 @@ const MUTATIONS = {
   D2: { what: 'the browser synthesises nothing beyond bare properties',
     break: (o) => { o.schema = '{"type":"object","properties":{"a":{"type":"string"}}}'; },
     expect: /nothing beyond bare properties/ },
+  P1: { what: 'a tool carries no annotations at all',
+    break: (o) => { o.withoutAnnotations = ['your_form_tool']; },
+    expect: /your_form_tool/ },
+
+  P2: { what: 'a schema does not parse',
+    break: (o) => { o.unusableSchemas = ['your_tool: schema did not parse, Unexpected token']; },
+    expect: /did not parse/ },
+
+  P3: { what: 'a parameter has no description',
+    break: (o) => { o.undescribedParams = ['your_tool.customer_id']; },
+    expect: /customer_id/ },
+
+  P4: { what: 'a frame put a tool on your surface',
+    break: (o) => { o.fromOtherDocuments = ['widget_tool (origin https://you.example)']; },
+    expect: /widget_tool/ },
+
+  P5: { what: 'a tool ignores its own required list',
+    break: (o) => { o.ignored = ['your_tool: omitting customer_id changed nothing']; },
+    expect: /changed nothing/ },
+
+  P6: { what: 'a read only tool moved state another one can see',
+    break: (o) => { o.moved = ['read_state changed what read_notes answers']; },
+    expect: /changed what read_notes answers/ },
 };
 
 for (const id of Object.keys(MUTATIONS)) {

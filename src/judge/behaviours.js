@@ -39,7 +39,7 @@ export const MEASURED_AGAINST = 'Chrome 152.0.7977.65';
 export const MEASURED_ON = '2026-09-01';
 
 /** The groups, in the order the page and the README present them. */
-export const GROUPS = ['spec-divergence', 'standard-gap', 'silent-trap', 'holds'];
+export const GROUPS = ['your-page', 'spec-divergence', 'standard-gap', 'silent-trap', 'holds'];
 
 /** What a check can conclude. `not-applicable` is a real answer and is never counted as a pass. */
 export const VERDICTS = ['pass', 'fail', 'not-applicable'];
@@ -140,7 +140,11 @@ export const BEHAVIOURS = Object.freeze([
   {
     id: 'B3',
     group: 'standard-gap',
-    subject: 'page',
+    // Measured by registering a tool of our own and reading it back, so this is a fact about the
+    // host and not a defect in the page under test. Six rows were labelled `page` for one commit,
+    // which would have told a reader their page was at fault for something no page can change.
+    // Whether YOUR page fell into any of these traps is the your-page group below.
+    subject: 'browser',
     title: 'The MCP annotation names do not exist in WebMCP',
     promise: 'A tool that changes something is marked destructive so an agent can be careful.',
     contract: 'None. WebMCP’s ToolAnnotations has readOnlyHint and untrustedContentHint. '
@@ -154,7 +158,7 @@ export const BEHAVIOURS = Object.freeze([
   {
     id: 'B4',
     group: 'standard-gap',
-    subject: 'page',
+    subject: 'browser',
     title: 'A declarative tool carries no annotations at all',
     promise: 'A form promoted to a tool says whether it only reads.',
     contract: 'None. There is no attribute for an annotation on the declarative half.',
@@ -182,7 +186,7 @@ export const BEHAVIOURS = Object.freeze([
   {
     id: 'C1',
     group: 'silent-trap',
-    subject: 'page',
+    subject: 'browser',
     title: 'A missing required property is filled from the control’s stale value',
     promise: 'A call that omits a required property is refused.',
     contract: 'The schema the browser itself synthesised from the markup says required: '
@@ -197,7 +201,7 @@ export const BEHAVIOURS = Object.freeze([
   {
     id: 'C2',
     group: 'silent-trap',
-    subject: 'page',
+    subject: 'browser',
     title: 'A tool withdraws only when the signal is in the options bag',
     promise: 'A conditional tool disappears when the state that justified it goes away.',
     contract: 'registerTool(tool, { signal }) then controller.abort(). '
@@ -212,7 +216,7 @@ export const BEHAVIOURS = Object.freeze([
   {
     id: 'C3',
     group: 'silent-trap',
-    subject: 'page',
+    subject: 'browser',
     title: 'The two halves of the standard validate oppositely',
     promise: 'The declared schema is enforced.',
     contract: 'One schema format, one executeTool, two ways to register.',
@@ -227,7 +231,7 @@ export const BEHAVIOURS = Object.freeze([
   {
     id: 'C4',
     group: 'silent-trap',
-    subject: 'page',
+    subject: 'browser',
     title: 'A declarative form without toolautosubmit never answers',
     promise: 'A published tool answers the agent that calls it.',
     contract: 'toolautosubmit makes an agent’s call fill the controls and submit. Without it the '
@@ -267,6 +271,103 @@ export const BEHAVIOURS = Object.freeze([
       + 'toolparamdescription.',
     why: 'The migration path for a page that already has a form is real, and this row says so.',
     reproduce: 'node bin/ninthtool.mjs --behaviour D2',
+  },
+  // ---------------------------------------------------------------- your page
+  // Everything above measures the host: register a tool, call it, watch what the browser does, and
+  // the answer is the same whatever page you point this at. The rows below are different. They read
+  // the tools YOUR page publishes, snapshotted before this probe registers anything of its own, and
+  // they are the rows a build should go red on.
+  //
+  // THE PROBE CALLS ONLY WHAT THE PAGE MARKS READ ONLY. A tool carrying no annotations is never
+  // called, and that refusal is itself reported, because a page that gives an auditor no way to
+  // know a tool is safe gives an agent no way either.
+  {
+    id: 'P1',
+    group: 'your-page',
+    subject: 'page',
+    title: 'Every tool you publish says whether it writes',
+    promise: 'An agent can tell a tool that reads from a tool that changes something.',
+    contract: 'ToolAnnotations carries readOnlyHint, default false. The declarative half has no '
+      + 'attribute for it at all.',
+    measured: 'Script registered tools return an annotations object. Form derived tools return '
+      + 'undefined, so half the standard cannot say this.',
+    why: 'A tool with no readOnlyHint is a tool an agent has to guess about, and the safe guess '
+      + 'stops it using your page at all.',
+    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P1',
+  },
+  {
+    id: 'P2',
+    group: 'your-page',
+    subject: 'page',
+    title: 'Every tool you publish declares a schema an agent can read',
+    promise: 'A model knows what arguments a tool takes before it calls it.',
+    contract: 'RegisteredTool.inputSchema, a JSON Schema object at registration and a string when '
+      + 'read back in Chrome.',
+    measured: 'Chrome returns the schema as a JSON string, so a missing, empty or unparseable one '
+      + 'is visible from outside the page.',
+    why: 'A tool with no properties accepts anything, and the browser validates nothing at all on '
+      + 'the script path, so the schema is the only contract there is.',
+    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P2',
+  },
+  {
+    id: 'P3',
+    group: 'your-page',
+    subject: 'page',
+    title: 'Every tool you publish describes itself, and every parameter is described',
+    promise: 'A model can choose the right tool and fill it in without guessing.',
+    contract: 'description on the tool, and description on each schema property. The declarative '
+      + 'half takes them from tooldescription and toolparamdescription.',
+    measured: 'Both survive registration on both halves of the standard, so an absent one is the '
+      + 'page not writing it.',
+    why: 'This is the one thing existing WebMCP checkers look at, and it is still worth checking, '
+      + 'because an undescribed parameter is a parameter a model fills with something plausible.',
+    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P3',
+  },
+  {
+    id: 'P4',
+    group: 'your-page',
+    subject: 'page',
+    title: 'Your tool surface carries nothing registered by a frame you may not control',
+    promise: 'The tools on your page are the tools you registered.',
+    contract: 'Tools registered in a same origin frame join the top document tool list. A cross '
+      + 'origin frame contributes nothing unless it is given allow="tools".',
+    measured: 'A same origin frame contributed three tools to the top document list, each carrying '
+      + 'tool.window pointing at that frame. A cross origin frame contributed zero.',
+    why: 'Anything you embed same origin can put a tool in front of an agent on your page, under '
+      + 'your origin, and nothing on the surface says it came from somewhere else.',
+    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P4',
+  },
+  {
+    id: 'P5',
+    group: 'your-page',
+    subject: 'page',
+    title: 'Your read only tools notice a call that breaks their own required list',
+    promise: 'A tool enforces the schema it published, because the browser does not.',
+    contract: 'None on the script path, where the browser enforces nothing at all. A required array '
+      + 'in your schema is a promise only your handler can keep.',
+    measured: 'A script registered tool declaring required: ["a"] was called with an empty object '
+      + 'and the handler received it unchanged, so nothing but the page can refuse it.',
+    why: 'Unvalidated arguments from a model are unvalidated input from a stranger. An earlier draft '
+      + 'of this row sent a property that was not in the schema at all, which was wrong: JSON Schema '
+      + 'allows additional properties unless you say otherwise, so accepting one is not a defect. '
+      + 'Breaking your own required list is. This row calls only tools you marked read only, twice '
+      + 'each, once well formed and once omitting a required property, and reports the tools that '
+      + 'answered both the same way.',
+    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P5',
+  },
+  {
+    id: 'P6',
+    group: 'your-page',
+    subject: 'page',
+    title: 'A tool you marked read only does not move state your other read tools can see',
+    promise: 'readOnlyHint is true when it says it is.',
+    contract: 'readOnlyHint, default false, says the tool does not modify its environment.',
+    measured: 'Checked as a differential: read every read only tool, call each one, read them all '
+      + 'again, and report any whose answer changed after a call that claimed to change nothing.',
+    why: 'An annotation nobody checks is a promise nobody keeps, and an agent that trusts a false '
+      + 'readOnlyHint will call it freely. This closes only when your page has read tools covering '
+      + 'the state a write would move, and says so plainly when it does not.',
+    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P6',
   },
 ]);
 
@@ -308,6 +409,7 @@ export function headlineCounts() {
     standardGap: behavioursInGroup('standard-gap').length,
     silentTrap: behavioursInGroup('silent-trap').length,
     holds: behavioursInGroup('holds').length,
+    yourPage: behavioursInGroup('your-page').length,
     browserSubject: BEHAVIOURS.filter((b) => b.subject === 'browser').length,
     pageSubject: BEHAVIOURS.filter((b) => b.subject === 'page').length,
   };

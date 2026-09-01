@@ -35,7 +35,11 @@ node bin/ninthtool.mjs --behaviour B1
 ## What was measured, on the day
 
 Both surfaces, the page and the command line runner, produced the same verdict:
-**12 of 14 promises broken, 2 kept, 0 unobserved.**
+**14 of 20 promises broken, 6 kept, 0 unobserved.**
+
+Fourteen of the twenty are facts about the host and are the same wherever you point this. The six in
+the your-page group read the tools the page under test published, snapshotted before the probe
+registered anything of its own.
 
 | id | verdict | what was observed |
 |---|---|---|
@@ -53,6 +57,25 @@ Both surfaces, the page and the command line runner, produced the same verdict:
 | C4 | broken | never settled, still pending after 2502 ms |
 | D1 | **holds** | 1 event on register, 1 on withdraw |
 | D2 | **holds** | synthesised descriptions, numeric bounds, enum and a required list |
+| P1 | broken | 2 of 5 tools carry no annotations at all: `nt_form_answers`, `nt_form_silent` |
+| P2 | **holds** | all 5 schemas parsed |
+| P3 | **holds** | all 5 tools and every parameter described |
+| P4 | broken | 2 tools came from another same origin document, the subject frame |
+| P5 | **holds** | the one read only tool that declares `required` answered differently when it was omitted |
+| P6 | **holds** | 2 read only tools, neither changed what the other answers |
+
+**Two of those six failures are this page's own, and both are owned rather than hidden.** P1 fails
+because two of its tools come from HTML forms and the standard has no way to annotate those, which
+is B4. P4 fails because this page deliberately embeds a subject frame whose tools join its surface.
+
+**P5 failed here on the first run that measured it, and that one was a real defect.** The tools on
+this page did not check their own arguments, in a standard where the browser checks nothing on the
+script path. They do now.
+
+An earlier version of P5 sent a property that was in no schema at all and called acceptance a
+failure. That was wrong: JSON Schema allows additional properties unless a schema says otherwise, so
+accepting one is not a defect. The row now breaks the tool's own `required` list, which is a promise
+the schema actually makes.
 
 ## The page, driven end to end
 
@@ -60,9 +83,9 @@ Pressed the button a visitor presses, through the same flagged Chrome:
 
 | step | result |
 |---|---|
-| the page boots | 14 cards, 4 groups, 3 tools published, no blocking message |
+| the page boots | 20 cards, 5 groups, 3 tools published, no blocking message |
 | tool aggregation | 5 tools visible: 3 from the page, 2 from the same origin subject frame |
-| the audit | 12 broken, 2 kept, 0 unobserved, in **4033 ms** |
+| the audit | 14 broken, 6 kept, 0 unobserved, in **4920 ms** |
 | the ninth tool appears | 5 tools before the run, **6 after**, `nt_get_findings` present |
 | an agent reads the findings | `executeTool` returned the findings as structured JSON |
 | the ninth tool withdraws | 6 tools before clearing, **5 after**, `nt_get_findings` gone |

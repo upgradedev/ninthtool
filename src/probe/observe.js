@@ -63,6 +63,125 @@ function call(ctx, tool, args) {
   return ctx.executeTool(tool, JSON.stringify(args === undefined ? {} : args));
 }
 
+
+
+/**
+ * The tool list, once it has stopped changing.
+ *
+ * Polls until two consecutive reads agree, then once more after a quiet interval, up to the
+ * deadline. It returns whatever it has when the deadline passes rather than throwing, because a
+ * page whose surface never settles is itself a thing worth reporting, and the row that reads this
+ * will say what it saw.
+ *
+ * @param {object} ctx
+ * @param {number} [quietMs] how long the list must stay unchanged
+ * @param {number} [timeoutMs]
+ */
+async function settledTools(ctx, quietMs = 600, timeoutMs = 6000) {
+  const started = Date.now();
+  let previous = null;
+  let stableSince = null;
+  let tools = await ctx.getTools();
+  while (Date.now() - started < timeoutMs) {
+    tools = await ctx.getTools();
+    const signature = tools.map((t) => String(t.name)).sort().join('|');
+    if (signature === previous) {
+      if (stableSince === null) stableSince = Date.now();
+      if (Date.now() - stableSince >= quietMs) return tools;
+    } else {
+      previous = signature;
+      stableSince = null;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  return tools;
+}
+
+/**
+ * Read the tools the page publishes, BEFORE this probe registers anything of its own.
+ *
+ * ORDER IS THE WHOLE POINT. Every browser row below works by registering a throwaway tool and
+ * watching what the host does with it. If the page's own surface were read afterwards it would
+ * contain the probe's tools, and every finding about "your tools" would be partly a finding about
+ * ours. So this runs first, once, and everything in the your-page group is judged against this
+ * snapshot rather than against the live list.
+ *
+ * `window` is compared rather than stored, because a Window cannot cross the boundary back to a
+ * caller. What travels is whether it was this document or another one, and the origin.
+ *
+ * @param {object} ctx
+ * @returns {Promise<object[]>} one plain record per tool the page published
+ */
+async function snapshotPageTools(ctx) {
+  // WAIT FOR THE SURFACE TO SETTLE FIRST. A page registers its tools from a module that runs after
+  // load, so reading the list the moment the document is complete catches a half built surface.
+  // Measured on this suite's own page: the snapshot saw two tools when the page publishes five.
+  // The list is therefore polled until it stops changing, and only then read.
+  const tools = await settledTools(ctx);
+  const here = typeof window === 'undefined' ? null : window;
+  return tools.map((tool) => {
+    let schema = null;
+    let schemaError = null;
+    try {
+      schema = typeof tool.inputSchema === 'string' ? JSON.parse(tool.inputSchema) : tool.inputSchema;
+    } catch (error) {
+      schemaError = String((error && error.message) || error);
+    }
+    let fromThisDocument = null;
+    try { fromThisDocument = tool.window === here; } catch { fromThisDocument = null; }
+    return {
+      name: String(tool.name),
+      description: String(tool.description === undefined ? '' : tool.description),
+      title: String(tool.title === undefined ? '' : tool.title),
+      origin: String(tool.origin === undefined ? '' : tool.origin),
+      annotationsTypeof: typeof tool.annotations,
+      readOnlyHint: tool.annotations ? tool.annotations.readOnlyHint : undefined,
+      untrustedContentHint: tool.annotations ? tool.annotations.untrustedContentHint : undefined,
+      schema,
+      schemaError,
+      // A form derived tool carries no annotations at all, measured on every one of them. That is
+      // the only discriminator the surface offers, so it is the one used, and it is named here
+      // rather than buried at the call site.
+      looksDeclarative: typeof tool.annotations === 'undefined',
+      fromThisDocument,
+    };
+  });
+}
+
+/**
+ * Build one well formed argument object from a tool's own schema.
+ *
+ * Only the shapes a synthesised value can be trusted for: a string, a number inside its bounds, a
+ * boolean, and an enum's first option. Anything else is left out, which may make the call
+ * incomplete, and that is why P5 compares two calls rather than judging one. A value invented for a
+ * property this code does not understand would be worse than an absent one.
+ *
+ * @param {object} schema
+ * @returns {object}
+ */
+function synthesiseArguments(schema) {
+  const out = {};
+  const properties = (schema && schema.properties) || {};
+  const required = Array.isArray(schema && schema.required) ? schema.required : [];
+  for (const key of Object.keys(properties)) {
+    const property = properties[key] || {};
+    if (Array.isArray(property.enum) && property.enum.length) { out[key] = property.enum[0]; continue; }
+    if (property.type === 'string') { out[key] = 'ninthtool'; continue; }
+    if (property.type === 'number' || property.type === 'integer') {
+      const low = typeof property.minimum === 'number' ? property.minimum : 1;
+      const high = typeof property.maximum === 'number' ? property.maximum : low + 1;
+      out[key] = Math.min(high, Math.max(low, low));
+      continue;
+    }
+    if (property.type === 'boolean') { out[key] = false; continue; }
+    // Unknown shape. Include it only if the tool says it is required, so the call is at least
+    // structurally complete, and use a string, which is what a model would most likely send.
+    if (required.includes(key)) out[key] = 'ninthtool';
+  }
+  return out;
+}
+
+
 /**
  * Exercise everything and return a transcript.
  *
@@ -73,6 +192,16 @@ function call(ctx, tool, args) {
 export async function observeAll(ctx, meta = {}) {
   const observations = {};
   const errors = [];
+
+  // BEFORE ANYTHING ELSE. Read the page's own surface while it is still only the page's own
+  // surface. Everything in the your-page group is judged against this.
+  let pageTools = [];
+  try {
+    pageTools = await snapshotPageTools(ctx);
+  } catch (error) {
+    errors.push(`could not read the page's own tools: ${String((error && error.message) || error)}`);
+  }
+
   const controller = new AbortController();
   const opts = { signal: controller.signal };
 
@@ -338,21 +467,34 @@ export async function observeAll(ctx, meta = {}) {
     });
 
     // ------------------------------- B4, C1, C4, D2: the declarative half, from the fixture
+    // B4 and D2 read a form derived tool. They prefer the fixture's, and fall back to whatever
+    // declarative tool the page publishes, so they still measure something on a page of your own.
+    const declarativeName = (pageTools.find((t) => t.name === FIXTURE_FORM_ANSWERS)
+      || pageTools.find((t) => t.looksDeclarative) || {}).name || null;
+
     await step('B4', async () => {
-      const form = await toolNamed(ctx, FIXTURE_FORM_ANSWERS);
-      if (!form) throw new Error(`no fixture form named ${FIXTURE_FORM_ANSWERS} on this page`);
-      return { annotationsTypeof: typeof form.annotations };
+      if (!declarativeName) throw new Error('this page publishes no form derived tool, so there is nothing to read');
+      const form = await toolNamed(ctx, declarativeName);
+      if (!form) throw new Error(`${declarativeName} left the surface before it could be read`);
+      return { annotationsTypeof: typeof form.annotations, toolName: declarativeName };
     });
 
     await step('D2', async () => {
-      const form = await toolNamed(ctx, FIXTURE_FORM_ANSWERS);
-      if (!form) throw new Error(`no fixture form named ${FIXTURE_FORM_ANSWERS} on this page`);
-      return { schema: form.inputSchema };
+      if (!declarativeName) throw new Error('this page publishes no form derived tool, so there is no synthesised schema to read');
+      const form = await toolNamed(ctx, declarativeName);
+      if (!form) throw new Error(`${declarativeName} left the surface before it could be read`);
+      return { schema: form.inputSchema, toolName: declarativeName };
     });
 
     await step('C1', async () => {
+      // THIS ROW SUBMITS A FORM, WHICH IS A WRITE. It is therefore measured only against the
+      // subject page this suite ships, never against a page somebody else owns. On any other page
+      // it reports not applicable with this reason, which is the honest answer and also the rule.
       const form = await toolNamed(ctx, FIXTURE_FORM_ANSWERS);
-      if (!form) throw new Error(`no fixture form named ${FIXTURE_FORM_ANSWERS} on this page`);
+      if (!form) {
+        throw new Error(`measuring this submits a form, so it runs only against the bundled subject `
+          + `page, which publishes ${FIXTURE_FORM_ANSWERS}. Nothing was called on this page`);
+      }
       // First a complete call, which leaves values in the controls.
       const seeded = 'M. Okafor';
       await settle(call(ctx, form, { witness_name: seeded, age: 40, severity: 'dent' }), SETTLE_TIMEOUT_MS);
@@ -368,10 +510,152 @@ export async function observeAll(ctx, meta = {}) {
     });
 
     await step('C4', async () => {
+      // Same rule as C1: calling an unannotated form tool could submit it, so this runs only
+      // against the subject page this suite ships.
       const silent = await toolNamed(ctx, FIXTURE_FORM_SILENT);
-      if (!silent) throw new Error(`no fixture form named ${FIXTURE_FORM_SILENT} on this page`);
+      if (!silent) {
+        throw new Error(`measuring this calls a form tool that carries no annotations, so it runs `
+          + `only against the bundled subject page, which publishes ${FIXTURE_FORM_SILENT}`);
+      }
       const outcome = await settle(call(ctx, silent, { anything: 'x' }), SETTLE_TIMEOUT_MS);
       return { settled: outcome.settled, waitedMs: outcome.waitedMs };
+    });
+
+    /* ---------------------------------------------------------------- your page
+     * Judged against `pageTools`, the snapshot taken before this probe registered anything.
+     * Every row throws rather than guesses when the page published nothing, so a page with no
+     * WebMCP at all reports `not applicable` with the reason instead of a clean sheet.
+     */
+    const requireTools = () => {
+      if (!pageTools.length) {
+        throw new Error('this page publishes no WebMCP tools, so there is nothing of yours to check');
+      }
+      return pageTools;
+    };
+
+    await step('P1', async () => {
+      const tools = requireTools();
+      const noAnnotations = tools.filter((t) => t.annotationsTypeof !== 'object').map((t) => t.name);
+      const noHint = tools
+        .filter((t) => t.annotationsTypeof === 'object' && typeof t.readOnlyHint !== 'boolean')
+        .map((t) => t.name);
+      return {
+        toolCount: tools.length,
+        withoutAnnotations: noAnnotations,
+        withoutReadOnlyHint: noHint,
+        readOnlyCount: tools.filter((t) => t.readOnlyHint === true).length,
+      };
+    });
+
+    await step('P2', async () => {
+      const tools = requireTools();
+      const bad = [];
+      for (const tool of tools) {
+        if (tool.schemaError) { bad.push(`${tool.name}: schema did not parse, ${tool.schemaError}`); continue; }
+        if (!tool.schema || typeof tool.schema !== 'object') { bad.push(`${tool.name}: no schema`); continue; }
+        if (tool.schema.type !== 'object') bad.push(`${tool.name}: schema type is ${JSON.stringify(tool.schema.type)}, not object`);
+      }
+      return { toolCount: tools.length, unusableSchemas: bad };
+    });
+
+    await step('P3', async () => {
+      const tools = requireTools();
+      const undescribedTools = tools.filter((t) => t.description.trim().length < 10).map((t) => t.name);
+      const undescribedParams = [];
+      for (const tool of tools) {
+        const properties = (tool.schema && tool.schema.properties) || {};
+        for (const key of Object.keys(properties)) {
+          const property = properties[key] || {};
+          if (typeof property.description !== 'string' || property.description.trim() === '') {
+            undescribedParams.push(`${tool.name}.${key}`);
+          }
+        }
+      }
+      return { toolCount: tools.length, undescribedTools, undescribedParams };
+    });
+
+    await step('P4', async () => {
+      const tools = requireTools();
+      const elsewhere = tools
+        .filter((t) => t.fromThisDocument === false)
+        .map((t) => `${t.name} (origin ${t.origin})`);
+      return { toolCount: tools.length, fromOtherDocuments: elsewhere };
+    });
+
+    await step('P5', async () => {
+      const tools = requireTools();
+      const readOnly = tools.filter((t) => t.readOnlyHint === true);
+      const skipped = tools
+        .filter((t) => t.readOnlyHint !== true)
+        .map((t) => `${t.name}: ${t.annotationsTypeof === 'object' ? 'not marked readOnlyHint' : 'carries no annotations'}`);
+
+      const testable = [];
+      for (const record of readOnly) {
+        const required = (record.schema && Array.isArray(record.schema.required)) ? record.schema.required : [];
+        if (!required.length) {
+          skipped.push(`${record.name}: declares no required properties, so there is nothing to break`);
+          continue;
+        }
+        testable.push(record);
+      }
+
+      const ignored = [];
+      const noticed = [];
+      for (const record of testable) {
+        const tool = await toolNamed(ctx, record.name);
+        if (!tool) continue;
+        // A well formed call, built from the tool's own schema, and the same call with one required
+        // property removed. Two read only calls, nothing else touched.
+        const wellFormed = synthesiseArguments(record.schema);
+        const broken = { ...wellFormed };
+        delete broken[record.schema.required[0]];
+
+        const good = await settle(call(ctx, tool, wellFormed), SETTLE_TIMEOUT_MS);
+        const bad = await settle(call(ctx, tool, broken), SETTLE_TIMEOUT_MS);
+
+        const goodText = good.settled === 'resolved' ? String(good.value ?? '') : `[${good.settled}]`;
+        const badText = bad.settled === 'resolved' ? String(bad.value ?? '') : `[${bad.settled}]`;
+        if (bad.settled === 'rejected' || badText !== goodText) {
+          noticed.push(`${record.name}: ${bad.settled === 'rejected' ? 'refused' : 'answered differently'}`);
+        } else {
+          ignored.push(`${record.name}: omitting ${record.schema.required[0]} changed nothing`);
+        }
+      }
+
+      return { attempted: testable.map((t) => t.name), ignored, noticed, skipped };
+    });
+
+    await step('P6', async () => {
+      const tools = requireTools();
+      const readOnly = tools.filter((t) => t.readOnlyHint === true);
+      if (readOnly.length < 2) {
+        throw new Error(`this page publishes ${readOnly.length} read only tool(s), and a differential `
+          + 'needs at least two: one to call and one to read the state with');
+      }
+      const readAll = async () => {
+        const seen = {};
+        for (const record of readOnly) {
+          const tool = await toolNamed(ctx, record.name);
+          if (!tool) continue;
+          const outcome = await settle(call(ctx, tool, {}), SETTLE_TIMEOUT_MS);
+          seen[record.name] = outcome.settled === 'resolved' ? String(outcome.value ?? '') : `[${outcome.settled}]`;
+        }
+        return seen;
+      };
+      const before = await readAll();
+      const moved = [];
+      for (const record of readOnly) {
+        const tool = await toolNamed(ctx, record.name);
+        if (!tool) continue;
+        await settle(call(ctx, tool, {}), SETTLE_TIMEOUT_MS);
+        const after = await readAll();
+        for (const oracle of Object.keys(before)) {
+          if (oracle === record.name) continue;
+          if (after[oracle] !== before[oracle]) moved.push(`${record.name} changed what ${oracle} answers`);
+          before[oracle] = after[oracle];
+        }
+      }
+      return { oracleCount: readOnly.length, oracles: readOnly.map((t) => t.name), moved };
     });
   } finally {
     // Whatever happened, take the probe's own tools back off the surface.
@@ -386,6 +670,16 @@ export async function observeAll(ctx, meta = {}) {
     },
     observations,
     errors,
+    // The page's own surface, as it was before this probe touched it. A reader can check every
+    // your-page finding against this without rerunning anything.
+    pageTools: pageTools.map((tool) => ({
+      name: tool.name,
+      origin: tool.origin,
+      readOnlyHint: tool.readOnlyHint,
+      annotations: tool.annotationsTypeof,
+      declarative: tool.looksDeclarative,
+      fromThisDocument: tool.fromThisDocument,
+    })),
   };
 }
 

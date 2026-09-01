@@ -56,6 +56,17 @@ export function conforming() {
           + '"severity":{"type":"string","enum":["dent","write_off"],"description":"How bad."}},'
           + '"required":["witness_name"]}',
       },
+      P1: { toolCount: 3, withoutAnnotations: [], withoutReadOnlyHint: [], readOnlyCount: 2 },
+      P2: { toolCount: 3, unusableSchemas: [] },
+      P3: { toolCount: 3, undescribedTools: [], undescribedParams: [] },
+      P4: { toolCount: 3, fromOtherDocuments: [] },
+      P5: {
+        attempted: ['read_state', 'read_notes'],
+        ignored: [],
+        noticed: ['read_state: refused', 'read_notes: refused'],
+        skipped: [],
+      },
+      P6: { oracleCount: 2, oracles: ['read_state', 'read_notes'], moved: [] },
     },
   };
 }
@@ -123,6 +134,32 @@ export function measuredChrome152() {
           + '{"type":"string","const":"write_off","title":"write_off"}],"enum":["dent","write_off"],'
           + '"description":"How bad."}},"required":["witness_name"]}',
       },
+      // The your-page rows, measured against this suite's own page on 2026-09-01. Two fail, and
+      // both are owned rather than hidden: P1 because the standard has no way to annotate a form
+      // derived tool, which is behaviour B4, and P4 because this page deliberately embeds a subject
+      // frame whose tools join its surface, which is the finding rather than an accident.
+      P1: {
+        toolCount: 5,
+        withoutAnnotations: ['nt_form_answers', 'nt_form_silent'],
+        withoutReadOnlyHint: [],
+        readOnlyCount: 2,
+      },
+      P2: { toolCount: 5, unusableSchemas: [] },
+      P3: { toolCount: 5, undescribedTools: [], undescribedParams: [] },
+      P4: {
+        toolCount: 5,
+        fromOtherDocuments: ['nt_form_answers (origin http://127.0.0.1:57361)',
+          'nt_form_silent (origin http://127.0.0.1:57361)'],
+      },
+      P5: {
+        attempted: ['nt_explain_behaviour'],
+        ignored: [],
+        noticed: ['nt_explain_behaviour: answered differently'],
+        skipped: ['nt_form_answers: carries no annotations', 'nt_form_silent: carries no annotations',
+          'nt_run_audit: not marked readOnlyHint',
+          'nt_list_behaviours: declares no required properties, so there is nothing to break'],
+      },
+      P6: { oracleCount: 2, oracles: ['nt_explain_behaviour', 'nt_list_behaviours'], moved: [] },
     },
   };
 }
@@ -131,7 +168,8 @@ export function measuredChrome152() {
  * The ids Chrome 152 failed, written out rather than computed, so that a change in the judge that
  * quietly moves one of them breaks a test instead of rewriting the headline.
  */
-export const CHROME_152_FAILURES = Object.freeze(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'B4', 'B5', 'C1', 'C2', 'C3', 'C4']);
+export const CHROME_152_FAILURES = Object.freeze(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'B4', 'B5',
+  'C1', 'C2', 'C3', 'C4', 'P1', 'P4']);
 
 /** The ids Chrome 152 kept. Same reasoning. */
-export const CHROME_152_PASSES = Object.freeze(['D1', 'D2']);
+export const CHROME_152_PASSES = Object.freeze(['D1', 'D2', 'P2', 'P3', 'P5', 'P6']);

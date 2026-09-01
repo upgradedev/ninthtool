@@ -228,6 +228,114 @@ const RULES = {
       observed: unique.length ? `synthesised: ${unique.join(', ')}` : 'nothing beyond bare properties',
     };
   },
+  /* ---------------------------------------------------------------- your page
+   * These read the tools the page published before the probe registered anything of its own, so a
+   * failure here is a defect a page author can fix today. Everything above is the host.
+   */
+
+  /** Held when every published tool says whether it writes. */
+  P1(o) {
+    need(o, ['toolCount', 'withoutAnnotations', 'withoutReadOnlyHint']);
+    if (Number(o.toolCount) === 0) throw new Error('this page publishes no tools');
+    const silent = asArray(o.withoutAnnotations);
+    const hintless = asArray(o.withoutReadOnlyHint);
+    return {
+      held: silent.length === 0 && hintless.length === 0,
+      expected: `all ${o.toolCount} tools carry a readOnlyHint`,
+      observed: silent.length || hintless.length
+        ? [
+          silent.length ? `${silent.length} carry no annotations at all: ${silent.join(', ')}` : '',
+          hintless.length ? `${hintless.length} carry annotations without readOnlyHint: ${hintless.join(', ')}` : '',
+        ].filter(Boolean).join('; ')
+        : `all ${o.toolCount} tools say whether they write, ${o.readOnlyCount} are read only`,
+    };
+  },
+
+  /** Held when every published tool declares a schema a consumer can actually read. */
+  P2(o) {
+    need(o, ['toolCount', 'unusableSchemas']);
+    if (Number(o.toolCount) === 0) throw new Error('this page publishes no tools');
+    const bad = asArray(o.unusableSchemas);
+    return {
+      held: bad.length === 0,
+      expected: `all ${o.toolCount} tools declare a readable object schema`,
+      observed: bad.length ? `${bad.length} unusable: ${bad.join('; ')}` : `all ${o.toolCount} schemas parsed`,
+    };
+  },
+
+  /** Held when every tool and every parameter carries a description a model can use. */
+  P3(o) {
+    need(o, ['toolCount', 'undescribedTools', 'undescribedParams']);
+    if (Number(o.toolCount) === 0) throw new Error('this page publishes no tools');
+    const tools = asArray(o.undescribedTools);
+    const params = asArray(o.undescribedParams);
+    return {
+      held: tools.length === 0 && params.length === 0,
+      expected: 'every tool and every parameter is described',
+      observed: tools.length || params.length
+        ? [
+          tools.length ? `${tools.length} tools with no usable description: ${tools.join(', ')}` : '',
+          params.length ? `${params.length} undescribed parameters: ${params.join(', ')}` : '',
+        ].filter(Boolean).join('; ')
+        : `all ${o.toolCount} tools and every parameter described`,
+    };
+  },
+
+  /** Held when nothing on the surface was registered by another document. */
+  P4(o) {
+    need(o, ['toolCount', 'fromOtherDocuments']);
+    if (Number(o.toolCount) === 0) throw new Error('this page publishes no tools');
+    const elsewhere = asArray(o.fromOtherDocuments);
+    return {
+      held: elsewhere.length === 0,
+      expected: 'every tool on the surface was registered by this document',
+      observed: elsewhere.length
+        ? `${elsewhere.length} came from another same origin document: ${elsewhere.join(', ')}`
+        : `all ${o.toolCount} tools were registered by this document`,
+    };
+  },
+
+  /**
+   * Held when no read only tool accepted a property that is in nobody's schema.
+   *
+   * A page with no read only tools cannot be measured here and says so, because calling a tool the
+   * page has not marked safe is the one thing this probe will not do.
+   */
+  P5(o) {
+    need(o, ['attempted', 'ignored', 'noticed', 'skipped']);
+    const attempted = asArray(o.attempted);
+    const ignored = asArray(o.ignored);
+    const noticed = asArray(o.noticed);
+    const skipped = asArray(o.skipped);
+    if (attempted.length === 0) {
+      throw new Error('no tool on this page is both marked readOnlyHint and declares a required '
+        + `property, and this probe calls nothing else. Skipped: ${skipped.join('; ') || 'nothing'}`);
+    }
+    return {
+      held: ignored.length === 0,
+      expected: `all ${attempted.length} read only tools notice a call that omits a required property`,
+      observed: ignored.length
+        ? `${ignored.length} of ${attempted.length} did not: ${ignored.join('; ')}`
+        : `all ${attempted.length} noticed: ${noticed.join('; ')}`,
+    };
+  },
+
+  /** Held when no read only tool changed what another read only tool answers. */
+  P6(o) {
+    need(o, ['oracleCount', 'oracles', 'moved']);
+    const moved = asArray(o.moved);
+    if (Number(o.oracleCount) < 2) {
+      throw new Error('a differential needs at least two read only tools, one to call and one to '
+        + 'read the state with');
+    }
+    return {
+      held: moved.length === 0,
+      expected: `none of the ${o.oracleCount} read only tools moves state another one can see`,
+      observed: moved.length
+        ? `${moved.length} moved something: ${moved.join('; ')}`
+        : `${o.oracleCount} read only tools, none changed what another answers`,
+    };
+  },
 };
 
 /** Throw rather than guess when the transcript is missing a field the rule needs. */
@@ -321,6 +429,9 @@ export function judge(transcript) {
   return {
     findings,
     counts,
+    // The page's own surface as it was before the probe touched it. Every your-page finding is
+    // checkable against this without rerunning anything.
+    pageTools: Array.isArray(transcript && transcript.pageTools) ? transcript.pageTools : [],
     environment: {
       url: meta.url === undefined ? null : String(meta.url),
       userAgent: meta.userAgent === undefined ? null : String(meta.userAgent),

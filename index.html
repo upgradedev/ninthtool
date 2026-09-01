@@ -73,9 +73,28 @@
     <p>To audit a page on another origin, run the command line runner against it from a machine you
       control:</p>
     <pre class="cmd"><code>node bin/ninthtool.mjs https://your-page.example</code></pre>
-    <p>No writes, anywhere, ever. The probe calls only tools it registered itself, plus the two
-      forms this subject page declares. No account, no backend, no crawling, and no verdict is
-      published about anybody's named page.</p>
+    <p><strong>The probe calls only tools your page marks <code>readOnlyHint</code>.</strong> A tool
+      carrying no annotations is never called, and that refusal is reported as a finding, because a
+      page that gives an auditor no way to know a tool is safe gives an agent no way either. Two
+      rows submit a form, which is a write, and they run only against the subject page this suite
+      ships. No account, no backend, no crawling, and no verdict is published about anybody's named
+      page.</p>
+  </section>
+
+  <section class="honesty" aria-labelledby="own-h">
+    <h2 id="own-h" class="section-h">This page fails two of its own rows</h2>
+    <p><strong>P1</strong> fails because two of the tools on this surface come from HTML forms, and
+      the standard has no way to annotate a form derived tool at all. That is behaviour B4 above. It
+      is not something this page can fix, and pretending otherwise by hiding the row would be the
+      dishonesty this whole suite exists to catch.</p>
+    <p><strong>P4</strong> fails because this page deliberately embeds a subject frame, and that
+      frame's tools join this page's surface under this page's origin. Nothing on the surface says
+      where they came from. That is the finding, not an accident, and it is worth seeing on a page
+      that admits it before you find it on one that does not.</p>
+    <p><strong>P5 failed here too, on the first run that measured it, and that one was a real
+      defect.</strong> The tools on this page did not check their own arguments, in a standard where
+      the browser checks nothing on the script path. They do now, and the row is green. The suite
+      found it in its own author's code, which is the most useful thing it has done so far.</p>
   </section>
 
   <section class="honesty" aria-labelledby="hon-h">
