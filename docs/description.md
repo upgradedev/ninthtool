@@ -109,8 +109,9 @@ could ever have told one of those pages from another, against a threshold of thr
 anyone looked, and both of those two were switched off by the run's own read only default. The bar
 could not be cleared by any result, which is a defect in the protocol rather than a measurement of
 what this tool reaches. Authorising those two rows on the four pages that published a read only tool
-then settled it: both told one page from another, and two of the pages declare a required argument
-and answer identically when it is left out, which is not visible without calling the tool twice. The protocol was written and committed before any page ran, the failure
+moved them from abstaining everywhere to settling somewhere, and neither varied across the pages it
+settled on. Two findings it did report were then checked against those pages' own source and
+retracted as defects in this tool, with the handler lines cited. The protocol was written and committed before any page ran, the failure
 is published in `evidence/impact/results.md`, and the primary metric was not changed afterwards to
 make it read better. The same author has
 a second entry, ClaimReady; exactly one file is shared, a 200 line DevTools client, and the README

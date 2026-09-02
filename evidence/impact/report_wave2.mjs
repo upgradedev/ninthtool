@@ -58,6 +58,10 @@ if (!runs.length) {
   const rows = Object.keys(byRow).sort();
   const pages = new Set(runs.map((r) => r.data.corpusId));
 
+  const settledVerdicts = (row) => new Set(byRow[row]
+    .filter((x) => x.finding && SETTLED.has(x.finding.verdict))
+    .map((x) => x.finding.verdict));
+
   out.push('## The answer wave 1 could not reach');
   out.push('');
   out.push(`Authorised on **${pages.size} pages**, the ones wave 1 recorded as publishing at least one`);
@@ -70,14 +74,24 @@ if (!runs.length) {
     out.push(`- **\`${row}\`** ran on ${byRow[row].length}, reached a verdict on ${got.length}, `
       + `**settled on ${settled.length}**, and returned **${verdicts.size} distinct `
       + `verdict${verdicts.size === 1 ? '' : 's'}**`
-      + `${verdicts.size ? `: ${[...verdicts].sort().map((v) => `\`${v}\``).join(', ')}` : ''}.`);
+      + `${verdicts.size ? `: ${[...verdicts].sort().map((v) => `\`${v}\``).join(', ')}` : ''}. `
+      + `Counting only the ones that settled: `
+      + `${[...settledVerdicts(row)].sort().map((v) => `\`${v}\``).join(', ') || 'none'}.`);
   }
   out.push('');
 
-  const discriminating = rows.filter((row) => {
-    const got = byRow[row].filter((x) => x.finding);
-    return new Set(got.map((x) => x.finding.verdict)).size > 1;
-  });
+  /*
+   * DISCRIMINATION IS COUNTED OVER SETTLED VERDICTS ONLY, AND THE FIRST VERSION DID NOT.
+   *
+   * It counted distinct verdict STRINGS including `not-applicable`, so two rows that each settled
+   * one way and abstained elsewhere were reported as having told one page from another. They had
+   * not. A row that settles on one page has no second settled verdict to differ from, and the
+   * settled-or-abstained split here is decided BEFORE any tool is called: P6 throws below two read
+   * only tools (observe.js:1011) and P5 needs a required property present in its own schema
+   * (observe.js:908-922). That is variation a declaration only reading already reaches, which is
+   * the one thing this wave existed to rule out.
+   */
+  const discriminating = rows.filter((row) => settledVerdicts(row).size > 1);
   const anySettled = rows.some((row) => byRow[row]
     .some((x) => x.finding && SETTLED.has(x.finding.verdict)));
 
@@ -135,6 +149,48 @@ if (!runs.length) {
   }
   out.push('');
 
+  /*
+   * THE RETRACTION, READ FROM grounding.json SO IT IS DATA WITH CITATIONS.
+   *
+   * Two of the observations above were published as findings about somebody else's page. Both were
+   * then checked against that page's own source and both are defects in THIS instrument. They are
+   * retracted here rather than deleted, because deleting the evidence that backs a published claim
+   * is not a correction.
+   */
+  const groundPath = path.join(HERE, 'grounding.json');
+  if (fs.existsSync(groundPath)) {
+    const g = JSON.parse(fs.readFileSync(groundPath, 'utf8'));
+    out.push('## Retracted: two of those observations are defects in this instrument');
+    out.push('');
+    out.push(`Checked ${g.checkedOn} against each page’s own source at its pinned commit. `
+      + `${g.method}`);
+    out.push('');
+    for (const c of g.clears || []) {
+      out.push(`### \`${c.tool}\` on \`${c.page}\`: ${c.verdict}`);
+      out.push('');
+      out.push(`Ninth Tool reported: *${c.ninthToolSaid}.*`);
+      out.push('');
+      out.push(`**What the handler actually does.** ${c.whatTheHandlerDoes}`);
+      out.push('');
+      out.push(`**Why this instrument missed it.** ${c.whyTheProbeMissedIt}`);
+      out.push('');
+      for (const cite of c.citations || []) out.push(`- \`${cite}\``);
+      out.push('');
+    }
+    out.push('**Neither page is defective on this evidence, and both were reported as if they were.**');
+    out.push('That is the correction, and it is the whole reason a suite like this has to be pointed at');
+    out.push('itself before it is pointed at anyone else.');
+    out.push('');
+    if ((g.instrumentWeaknesses || []).length) {
+      out.push('### The two weaknesses that produced them, reproduced and open');
+      out.push('');
+      for (const w of g.instrumentWeaknesses) {
+        out.push(`- **${w.id}${w.open ? ', open' : ', closed'}.** ${w.what} *${w.consequence}*`);
+      }
+      out.push('');
+    }
+  }
+
   out.push('## Exactly which tools were authorised');
   out.push('');
   out.push('Selected by a rule rather than by hand: every wave 1 page that published at least one tool');
@@ -156,15 +212,23 @@ if (!runs.length) {
   out.push('');
   out.push('- **`readOnlyHint` is the page’s own claim about itself, and this suite does not verify');
   out.push('  it.** `src/probe/steps.js` calls it an annotation this suite exists to doubt. The');
-  out.push('  guarantee is the narrower one: nothing outside a page’s own declared read only set was');
-  out.push('  ever called, enforced in `src/probe/observe.js` by a strict `=== true`.');
+  out.push('  guarantee is narrower still: nothing outside a page’s own declared read only set was');
+  out.push('  ever SELECTED for calling, enforced in `src/probe/observe.js` at lines 903 and 1010 by a');
+  out.push('  strict `=== true`. That rests on the code path, not on these records, because no run');
+  out.push('  stores a ledger of the calls it actually made.');
+  out.push('- **The browser had unrestricted network egress.** `src/probe/launch.mjs` sets no proxy and');
+  out.push('  no resolver rule, so a page that references a third party host reaches it. One does:');
+  out.push('  `worldmonitor-pro-test` loads an analytics script from `abacus.worldmonitor.app` on load,');
+  out.push('  in wave 1 as well as wave 2. Nothing was submitted anywhere, but a request left this');
+  out.push('  machine and the earlier wording did not say so.');
   out.push('- The filter reads a snapshot taken before anything was registered, while the object that');
   out.push('  gets invoked is resolved live by name. A page that re-registered a name mid run would');
   out.push('  defeat it. None of these pages does, and that is an observation about four commits');
   out.push('  rather than a property of the instrument.');
   out.push('- Every page ran from an exact commit served on loopback, with no credential in the child');
-  out.push('  environment. No form was submitted, no page is named as defective, and no maintainer was');
-  out.push('  contacted.');
+  out.push('  environment. No form was submitted anywhere and no maintainer was contacted. Two pages');
+  out.push('  WERE named above as ignoring a required property, that was wrong, and the retraction');
+  out.push('  sits in this same document rather than in a commit message.');
   out.push('');
 
   out.push('## Provenance');
