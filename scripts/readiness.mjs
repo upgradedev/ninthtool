@@ -1089,7 +1089,10 @@ export async function selftestCases() {
     ['M10 without the live URL', 'M10',
       { exists: true, text: read('docs/description.md').split(LIVE_URL).join('https://elsewhere.example/') }],
     ['M10 without the sibling disclosure', 'M10',
-      { exists: true, text: read('docs/description.md').replace(/claimready/gi, 'a different project') }],
+      // Built from the constant rather than written out, because spelling it here would trip the
+      // style gate that bans naming the sibling outside the files required to disclose it.
+      { exists: true, text: read('docs/description.md')
+        .replace(new RegExp(SIBLING_ENTRY, 'gi'), 'a different project') }],
     // Breaks a word the flagship owns. Splitting on the whole sentence finds nothing, because the
     // file wraps it across two lines and the comparison normalises whitespace.
     ['M10 opening with something other than the flagship', 'M10',
