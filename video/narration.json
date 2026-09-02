@@ -84,7 +84,7 @@
     {
       "id": "surfaces",
       "expectedSeconds": 20.25,
-      "onScreen": "TWO SEPARATE READINGS, LABELLED, NEVER MERGED. First the page's own registered tools going 3, then 4 with nt_get_findings present, then 3 after Clear. Then the aggregated surface a flagged browser reports, which folds in the subject frame's two form derived tools, going 5, 6, 5 across the same three moments. Each reading needs its own caption on screen naming which surface it is.",
+      "onScreen": "TWO READINGS, LABELLED, NEVER MERGED, AND THE PAGE RENDERS NO COUNT OF ITS OWN. Film the tool list by name from the console, document.modelContext.getTools(), at three moments: five names before the run, six with nt_get_findings after it, five again after Clear. Inside that one list show each tool's window field, which separates the three this page registers from the two the subject frame publishes, so the page's own registrations reading three, four, three is visible as a subset of the named list and never as a second counter. The status line saying nt_get_findings has been withdrawn is the same event in words.",
       "captionText": "Watch two surfaces. The tools this page registers go three, four, three: nt_get_findings does not exist until a run produces findings, and is withdrawn when they clear. The aggregated surface adds the subject frame's two, so the same event reads five, six, five. Never one number for both.",
       "speechText": "Watch two surfaces. The tools this page registers go three, four, three. The findings tool does not exist until a run produces findings, and is withdrawn when they clear. The aggregated surface adds the subject frame's two, so the same event reads five, six, five. Never one number for both."
     },

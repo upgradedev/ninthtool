@@ -93,6 +93,11 @@ export function validate(spec, options = {}) {
   const plan = spec.planning ?? {};
   if (!(plan.wordsPerSecond > 0)) problems.push('planning.wordsPerSecond must be a positive number');
   if (!(plan.tailSeconds >= 0)) problems.push('planning.tailSeconds must be zero or more');
+  // A threshold with a fallback is a threshold a typo can widen in silence, so it is required
+  // here rather than defaulted at the point of use.
+  if (!(plan.expectedDriftTolerance > 0 && plan.expectedDriftTolerance <= 0.5)) {
+    problems.push('planning.expectedDriftTolerance must be present and above 0 and at most 0.5');
+  }
 
   const d = spec.duration ?? {};
   if (!(d.targetMinSeconds > 0 && d.targetMaxSeconds > d.targetMinSeconds)) {

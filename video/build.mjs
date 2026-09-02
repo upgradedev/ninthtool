@@ -17,7 +17,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 import { requireBinaries, run, probeSeconds, probeStreamTypes } from './ffmpeg.mjs';
-import { load, paths, PLACEHOLDER } from './manifest.mjs';
+import { load, paths } from './manifest.mjs';
 import { beatFileName } from './gate.mjs';
 
 /** Take container formats the recorder may produce, in the order they are looked for. */
@@ -177,6 +177,5 @@ export function build(options = {}) {
 
   console.log(`build: ${output}`);
   console.log(`build: ${total.toFixed(3)}s across ${records.length} beats, sha256 ${sha256.slice(0, 16)}`);
-  if (PLACEHOLDER.test(String(spec.frozenSha))) throw new Error('unreachable: the loader refuses a placeholder SHA');
   return { output, total, sha256 };
 }

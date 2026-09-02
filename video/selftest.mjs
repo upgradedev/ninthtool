@@ -49,7 +49,7 @@ function selftestSpec() {
     deployedUrl: URL,
     provider: 'elevenlabs',
     elevenLabs: { voiceId: 'x', modelId: 'y', outputFormat: 'mp3_44100_128' },
-    planning: { wordsPerSecond: 2.5, tailSeconds: 0.5 },
+    planning: { wordsPerSecond: 2.5, tailSeconds: 0.5, expectedDriftTolerance: 0.15 },
     duration: { targetMinSeconds: 6, targetMaxSeconds: 12, hardCapSeconds: 15 },
     video: { width: 320, height: 180, fps: 25, outputName: 'selftest.mp4' },
     beats: [beat('alpha', 3), beat('beta', 3.2), beat('gamma', 3.4)],
@@ -181,6 +181,9 @@ function main() {
     }],
     ['the narration step never ran', /no narration timing/, (root) => {
       fs.rmSync(path.join(root, 'narration', 'timing.json'));
+    }],
+    ['a planning threshold was quietly removed', /expectedDriftTolerance/, (root, s) => {
+      delete s.planning.expectedDriftTolerance;
     }],
   ];
 

@@ -28,13 +28,13 @@ import { load, paths, planFor, PLACEHOLDER } from './manifest.mjs';
 import { runGate, report } from './gate.mjs';
 
 function parse(argv) {
-  const args = { mode: null, beat: null, force: null, only: null, help: false };
+  const args = { mode: null, beat: null, force: null, help: false };
   const modes = {
     '--plan': 'plan', '--narrate': 'narrate', '--build': 'build', '--gate': 'gate',
     '--selftest': 'selftest',
   };
   const errors = [];
-  const needsValue = new Set(['--beat', '--force', '--only']);
+  const needsValue = new Set(['--beat', '--force']);
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -47,7 +47,6 @@ function parse(argv) {
       args.mode = modes[a];
     } else if (a === '--beat') args.beat = String(argv[++i]);
     else if (a === '--force') args.force = String(argv[++i]);
-    else if (a === '--only') args.only = String(argv[++i]);
     else if (a === '--help' || a === '-h') args.help = true;
     // A misspelled flag is refused rather than ignored. A tool that quietly does something other
     // than what it was asked is the failure this whole repository is about.
@@ -60,8 +59,8 @@ const HELP = `Ninth Tool submission video pipeline
 
   --plan                 print the beats and the planned total. Needs no media, no key, no ffmpeg.
   --narrate              synthesize each beat, measure it, write the timing and the captions.
-    --force all|<id>     re-roll everything, or one beat, without changing its words.
-    --only <id>          re-synthesize one beat and reuse the cached rest.
+    --force all|<id>     re-roll everything, or one beat, without changing its words. Editing a
+                         beat's words already re-synthesizes that beat and no other.
   --build                cut each beat to its own measured voice, then join them.
     --beat <id>          re-render exactly one beat and rejoin. Every other cut is left alone.
   --gate                 measure the composed file and refuse it if anything drifted or is missing.
@@ -107,7 +106,8 @@ function plan() {
    * of them gates the video: the only durations that do that are ffprobe's.
    */
   const problems = [];
-  const tolerance = spec.planning.expectedDriftTolerance ?? 0.15;
+  // No fallback: the loader has already refused a manifest without it.
+  const tolerance = spec.planning.expectedDriftTolerance;
   for (const row of rows) {
     if (row.drift > tolerance) {
       problems.push(`beat ${row.index} (${row.id}): expectedSeconds says ${row.expectedSeconds}s and `
@@ -162,7 +162,7 @@ async function main() {
     if (args.mode === 'selftest') { await import('./selftest.mjs'); return 0; }
     if (args.mode === 'narrate') {
       const { narrate } = await import('./narrate.mjs');
-      await narrate({ force: args.force, only: args.only });
+      await narrate({ force: args.force });
       return 0;
     }
     if (args.mode === 'build') {

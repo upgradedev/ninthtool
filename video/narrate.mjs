@@ -96,8 +96,9 @@ const stamp = (seconds) => {
 /**
  * Run the narration step.
  *
- * @param {{force?: string, only?: string}} options force is 'all' to re-roll everything, or a beat
- *   id to re-roll one without changing its words. only restricts the run to a single beat.
+ * @param {{force?: string}} options force is 'all' to re-roll everything, or a beat id to re-roll
+ *   one without changing its words. Editing a beat's words already re-synthesizes that beat alone,
+ *   because the cache key is over the words.
  */
 export async function narrate(options = {}) {
   requireBinaries();
@@ -122,18 +123,12 @@ export async function narrate(options = {}) {
     const wanted = cacheKey(spec, beat);
 
     const forced = options.force === 'all' || options.force === beat.id;
-    const skipped = options.only && options.only !== beat.id;
     let state = 'reused';
 
     const cached = fs.existsSync(sidecarPath) && fs.existsSync(audioPath)
       && JSON.parse(fs.readFileSync(sidecarPath, 'utf8')).key === wanted;
 
-    if (skipped && !cached) {
-      throw new Error(`beat "${beat.id}" was excluded by --only but has no cached audio, so the `
-        + 'timing this step writes would be incomplete. Run without --only once first.');
-    }
-
-    if (!skipped && (forced || !cached)) {
+    if (forced || !cached) {
       const audio = await synthesizeElevenLabs(spec, beat, key);
       fs.writeFileSync(audioPath, audio);
       fs.writeFileSync(sidecarPath, JSON.stringify({ key: wanted, id: beat.id }, null, 1));
