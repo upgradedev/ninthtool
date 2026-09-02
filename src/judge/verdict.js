@@ -23,6 +23,13 @@
 
 import { BEHAVIOURS, behaviourById, MEASURED_AGAINST, MEASURED_ON } from './behaviours.js';
 
+/*
+ * The bundled fixture's form tool name. DECLARED HERE rather than imported from the probe, because
+ * this module must stay reachable without a browser and must not depend on the gathering half. A
+ * test asserts the two spellings agree, so the duplication cannot drift silently.
+ */
+const D2_FIXTURE_TOOL = 'nt_form_answers';
+
 /** A transcript that carries no observation for a behaviour gets this, and it is never a pass. */
 const NOT_OBSERVED = 'the transcript carries no observation for this behaviour';
 
@@ -235,21 +242,81 @@ const RULES = {
     need(o, ['schema']);
     const schema = typeof o.schema === 'string' ? safeParse(o.schema) : o.schema;
     if (!schema || typeof schema !== 'object') throw new Error('the synthesised schema was unreadable');
-    const props = schema.properties || {};
-    const found = [];
-    for (const key of Object.keys(props)) {
-      const p = props[key] || {};
-      if (p.minimum !== undefined || p.maximum !== undefined) found.push('numeric bounds');
-      if (Array.isArray(p.enum)) found.push('enum');
-      if (typeof p.description === 'string' && p.description) found.push('descriptions');
+
+    /*
+     * ONLY THE MARKUP WE WROTE CAN BE JUDGED AGAINST WHAT IT SHOULD PRODUCE.
+     *
+     * The probe prefers the bundled fixture's form tool and falls back to whatever declarative tool
+     * the page publishes, so this row can be handed a stranger's form. Demanding four features there
+     * would blame the BROWSER for markup the page never wrote: a form with no number input cannot
+     * produce numeric bounds, and that is not a defect in anything.
+     *
+     * So the row abstains off the fixture. That is narrower than the old rule and it is the only
+     * scope in which the promise is falsifiable.
+     */
+    if (o.toolName !== D2_FIXTURE_TOOL) {
+      throw new Error(`this row compares a synthesised schema against markup known in advance, and `
+        + `the only markup known in advance is the bundled fixture's. The tool read here was `
+        + `${o.toolName ? `"${o.toolName}"` : 'not named in the transcript'}, so what its page`
+        + ` declared is unknown and nothing can be concluded about the browser from it`);
     }
-    const hasRequired = Array.isArray(schema.required) && schema.required.length > 0;
-    if (hasRequired) found.push('required');
-    const unique = [...new Set(found)];
+
+    const props = schema.properties || {};
+    const names = Object.keys(props);
+    if (!names.length) throw new Error('the synthesised schema declares no properties at all');
+
+    /*
+     * ALL FOUR, AND EACH ONE WHERE THE MARKUP PUTS IT.
+     *
+     * This read `unique.length >= 3`, one below its own promise, so the row carried a spare life and
+     * every single-feature loss passed. Measured against the fixture's schema: dropping all bounds,
+     * the enum, all descriptions, or the required array each still returned PASS.
+     *
+     * Raising it to four was not enough on its own, because the old counting was OR-folded across
+     * properties: any one property carrying a bound, an enum and a description scored three of
+     * three. So `{"only":{"minimum":1,"enum":["x"],"description":"d"}}` scored four of four while
+     * every control the markup declares had failed. Each feature is now tied to the shape the
+     * markup actually produces:
+     *
+     *   bounds       min AND max on the SAME property, because the fixture declares min="18" max="120"
+     *   enum         a non-empty enum, because the fixture declares a select with options
+     *   descriptions on EVERY property, because every control carries toolparamdescription
+     *   required     naming a property that exists, because "required" on a ghost name is not a list
+     */
+    const missing = [];
+    const bounded = names.filter((k) => (props[k] || {}).minimum !== undefined && (props[k] || {}).maximum !== undefined);
+    const enumerated = names.filter((k) => Array.isArray((props[k] || {}).enum) && (props[k] || {}).enum.length);
+    if (!bounded.length) missing.push('numeric bounds on one property (min and max together)');
+    if (!enumerated.length) missing.push('an enum');
+    // AND THEY COME FROM DIFFERENT CONTROLS. The four features are produced by four different
+    // markup constructs, so one property carrying a bound, an enum and a description is not three
+    // features, it is one property. Without this, `{"only":{"minimum":1,"maximum":2,"enum":["x"],
+    // "description":"d"}}` scored four of four while every control the markup declares had failed.
+    if (bounded.length && enumerated.length
+      && bounded.every((k) => enumerated.includes(k)) && enumerated.every((k) => bounded.includes(k))) {
+      missing.push(`bounds and an enum on different controls (both sit on ${bounded.join(', ')})`);
+    }
+    const undescribed = names.filter((k) => {
+      const d = (props[k] || {}).description;
+      return !(typeof d === 'string' && d.trim());
+    });
+    if (undescribed.length) missing.push(`a description on every control (${undescribed.join(', ')} carry none)`);
+    const required = Array.isArray(schema.required) ? schema.required : [];
+    const named = required.filter((k) => names.includes(k));
+    if (!named.length) {
+      missing.push(required.length
+        ? `a required list naming a real control (it names ${required.join(', ')}, none of which is a property)`
+        : 'a required list');
+    }
+
     return {
-      held: unique.length >= 3,
-      expected: 'markup produces bounds, an enum, descriptions and a required list',
-      observed: unique.length ? `synthesised: ${unique.join(', ')}` : 'nothing beyond bare properties',
+      held: missing.length === 0,
+      expected: 'markup produces numeric bounds, an enum, a description on every control, and a '
+        + 'required list naming one of them',
+      observed: missing.length
+        ? `missing: ${missing.join('; ')}`
+        : `all four synthesised: bounds, an enum, descriptions on all ${names.length} controls, and `
+          + `required naming ${named.join(', ')}`,
     };
   },
   /* ---------------------------------------------------------------- your page

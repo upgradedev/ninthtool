@@ -18,7 +18,9 @@ import path from 'node:path';
 import {
   MANDATORY_PASS_RATE, OVERALL_PASS_RATE, VIDEO_MAX_SECONDS,
   LIVE_URL, REPO, CLAIMED_TOOLS, LIVE_PATHS, FLAGSHIP, thresholdDrift,
+  STANDING_TOOLS, FINDINGS_TOOL, EXPECTED_CATALOGUE_ROWS, MAY_ABSTAIN,
 } from '../../scripts/readiness_config.mjs';
+import { BEHAVIOURS } from '../../src/judge/behaviours.js';
 
 const ROOT = path.resolve(
   path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'),
@@ -31,6 +33,33 @@ test('the thresholds are exactly these, written out a third time', () => {
   assert.equal(VIDEO_MAX_SECONDS, 180, 'the rules cap the video at three minutes');
   assert.equal(LIVE_URL, 'https://upgradedev.github.io/ninthtool/');
   assert.equal(REPO, 'upgradedev/ninthtool');
+});
+
+test('the tool surface the browser row compares against is exact, and covers the claimed tools', () => {
+  assert.deepEqual([...STANDING_TOOLS].sort(),
+    ['nt_explain_behaviour', 'nt_list_behaviours', 'nt_run_audit'],
+    'the standing tools are the three the page publishes at all times');
+  assert.equal(FINDINGS_TOOL, 'nt_get_findings');
+  assert.deepEqual([...STANDING_TOOLS, FINDINGS_TOOL].sort(), [...CLAIMED_TOOLS].sort(),
+    'the standing tools plus the conditional one ARE the claimed tools, and two lists describing '
+    + 'one surface may not drift apart');
+});
+
+test('the catalogue row count is pinned to the catalogue itself', () => {
+  assert.equal(EXPECTED_CATALOGUE_ROWS, 20, 'the pinned number, written out a third time');
+  assert.equal(EXPECTED_CATALOGUE_ROWS, BEHAVIOURS.length,
+    'the browser row requires exactly this many cards, so it has to be what the catalogue holds');
+});
+
+test('the abstention allowance is a named list of ids, each with a reason, and never a number', () => {
+  assert.deepEqual(Object.keys(MAY_ABSTAIN).sort(), ['P5'],
+    'exactly one behaviour is allowed to reach no verdict, and it is named');
+  for (const [id, reason] of Object.entries(MAY_ABSTAIN)) {
+    assert.equal(typeof reason, 'string');
+    assert.ok(reason.length > 40, `${id} is on the allowance list with no reason worth reading`);
+    assert.ok(BEHAVIOURS.some((b) => b.id === id),
+      `${id} is allowed to abstain and is not in the catalogue at all`);
+  }
 });
 
 test('the config and its own fixture agree', () => {

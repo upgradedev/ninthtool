@@ -73,7 +73,7 @@ registered anything of its own.
 | C3 | broken | script registered tools do not enforce, form derived tools do |
 | C4 | broken | never settled, still pending after 2502 ms |
 | D1 | **holds** | 1 event on register, 1 on withdraw |
-| D2 | **holds** | synthesised descriptions, numeric bounds, enum and a required list |
+| D2 | **holds** | all four synthesised: bounds on `age` (min and max together), an enum on `severity`, a description on every control, and `required` naming a real one. The row now demands all four rather than any three, and demands each on the control its markup declares |
 | P1 | broken | 2 of 5 tools carry no annotations at all: `nt_form_answers`, `nt_form_silent` |
 | P2 | **holds** | all 5 schemas parsed |
 | P3 | **holds** | all 5 tools and every parameter described |

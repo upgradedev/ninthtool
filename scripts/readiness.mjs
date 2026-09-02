@@ -18,10 +18,23 @@
  * same is true of a row that could not be run: `not run` is not `passed`, and the summary keeps them
  * apart.
  *
- * IT PROVES IT CAN FAIL, TWO WAYS. `--selftest` feeds each row's judgement a deliberately wrong
- * input and requires it to go red, which proves the judgement rather than the plumbing. The
- * plumbing was proved separately by pointing the config at an origin that does not exist, which
- * took the run to 54 percent through the real checks. A gate nobody has watched fail is not a gate.
+ * EVERY ROW IS TWO HALVES, AND THE SELF TEST CALLS THE SECOND ONE.
+ *
+ * `gather` does the input and output: fetch, read a file, spawn a process, drive a browser. `decide`
+ * is pure, holds all of the judgement, and is the only thing that can return a verdict. `run` is
+ * `decide(await gather())` and nothing else.
+ *
+ * The split exists because the self test that came before it was hollow. Its cases were hand
+ * written expressions that resembled the rows, for example `{ ok: 404 === 200 }` standing in for
+ * "the live URL answered 404". Nothing connected them to the rows they were named after. Proof:
+ * row M5's `if (response.status !== 200)` was changed to `if (false)`, so the row could never fail
+ * for any input, and `--selftest` still printed PASS for all nineteen cases. A gate that cannot
+ * notice a row being disabled is not proving anything about that row.
+ *
+ * So the self test now names a row id and a deliberately broken input, looks the row up in `ROWS`,
+ * and calls the row's real `decide`. Mutate any `decide` to return `{ ok: true }` and every case
+ * for that row goes green, which is what makes `--selftest` fail. There is nowhere left to put a
+ * hardcoded expression, because the case table holds no expressions.
  *
  *   node scripts/readiness.mjs                 everything, including the browser row
  *   node scripts/readiness.mjs --offline       skip the network and browser rows, report them not run
@@ -32,11 +45,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
-  LIVE_URL, REPO, LIVE_PATHS, CLAIMED_TOOLS, FLAGSHIP, MANIFEST_PATH,
+  LIVE_URL, LIVE_PATHS, CLAIMED_TOOLS, FLAGSHIP, MANIFEST_PATH,
   MANDATORY_PASS_RATE, OVERALL_PASS_RATE, VIDEO_MAX_SECONDS, thresholdDrift,
+  STANDING_TOOLS, FINDINGS_TOOL, EXPECTED_CATALOGUE_ROWS, MAY_ABSTAIN, sortedAbstainIds,
 } from './readiness_config.mjs';
 import { buildManifest, readManifest, manifestDrift, hashOf } from './build_manifest.mjs';
 import { OTHER_COMPETITIONS, JUDGE_FACING_FILES, SIBLING_ENTRY, SIBLING_MAY_BE_NAMED_IN,
@@ -70,30 +84,59 @@ async function get(url) {
   }
 }
 
+/** Parse, or say plainly that it did not parse. Never throw on somebody else's bytes. */
+function safeParse(text) {
+  try { return JSON.parse(text); } catch { return null; }
+}
+
+/** Two lists of names hold the same names the same number of times. Order is not a finding. */
+function sameMultiset(seen, wanted) {
+  const a = [...(Array.isArray(seen) ? seen : [])].map(String).sort();
+  const b = [...wanted].map(String).sort();
+  return a.length === b.length && a.every((name, index) => name === b[index]);
+}
+
+/** What a multiset comparison found, in words a reader can act on. */
+function multisetDrift(seen, wanted) {
+  const a = [...(Array.isArray(seen) ? seen : [])].map(String).sort();
+  const b = [...wanted].map(String).sort();
+  const extra = a.filter((name) => !b.includes(name));
+  const absent = b.filter((name) => !a.includes(name));
+  const parts = [];
+  if (absent.length) parts.push(`absent: ${absent.join(', ')}`);
+  if (extra.length) parts.push(`unexpected: ${extra.join(', ')}`);
+  if (!parts.length && a.length !== b.length) parts.push(`${a.length} names where ${b.length} were expected`);
+  return parts.join('; ');
+}
+
 /* ------------------------------------------------------------------ the rows */
 
 /**
- * Every row. `kind` is mandatory, recommended or owner-gated. `run` returns
- * `{ ok, evidence }` or throws, and throwing is a failure with the message as the evidence.
- * `network` and `browser` mark rows that need those, so --offline can report them not run rather
- * than pretending.
+ * Every row. `kind` is mandatory, recommended or owner-gated.
+ *
+ * `gather` does the input and output and returns plain data. `decide` takes that data, returns
+ * `{ ok, evidence }` or throws, and a throw is a failure with the message as the evidence. All of
+ * the judgement lives in `decide`, which is what `--selftest` calls. `network` and `browser` mark
+ * rows that need those, so --offline can report them not run rather than pretending.
  */
-const ROWS = [
+export const ROWS = [
   /* ---------------------------------------------------------------- mandatory, offline */
   {
     id: 'M1', kind: 'mandatory',
     title: 'An OSI licence file is at the repository root',
-    run: async () => {
-      const text = read('LICENSE');
-      return { ok: /MIT License/.test(text), evidence: `LICENSE, ${text.split('\n').length} lines, first line "${text.split('\n')[0]}"` };
-    },
+    gather: async () => ({ text: read('LICENSE') }),
+    decide: ({ text }) => ({
+      ok: /MIT License/.test(text),
+      evidence: `LICENSE, ${text.split('\n').length} lines, first line "${text.split('\n')[0]}"`,
+    }),
   },
   {
     id: 'M2', kind: 'mandatory',
     title: 'The flagship sentence is identical on the README and the page',
-    run: async () => {
-      const inReadme = flat(read('README.md')).includes(flat(FLAGSHIP));
-      const inPage = flat(read('index.html')).includes(flat(FLAGSHIP));
+    gather: async () => ({ readme: read('README.md'), page: read('index.html') }),
+    decide: ({ readme, page }) => {
+      const inReadme = flat(readme).includes(flat(FLAGSHIP));
+      const inPage = flat(page).includes(flat(FLAGSHIP));
       return {
         ok: inReadme && inPage,
         evidence: `README ${inReadme ? 'carries it' : 'DOES NOT'}, index.html ${inPage ? 'carries it' : 'DOES NOT'}`
@@ -104,7 +147,12 @@ const ROWS = [
   {
     id: 'M3', kind: 'mandatory',
     title: 'No judge facing file names another competition, and the sibling entry IS disclosed',
-    run: async () => {
+    gather: async () => {
+      const texts = {};
+      for (const file of [...JUDGE_FACING_FILES, ...SIBLING_MUST_BE_NAMED_IN]) texts[file] = read(file);
+      return { texts };
+    },
+    decide: ({ texts }) => {
       // Two sided, and it became two sided because the two rules genuinely conflict. Naming
       // another CONTEST is a defect. Naming our own second entry in THIS contest, in the
       // provenance section the rules require in order to judge whether two submissions are
@@ -112,14 +160,19 @@ const ROWS = [
       // disclosure is asserted, which makes this row stricter than the one it replaces.
       const hits = [];
       for (const file of JUDGE_FACING_FILES) {
-        const text = read(file).toLowerCase();
+        // A file that was not read was not scanned, and a gate whose scope quietly shrinks is a
+        // failure this repository has already had. Missing input is a failure, never a skip.
+        if (typeof texts[file] !== 'string') throw new Error(`${file} could not be read, so it was not scanned`);
+        const text = texts[file].toLowerCase();
         for (const name of OTHER_COMPETITIONS) {
           if (name === SIBLING_ENTRY && SIBLING_MAY_BE_NAMED_IN.includes(file)) continue;
           if (new RegExp(`(^|[^a-z])${name}([^a-z]|$)`).test(text)) hits.push(`${file}: ${name}`);
         }
       }
-      const undisclosed = SIBLING_MUST_BE_NAMED_IN
-        .filter((file) => !read(file).toLowerCase().includes(SIBLING_ENTRY));
+      const undisclosed = SIBLING_MUST_BE_NAMED_IN.filter((file) => {
+        if (typeof texts[file] !== 'string') throw new Error(`${file} could not be read, so the disclosure was not checked`);
+        return !texts[file].toLowerCase().includes(SIBLING_ENTRY);
+      });
       for (const file of undisclosed) {
         hits.push(`${file}: does NOT disclose the sibling entry, which the multiple entry rule requires`);
       }
@@ -134,9 +187,9 @@ const ROWS = [
   {
     id: 'M4', kind: 'mandatory', network: true,
     title: 'Every tool the README claims is in the DEPLOYED bundle, not just the source',
-    run: async () => {
-      // Deliberately the served bytes. Grepping src/ would prove what we wrote, not what is live.
-      const served = await get(new URL('src/ui/app.js', LIVE_URL).href);
+    // Deliberately the served bytes. Grepping src/ would prove what we wrote, not what is live.
+    gather: async () => get(new URL('src/ui/app.js', LIVE_URL).href),
+    decide: (served) => {
       if (served.status !== 200) throw new Error(`the deployed app.js answered ${served.status || served.error}`);
       const missing = CLAIMED_TOOLS.filter((name) => !served.body.includes(name));
       return {
@@ -152,8 +205,8 @@ const ROWS = [
   {
     id: 'M5', kind: 'mandatory', network: true,
     title: 'The live judge URL answers 200',
-    run: async () => {
-      const response = await get(LIVE_URL);
+    gather: async () => get(LIVE_URL),
+    decide: (response) => {
       if (response.status !== 200) {
         throw new Error(`${LIVE_URL} answered ${response.status || 'no response'}${response.error ? `: ${response.error}` : ''}`);
       }
@@ -163,27 +216,33 @@ const ROWS = [
   {
     id: 'M6', kind: 'mandatory', network: true,
     title: 'Every file the page loads answers 200, taken from the manifest not from a list',
-    run: async () => {
+    gather: async () => {
       const fresh = buildManifest(ROOT);
       const wanted = [...LIVE_PATHS, ...Object.keys(fresh.files)];
-      const bad = [];
+      const responses = [];
       for (const suffix of wanted) {
         const response = await get(new URL(suffix, LIVE_URL).href);
-        if (response.status !== 200) bad.push(`${suffix || '/'} -> ${response.status || response.error}`);
+        responses.push({ suffix, status: response.status, error: response.error });
       }
+      return { responses, fileCount: fresh.fileCount };
+    },
+    decide: ({ responses, fileCount }) => {
+      const bad = responses
+        .filter((r) => r.status !== 200)
+        .map((r) => `${r.suffix || '/'} -> ${r.status || r.error}`);
       return {
         ok: bad.length === 0,
         evidence: bad.length
           ? `not 200: ${bad.join(', ')}`
-          : `all ${wanted.length} paths answered 200, ${fresh.fileCount} of them from the module graph`,
+          : `all ${responses.length} paths answered 200, ${fileCount} of them from the module graph`,
       };
     },
   },
   {
     id: 'M7', kind: 'mandatory', network: true,
     title: 'The live page body carries the flagship sentence',
-    run: async () => {
-      const response = await get(LIVE_URL);
+    gather: async () => get(LIVE_URL),
+    decide: (response) => {
       if (response.status !== 200) throw new Error(`the live URL answered ${response.status || response.error}`);
       const carries = flat(response.body).includes(flat(FLAGSHIP));
       return { ok: carries, evidence: carries ? 'the served HTML carries it word for word' : 'the served HTML DOES NOT carry it' };
@@ -194,82 +253,16 @@ const ROWS = [
   {
     id: 'M8', kind: 'mandatory', browser: true,
     title: 'A real browser opens the live URL and the audit actually runs',
-    run: async () => {
-      const result = await driveLivePage();
-      if (!result.hasCtx) {
-        throw new Error('the browser opened the page but exposed no WebMCP host object, so nothing was proved');
-      }
-      if (result.bootFailed) {
-        throw new Error(`the page never rendered a single card in 45 s, so the audit was never reachable.`
-          + ` status was "${result.statusAfterBoot}". This is a page that a judge would open and find blank.`);
-      }
-      const narrow = result.narrow || {};
-
-      /*
-       * THIS ROW JUDGES, IT NO LONGER READS THE PAGE'S CONCLUSIONS.
-       *
-       * It used to count rendered card classes, which are what the page decided. A judge that had
-       * gone wrong would have been agreed with rather than caught, and the gate whose subject is
-       * pages that report things that are not so was doing exactly that.
-       *
-       * So the raw transcript is fetched from the subject frame and judged HERE, in Node, by the
-       * same pure module the page uses. Two things are then required: the independent verdict must
-       * itself be sound, and the page's rendering must AGREE with it. A disagreement between what
-       * the observations say and what the visitor is shown is a defect in its own right and is now
-       * a failure rather than an invisible drift.
-       */
-      if (!result.transcript) {
-        throw new Error(`the raw transcript could not be read from the subject frame, so this row `
-          + `could only have checked the page's own conclusions: ${result.transcriptError || 'no reason given'}`);
-      }
-      const independent = judge(result.transcript);
-
-      const settled = independent.counts.pass + independent.counts.fail;
-      const floor = BEHAVIOURS.length - 2;
-
-      const disagreements = [];
-      if (independent.counts.fail !== result.counts.fail) {
-        disagreements.push(`the page rendered ${result.counts.fail} broken and the observations say `
-          + `${independent.counts.fail}`);
-      }
-      if (independent.counts.pass !== result.counts.pass) {
-        disagreements.push(`the page rendered ${result.counts.pass} kept and the observations say `
-          + `${independent.counts.pass}`);
-      }
-      if (independent.counts.notApplicable !== result.counts.notApplicable) {
-        disagreements.push(`the page rendered ${result.counts.notApplicable} unsettled and the `
-          + `observations say ${independent.counts.notApplicable}`);
-      }
-
-      const ok = result.cards === BEHAVIOURS.length
-        && independent.counts.total === BEHAVIOURS.length
-        && settled >= floor
-        && disagreements.length === 0
-        && result.findingsToolAppeared === true
-        && result.findingsToolWithdrew === true
-        && result.namesItsOwnTools === true
-        && narrow.sideScroll === false;
-
-      return {
-        ok,
-        evidence: `${result.cards} cards. Judged here from the raw transcript: `
-          + `${independent.counts.fail} broken / ${independent.counts.pass} kept / `
-          + `${independent.counts.notApplicable} unsettled (${settled} reached a verdict, floor ${floor})`
-          + `, and the page agrees${disagreements.length ? ` EXCEPT: ${disagreements.join('; ')}` : ''}`
-          + `. Run took ${result.elapsedMs} ms`
-          + `, nt_get_findings appeared=${result.findingsToolAppeared} withdrew=${result.findingsToolWithdrew}`
-          + `, its own tools named on the page=${result.namesItsOwnTools}`
-          + `, at 375 px document is ${narrow.scrollWidth} px wide with sideways scroll=${narrow.sideScroll}`,
-      };
-    },
+    gather: async () => driveLivePage(),
+    decide: decideM8,
   },
 
   /* ---------------------------------------------------------------- recommended */
   {
     id: 'R1', kind: 'recommended',
     title: 'Every rule in the judge has a mutation proving it can fail',
-    run: async () => {
-      const text = read('tests/unit/verdict_mutations.test.js');
+    gather: async () => ({ text: read('tests/unit/verdict_mutations.test.js') }),
+    decide: ({ text }) => {
       // [A-DP] rather than [A-D]: the your-page group uses P ids, and a character class that
       // quietly stops matching a whole group is exactly the shape of gate this repository has
       // already been caught by twice.
@@ -284,39 +277,55 @@ const ROWS = [
   {
     id: 'R2', kind: 'recommended',
     title: 'The unit tests pass',
-    run: async () => {
+    gather: async () => {
       try {
-        const out = execFileSync(process.execPath, ['--test', 'tests/unit'], { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' });
-        const pass = (out.match(/^# pass (\d+)/m) || [])[1];
-        const fail = (out.match(/^# fail (\d+)/m) || [])[1];
-        return { ok: fail === '0', evidence: `${pass} passed, ${fail} failed` };
+        return {
+          output: execFileSync(process.execPath, ['--test', 'tests/unit'], { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }),
+          threw: false,
+        };
       } catch (error) {
-        const out = String(error.stdout || '');
-        const fail = (out.match(/^# fail (\d+)/m) || [])[1] || 'some';
-        return { ok: false, evidence: `${fail} tests failed` };
+        return { output: String(error.stdout || ''), threw: true };
       }
+    },
+    decide: ({ output, threw }) => {
+      const pass = (output.match(/^# pass (\d+)/m) || [])[1];
+      const fail = (output.match(/^# fail (\d+)/m) || [])[1];
+      if (threw) return { ok: false, evidence: `${fail || 'some'} tests failed` };
+      return { ok: fail === '0', evidence: `${pass} passed, ${fail} failed` };
     },
   },
   {
     id: 'R3', kind: 'recommended',
     title: 'The style gate passes and proves it can fail first',
-    run: async () => {
+    gather: async () => {
       try {
-        const out = execFileSync(process.execPath, ['scripts/check_style.mjs', '--selftest'], { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' });
-        const scanned = (out.match(/scanned (\d+) files/) || [])[1];
-        const proved = /selftest: PASS/.test(out);
-        return { ok: /style gate: PASS/.test(out) && proved, evidence: `${scanned} files scanned, selftest ${proved ? 'proved every rule can fail' : 'DID NOT RUN'}` };
+        return {
+          output: execFileSync(process.execPath, ['scripts/check_style.mjs', '--selftest'], { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }),
+          threw: false,
+        };
       } catch (error) {
-        return { ok: false, evidence: `the style gate exited non zero: ${String(error.stdout || error.message).slice(0, 160)}` };
+        return { output: String(error.stdout || error.message), threw: true };
       }
+    },
+    decide: ({ output, threw }) => {
+      if (threw) return { ok: false, evidence: `the style gate exited non zero: ${output.slice(0, 160)}` };
+      const scanned = (output.match(/scanned (\d+) files/) || [])[1];
+      const proved = /selftest: PASS/.test(output);
+      return {
+        ok: /style gate: PASS/.test(output) && proved,
+        evidence: `${scanned} files scanned, selftest ${proved ? 'proved every rule can fail' : 'DID NOT RUN'}`,
+      };
     },
   },
   {
     id: 'R4', kind: 'recommended',
     title: 'The prior art search is written down and names what would falsify it',
-    run: async () => {
-      if (!exists('docs/prior-art.md')) return { ok: false, evidence: 'docs/prior-art.md is missing' };
-      const text = read('docs/prior-art.md');
+    gather: async () => ({
+      present: exists('docs/prior-art.md'),
+      text: exists('docs/prior-art.md') ? read('docs/prior-art.md') : '',
+    }),
+    decide: ({ present, text }) => {
+      if (!present) return { ok: false, evidence: 'docs/prior-art.md is missing' };
       const hasFalsifier = /falsif/i.test(text);
       const namesRivals = (text.match(/does the same thing/g) || []).length;
       return {
@@ -328,7 +337,19 @@ const ROWS = [
   {
     id: 'R5', kind: 'mandatory', network: true,
     title: 'Every runtime file the page loads is byte identical to this tree',
-    run: async () => {
+    gather: async () => {
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+      const fresh = buildManifest(ROOT);
+      const committed = readManifest(ROOT);
+      const servedManifest = await get(new URL(MANIFEST_PATH, LIVE_URL).href);
+      const served = {};
+      for (const relative of Object.keys(fresh.files)) {
+        const response = await get(new URL(relative, LIVE_URL).href);
+        served[relative] = { status: response.status, body: response.body, error: response.error };
+      }
+      return { head, fresh, committed, servedManifest, served };
+    },
+    decide: ({ head, fresh, committed, servedManifest, served }) => {
       /*
        * THREE DIRECTIONS, BECAUSE ONE WAS NOT ENOUGH.
        *
@@ -343,29 +364,25 @@ const ROWS = [
        * A missing or unreadable served manifest is a failure, not an excuse: an unknown deployment
        * identity is exactly the state this row exists to refuse.
        */
-      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
-      const fresh = buildManifest(ROOT);
-
-      const localDrift = manifestDrift(fresh, readManifest(ROOT));
+      const localDrift = manifestDrift(fresh, committed);
       if (localDrift.length) {
         throw new Error(`the committed manifest does not describe this tree, so there is nothing `
           + `trustworthy to compare the deployment against: ${localDrift.slice(0, 3).join('; ')}`);
       }
-
-      const servedManifest = await get(new URL(MANIFEST_PATH, LIVE_URL).href);
       if (servedManifest.status !== 200) {
         throw new Error(`the live origin does not serve ${MANIFEST_PATH} (${servedManifest.status
           || servedManifest.error}), so the deployed identity is unknown`);
       }
-      let deployed = null;
-      try { deployed = JSON.parse(servedManifest.body); } catch (error) {
+      const deployed = safeParse(servedManifest.body);
+      if (!deployed) {
         throw new Error(`the served ${MANIFEST_PATH} did not parse, so the deployed identity is unknown`);
       }
       const deployedDrift = manifestDrift(fresh, deployed);
 
       const mismatched = [];
       for (const [relative, expected] of Object.entries(fresh.files)) {
-        const response = await get(new URL(relative, LIVE_URL).href);
+        const response = served[relative];
+        if (!response) { mismatched.push(`${relative}: was never fetched`); continue; }
         if (response.status !== 200) { mismatched.push(`${relative}: ${response.status || response.error}`); continue; }
         if (hashOf(response.body) !== expected) mismatched.push(`${relative}: served bytes differ`);
       }
@@ -411,6 +428,213 @@ const ROWS = [
   },
 ];
 
+/* ------------------------------------------------------------------ the browser row's judgement */
+
+/**
+ * Everything row M8 requires, in one pure function.
+ *
+ * WHAT THIS ROW USED TO ACCEPT, AND WHY THAT WAS NOT ENOUGH. It compared three totals, required at
+ * least `BEHAVIOURS.length - 2` rows to have reached a verdict, and read the transcript from a
+ * SECOND observation taken after the page had already rendered. Each of those is a way to be green
+ * while the thing being checked is untrue:
+ *
+ *   totals agree under an ID SWAP. Fourteen broken and five kept stays fourteen and five when the
+ *   page renders A2 broken and B2 kept while the observations say the opposite. The comparison is
+ *   now by behaviour id, one row at a time.
+ *
+ *   a floor of `length - 2` is slack with no owner. Any two rows could go quiet for any reason and
+ *   the row stayed green. Abstention is now allowed only for the ids named in MAY_ABSTAIN, each
+ *   with its reason, and any other abstention is a failure.
+ *
+ *   a second observation is a different run. The gate judged a transcript the visitor never saw. It
+ *   now wraps the subject frame's entry point BEFORE the button is pressed and captures the exact
+ *   object the page consumed, and it requires that exactly one observation happened.
+ *
+ * Nothing here is a count where a name would do, and nothing is a floor where an exact value is
+ * available.
+ */
+export function decideM8(result) {
+  if (!result.hasCtx) {
+    throw new Error('the browser opened the page but exposed no WebMCP host object, so nothing was proved');
+  }
+  if (result.bootFailed) {
+    throw new Error(`the page never rendered a single card in 45 s, so the audit was never reachable.`
+      + ` status was "${result.statusAfterBoot}". This is a page that a judge would open and find blank.`);
+  }
+  if (!result.transcript) {
+    throw new Error(`the raw transcript the page judged could not be captured, so this row `
+      + `could only have checked the page's own conclusions: ${result.transcriptError || 'no reason given'}`);
+  }
+  if (BEHAVIOURS.length !== EXPECTED_CATALOGUE_ROWS) {
+    throw new Error(`the catalogue holds ${BEHAVIOURS.length} behaviours and the pinned number is `
+      + `${EXPECTED_CATALOGUE_ROWS}. One of them has moved, and until they agree this row cannot say `
+      + 'how many cards it expects.');
+  }
+
+  const independent = judge(result.transcript);
+  const byId = new Map(independent.findings.map((f) => [f.id, f.verdict]));
+  const problems = [];
+
+  /* ---- the catalogue is all there, in the render and in the judgement */
+  if (independent.counts.catalogue !== EXPECTED_CATALOGUE_ROWS) {
+    problems.push(`the judgement covers ${independent.counts.catalogue} rows and the catalogue has `
+      + `${EXPECTED_CATALOGUE_ROWS}`);
+  }
+  if (result.cards !== EXPECTED_CATALOGUE_ROWS) {
+    problems.push(`the page rendered ${result.cards} cards and the catalogue has ${EXPECTED_CATALOGUE_ROWS}`);
+  }
+  const rendered = Array.isArray(result.cardVerdicts) ? result.cardVerdicts : [];
+  if (rendered.length !== EXPECTED_CATALOGUE_ROWS) {
+    problems.push(`${rendered.length} cards carried a readable behaviour id, and the catalogue has `
+      + `${EXPECTED_CATALOGUE_ROWS}`);
+  }
+
+  /* ---- completeness, with a named allowance and never a numeric floor */
+  const completeness = independent.completeness || {};
+  if (completeness.environmentIdentified !== true) {
+    problems.push('the transcript does not identify the environment it was taken in, so it is not a '
+      + 'result about any particular browser or page');
+  }
+  if (completeness.noFatalErrors !== true) {
+    problems.push(`the transcript carries ${(independent.errors || []).length} fatal errors: `
+      + `${(independent.errors || []).slice(0, 3).join('; ')}`);
+  }
+  if (completeness.anythingMeasured !== true) {
+    problems.push('nothing at all was measured, so there is no result to agree or disagree with');
+  }
+  const abstained = independent.findings
+    .filter((f) => f.verdict === 'not-applicable')
+    .map((f) => f.id);
+  const unallowed = abstained.filter((id) => !sortedAbstainIds().includes(id));
+  if (unallowed.length) {
+    problems.push(`${unallowed.length} rows reached no verdict and are not on the declared abstention `
+      + `list: ${unallowed.join(', ')}`);
+  }
+  if (completeness.everySelectedObserved !== true && !abstained.length) {
+    problems.push('the judgement reports unobserved rows but names none of them');
+  }
+
+  /* ---- every selected row is accounted for */
+  if (independent.counts.outOfScope !== 0) {
+    problems.push(`${independent.counts.outOfScope} rows were left out of scope, so this run does not `
+      + 'cover the catalogue it publishes');
+  }
+  const selected = (result.transcript.scope && result.transcript.scope.selectedBehaviours) || [];
+  const unaccounted = selected.filter((id) => !byId.has(id) || byId.get(id) === 'out-of-scope');
+  if (unaccounted.length) {
+    problems.push(`${unaccounted.length} behaviours the probe says it selected have no counted `
+      + `verdict: ${unaccounted.join(', ')}`);
+  }
+
+  /* ---- the page's rendering agrees BY BEHAVIOUR ID, not by total */
+  const renderedById = new Map(rendered.map((card) => [card.id, card.verdict]));
+  const swaps = [];
+  for (const behaviour of BEHAVIOURS) {
+    const shown = renderedById.has(behaviour.id) ? renderedById.get(behaviour.id) : 'no card';
+    const judged = byId.has(behaviour.id) ? byId.get(behaviour.id) : 'no finding';
+    if (shown !== judged) swaps.push(`${behaviour.id}: the page shows ${shown}, the observations say ${judged}`);
+  }
+  if (swaps.length) {
+    problems.push(`${swaps.length} rows are rendered with a different verdict from the one the `
+      + `observations carry: ${swaps.slice(0, 4).join('; ')}`);
+  }
+
+  /* ---- one run, and the answer on the surface belongs to it */
+  if (result.observeCalls !== 1) {
+    problems.push(`the subject frame was observed ${result.observeCalls} times, so the result this row `
+      + 'judged is not certainly the one the page rendered');
+  }
+  if (!result.runIdOnPage) {
+    problems.push('the page does not say which run produced what it is showing');
+  }
+
+  /* ---- nt_get_findings was really executed, while published, and answered for this run */
+  const answer = result.findings || {};
+  if (answer.called !== true) {
+    problems.push('nt_get_findings was never executed, so its being on the surface is all that was proved');
+  }
+  if (answer.error) {
+    problems.push(`executing nt_get_findings failed: ${answer.error}`);
+  }
+  const parsed = answer.text === null || answer.text === undefined ? null : safeParse(answer.text);
+  if (answer.called === true && !answer.error && !parsed) {
+    problems.push('nt_get_findings answered with something that is not a JSON object, so an agent '
+      + `reading it gets no structured result: ${String(answer.text).slice(0, 120)}`);
+  }
+  if (parsed) {
+    const answeredRunId = (parsed.run && parsed.run.id) || null;
+    if (!answeredRunId || answeredRunId !== result.runIdOnPage) {
+      problems.push(`nt_get_findings answered for run ${answeredRunId || 'nothing'} while the page is `
+        + `showing run ${result.runIdOnPage}, so the tool result is not the rendered one`);
+    }
+    const served = Array.isArray(parsed.findings) ? parsed.findings : [];
+    if (served.length !== EXPECTED_CATALOGUE_ROWS) {
+      problems.push(`nt_get_findings returned ${served.length} findings and the catalogue has `
+        + `${EXPECTED_CATALOGUE_ROWS}`);
+    }
+    const toolSwaps = served
+      .filter((f) => byId.get(f && f.id) !== (f && f.verdict))
+      .map((f) => `${(f && f.id) || 'an unnamed row'}: the tool says ${f && f.verdict}`
+        + `, the observations say ${byId.get(f && f.id)}`);
+    if (toolSwaps.length) {
+      problems.push(`${toolSwaps.length} findings the tool serves disagree with the observations: `
+        + `${toolSwaps.slice(0, 4).join('; ')}`);
+    }
+  }
+
+  /* ---- the exact tool surface, before, during and after */
+  const duringWanted = [...STANDING_TOOLS, FINDINGS_TOOL];
+  if (!sameMultiset(result.toolsBefore, STANDING_TOOLS)) {
+    problems.push(`before the run the surface was not the standing tools (${multisetDrift(result.toolsBefore, STANDING_TOOLS)})`);
+  }
+  if (!sameMultiset(result.toolsDuring, duringWanted)) {
+    problems.push(`during the run the surface was not the standing tools plus ${FINDINGS_TOOL} `
+      + `(${multisetDrift(result.toolsDuring, duringWanted)})`);
+  }
+  if (!sameMultiset(result.toolsAfter, STANDING_TOOLS)) {
+    problems.push(`after the findings were cleared the surface was not back to the standing tools `
+      + `(${multisetDrift(result.toolsAfter, STANDING_TOOLS)})`);
+  }
+  if (result.namesItsOwnTools !== true) {
+    problems.push('the page does not name its own tools anywhere a reader can see them');
+  }
+
+  /* ---- the page did not complain, and does not scroll sideways at either width */
+  const consoleErrors = Array.isArray(result.consoleErrors) ? result.consoleErrors : [];
+  if (consoleErrors.length) {
+    problems.push(`${consoleErrors.length} console errors: ${consoleErrors.slice(0, 3).join(' | ')}`);
+  }
+  const narrow = result.narrow || {};
+  const wide = result.wide || {};
+  if (narrow.sideScroll !== false) {
+    problems.push(`at 375 px the document is ${narrow.scrollWidth} px inside a ${narrow.viewport} px viewport`);
+  }
+  if (wide.sideScroll !== false) {
+    problems.push(`at 1280 px the document is ${wide.scrollWidth} px inside a ${wide.viewport} px viewport`);
+  }
+
+  const allowanceUsed = abstained.length
+    ? abstained.map((id) => `${id} (${MAY_ABSTAIN[id] ? 'declared' : 'NOT DECLARED'})`).join(', ')
+    : 'none';
+  return {
+    ok: problems.length === 0,
+    evidence: `${result.cards} cards, all judged here from the transcript the page consumed: `
+      + `${independent.counts.fail} broken / ${independent.counts.pass} kept / `
+      + `${independent.counts.notApplicable} unsettled of ${independent.counts.catalogue}`
+      + `, and every verdict agrees by behaviour id${swaps.length ? ' EXCEPT the rows named below' : ''}`
+      + `. Abstentions: ${allowanceUsed}, against the declared list ${sortedAbstainIds().join(', ')}`
+      + `. Run took ${result.elapsedMs} ms after ${result.observeCalls} observation`
+      + `, run id on the page ${result.runIdOnPage || 'MISSING'}`
+      + `, nt_get_findings executed=${answer.called === true} and answered for run `
+      + `${(parsed && parsed.run && parsed.run.id) || 'nothing'}`
+      + `, tool surface ${(result.toolsBefore || []).length}/${(result.toolsDuring || []).length}/`
+      + `${(result.toolsAfter || []).length} before/during/after`
+      + `, ${consoleErrors.length} console errors`
+      + `, document ${narrow.scrollWidth} px at 375 and ${wide.scrollWidth} px at 1280`
+      + (problems.length ? `. FAILING: ${problems.join('. ')}` : ''),
+  };
+}
+
 /* ------------------------------------------------------------------ the browser row */
 
 /** Open the live URL in a flagged Chrome, press the button, and report what happened. */
@@ -429,15 +653,32 @@ async function driveLivePage() {
     socket = connection.socket;
     const { session } = connection;
     await session.send('Runtime.enable');
+    // WITHOUT Log.enable THE CONSOLE CHECK IS HALF BLIND. Runtime carries console.error and thrown
+    // exceptions; the subresource, network and security failures a judge would also see in the
+    // console arrive as Log.entryAdded and were simply never delivered to this session.
+    await session.send('Log.enable').catch(() => {});
+    await session.send('Page.enable').catch(() => {});
+
+    // RELOAD SO THE CONSOLE CHECK COVERS THE LOAD. We attach after Chrome has already opened the
+    // page, so anything logged while it loaded happened before this session existed. Reloading with
+    // the domains enabled, and dropping what was collected first, means the errors this row counts
+    // are the ones a visitor's own console would show from the first byte.
+    await session.send('Page.reload', { ignoreCache: false }).catch(() => {});
+    session.events.length = 0;
+
     const loaded = await waitForDocument(session, LIVE_URL);
     if (!loaded.ok) {
       throw new Error(`${LIVE_URL} never finished loading. The attached document is "${loaded.url}"`
         + ` in state "${loaded.readyState}" after ${loaded.waitedMs} ms.`);
     }
 
-    const pending = session.evaluate(`(async () => {
+    const driven = await session.evaluate(`(async () => {
+      const out = { hasCtx: false, bootFailed: false, observeCalls: 0, transcript: null,
+        transcriptError: null, toolsBefore: [], toolsDuring: [], toolsAfter: [],
+        cardVerdicts: [], runIdOnPage: null,
+        findings: { called: false, error: null, text: null } };
       const ctx = document.modelContext;
-      const out = { hasCtx: !!ctx };
+      out.hasCtx = !!ctx;
       if (!ctx) return out;
 
       // WAIT FOR THE APP TO BOOT BEFORE TOUCHING IT. The first version of this row clicked at a
@@ -448,7 +689,7 @@ async function driveLivePage() {
       // now something this waits for and reports on, rather than something it assumes.
       const bootDeadline = Date.now() + 45000;
       while (Date.now() < bootDeadline) {
-        const cards = document.querySelectorAll('.card').length;
+        const cards = document.querySelectorAll('.groups .card').length;
         const button = document.querySelector('[data-el="run"]');
         const status = document.querySelector('[data-el="status"]');
         if (cards > 0 && button && status && /Ready|cannot run/.test(status.textContent)) break;
@@ -464,14 +705,40 @@ async function driveLivePage() {
         out.bootFailed = true;
         out.cards = 0;
         out.counts = { fail: 0, pass: 0, notApplicable: 0, total: 0 };
-        out.findingsToolAppeared = false;
-        out.findingsToolWithdrew = false;
         out.elapsedMs = 0;
         return out;
       }
 
+      // THE TRANSCRIPT THE PAGE ACTUALLY CONSUMED, CAPTURED AS IT CROSSES THE FRAME BOUNDARY.
+      // This row used to call the subject frame's observer itself, AFTER the page had rendered.
+      // That is a second run: a fresh set of tool calls against a surface the first run had already
+      // touched. The gate then judged a transcript the visitor never saw and compared it to what
+      // the visitor did see, which is only a comparison if the two are the same run. The entry
+      // point is now wrapped before the button is pressed, so the object judged in Node is the
+      // identical object the page handed to its own judge, and the call count proves there was one.
+      const frame = document.querySelector('[data-el="subject"]');
+      const observeDeadline = Date.now() + 30000;
+      while (Date.now() < observeDeadline
+        && typeof ((frame && frame.contentWindow) || {}).__ninthtool_observe !== 'function') {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      const inner = frame && frame.contentWindow;
+      if (!inner || typeof inner.__ninthtool_observe !== 'function') {
+        out.transcriptError = 'the subject frame never exposed __ninthtool_observe, so there was '
+          + 'nothing for this gate to capture';
+        return out;
+      }
+      const real = inner.__ninthtool_observe;
+      const captured = { calls: 0, transcript: null };
+      inner.__ninthtool_observe = async function capturingObserve() {
+        captured.calls += 1;
+        const seen = await real.call(inner);
+        captured.transcript = seen;
+        return seen;
+      };
+
       const names = async () => (await ctx.getTools()).map(t => String(t.name));
-      const before = await names();
+      out.toolsBefore = await names();
       const started = Date.now();
       document.querySelector('[data-el="run"]').click();
       while (Date.now() - started < 60000) {
@@ -481,13 +748,19 @@ async function driveLivePage() {
         // about five seconds sat here until the sixty second cap and reported 60210 ms. The
         // counts were right and the timing was fiction, which is the kind of number this
         // repository exists to refuse.
-        if (/Done\.|did not finish|PARTIAL|Nothing could be measured/.test(s)) break;
+        if (/Done\\.|did not finish|PARTIAL|Nothing could be measured/.test(s)) break;
         await new Promise(r => setTimeout(r, 300));
       }
       out.elapsedMs = Date.now() - started;
       out.status = document.querySelector('[data-el="status"]').textContent;
-      const during = await names();
-      out.findingsToolAppeared = !before.includes('nt_get_findings') && during.includes('nt_get_findings');
+      out.observeCalls = captured.calls;
+      out.transcript = captured.transcript;
+      if (!captured.transcript) {
+        out.transcriptError = 'the page produced its result without calling the observer this gate '
+          + 'had wrapped, so what it judged is unknown';
+      }
+
+      out.toolsDuring = await names();
       out.cards = document.querySelectorAll('.groups .card').length;
       out.counts = {
         fail: document.querySelectorAll('.groups .card.v-fail').length,
@@ -495,38 +768,78 @@ async function driveLivePage() {
         notApplicable: document.querySelectorAll('.groups .card.v-na').length,
         total: document.querySelectorAll('.groups .card').length
       };
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-      await new Promise(r => setTimeout(r, 800));
-      const after = await names();
-      out.findingsToolWithdrew = during.includes('nt_get_findings') && !after.includes('nt_get_findings');
+      // THE VERDICT THE VISITOR SEES, ROW BY ROW. Counting classes gives three totals, and three
+      // totals survive any swap of two rows. The chip carries the behaviour id, so the rendering
+      // can be compared to the judgement one behaviour at a time.
+      out.cardVerdicts = [...document.querySelectorAll('.groups .card')].map((card) => {
+        const chip = card.querySelector('.chip');
+        const shown = card.classList.contains('v-fail') ? 'fail'
+          : card.classList.contains('v-pass') ? 'pass'
+          : card.classList.contains('v-na') ? 'not-applicable' : 'nothing rendered';
+        return { id: chip ? chip.textContent.trim() : '', verdict: shown };
+      });
+      const env = document.querySelector('[data-el="env"]');
+      const stamped = env ? /run (run-\\d+-\\d+)/.exec(env.textContent) : null;
+      out.runIdOnPage = stamped ? stamped[1] : null;
+
+      // EXECUTE IT, DO NOT JUST WATCH IT APPEAR. A tool on the surface that has never been called
+      // is a name, not a capability, and the difference is this suite's whole subject.
+      try {
+        const published = (await ctx.getTools()).filter(t => String(t.name) === 'nt_get_findings');
+        if (published.length !== 1) {
+          out.findings.error = published.length + ' tools are published under the name nt_get_findings';
+        } else {
+          out.findings.called = true;
+          const answer = await ctx.executeTool(published[0], JSON.stringify({}));
+          const first = ((answer || {}).content || [])[0] || {};
+          out.findings.text = typeof first.text === 'string' ? first.text : null;
+          if (out.findings.text === null) out.findings.error = 'the tool answered with no text content';
+        }
+      } catch (error) {
+        out.findings.error = String((error && error.message) || error);
+      }
+
       out.namesItsOwnTools = ['nt_list_behaviours', 'nt_explain_behaviour', 'nt_run_audit', 'nt_get_findings']
         .every(n => document.body.textContent.includes(n));
-
-      // THE RAW OBSERVATIONS, not the page's conclusions. This row used to read the rendered card
-      // classes, which are what the page decided; a judge that had gone wrong would have been
-      // agreed with rather than caught. The transcript is fetched so this gate can judge it
-      // itself, in Node, and compare.
-      try {
-        const frame = document.querySelector('[data-el="subject"]');
-        out.transcript = await frame.contentWindow.__ninthtool_observe();
-      } catch (error) {
-        out.transcriptError = String(error && error.message || error);
-      }
       return out;
-    })()`, 150000);
-    // A judge opens this on a phone. A page that scrolls sideways there is a page that looks
-    // broken before it has said anything, and it was measured doing exactly that: 411 px of
-    // document inside a 375 px viewport, from grid children with no min-width.
-    await session.send('Emulation.setDeviceMetricsOverride', {
-      width: 375, height: 812, deviceScaleFactor: 1, mobile: true,
-    }).catch(() => {});
-    await new Promise((r) => setTimeout(r, 700));
-    const narrow = await session.evaluate(`(() => {
+    })()`, 180000);
+
+    // MEASURED WHILE THE RESULTS ARE ON SCREEN, AT BOTH WIDTHS. A judge opens this on a phone, and
+    // a page that scrolls sideways there looks broken before it has said anything: 411 px of
+    // document inside a 375 px viewport, from grid children with no min-width. It was only ever
+    // measured at 375, and only after the page had been cleared, so a wide layout that overflowed
+    // and a rendered layout that overflowed were both invisible to this row.
+    const measure = `(() => {
       const d = document.documentElement;
       return { viewport: d.clientWidth, scrollWidth: d.scrollWidth,
         sideScroll: d.scrollWidth > d.clientWidth + 1 };
-    })()`, 20000);
-    return { ...(await pending), narrow };
+    })()`;
+    const atWidth = async (width, height, mobile) => {
+      await session.send('Emulation.setDeviceMetricsOverride', {
+        width, height, deviceScaleFactor: 1, mobile,
+      }).catch(() => {});
+      await new Promise((r) => setTimeout(r, 700));
+      return session.evaluate(measure, 20000);
+    };
+    const wide = await atWidth(1280, 900, false);
+    const narrow = await atWidth(375, 812, true);
+    await session.send('Emulation.clearDeviceMetricsOverride').catch(() => {});
+
+    // WITHDRAWAL LAST, because clearing the findings nulls the result nt_get_findings serves. Doing
+    // this before the tool was executed left a null dereference where a clean verdict belongs.
+    const closed = await session.evaluate(`(async () => {
+      const ctx = document.modelContext;
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      await new Promise(r => setTimeout(r, 800));
+      return { toolsAfter: (await ctx.getTools()).map(t => String(t.name)) };
+    })()`, 30000);
+
+    // Errors only. Warnings are not a failure of this row, and dropping the errors as well would be
+    // the widening this repository refuses.
+    const consoleErrors = session.problems()
+      .filter((line) => /^(console\.error|page error|log error)/.test(line));
+
+    return { ...driven, ...closed, wide, narrow, consoleErrors };
   } finally {
     if (socket) socket.destroy();
     launched.close();
@@ -536,140 +849,338 @@ async function driveLivePage() {
 /* ------------------------------------------------------------------ the self test */
 
 /**
- * Break every automated row on purpose and require it to go red.
+ * A healthy browser row input, built from a transcript, with the page side derived from the
+ * judgement so that the only thing wrong with it is whatever a case deliberately breaks.
  *
- * Each case feeds a row's judgement the wrong input rather than editing a tracked file, so the
- * proof costs nothing and leaves nothing behind.
+ * THE BASELINE IS ASSERTED GREEN BEFORE ANY CASE RUNS. A mutation proves something only when the
+ * unmutated input passes; otherwise every case is red for reasons nobody chose and the whole table
+ * is decoration. That assertion is the first thing `runSelftest` does.
  */
-async function selftest() {
-  const cases = [
-    ['M1 with a licence that is not one', () => ({ ok: /MIT License/.test('not a licence') })],
-    ['M2 with a page missing the sentence', () => ({ ok: flat('some other page').includes(flat(FLAGSHIP)) })],
-    ['M3 with a banned name present', () => {
+export function healthyDrive(transcript) {
+  const independent = judge(transcript);
+  const verdicts = new Map(independent.findings.map((f) => [f.id, f.verdict]));
+  const runId = 'run-1-4096';
+  const served = independent.findings.map((f) => ({ id: f.id, verdict: f.verdict }));
+  return {
+    hasCtx: true,
+    bootFailed: false,
+    statusAfterBoot: 'Ready',
+    cards: BEHAVIOURS.length,
+    cardVerdicts: BEHAVIOURS.map((b) => ({ id: b.id, verdict: verdicts.get(b.id) })),
+    counts: {
+      fail: independent.counts.fail,
+      pass: independent.counts.pass,
+      notApplicable: independent.counts.notApplicable,
+      total: independent.counts.total,
+    },
+    transcript,
+    transcriptError: null,
+    observeCalls: 1,
+    runIdOnPage: runId,
+    findings: {
+      called: true,
+      error: null,
+      text: JSON.stringify({ run: { id: runId }, findings: served }),
+    },
+    toolsBefore: [...STANDING_TOOLS],
+    toolsDuring: [...STANDING_TOOLS, FINDINGS_TOOL],
+    toolsAfter: [...STANDING_TOOLS],
+    namesItsOwnTools: true,
+    consoleErrors: [],
+    elapsedMs: 4900,
+    narrow: { viewport: 375, scrollWidth: 375, sideScroll: false },
+    wide: { viewport: 1280, scrollWidth: 1280, sideScroll: false },
+  };
+}
+
+/** The same object with one field replaced, so a case is one variable and not a rewrite. */
+const broken = (base, changes) => ({ ...base, ...changes });
+
+/**
+ * Every case: a label, the row id it is about, and the input to hand that row's real `decide`.
+ *
+ * THERE ARE NO EXPRESSIONS IN THIS TABLE ON PURPOSE. The version this replaces held one per case,
+ * for example `{ ok: 404 === 200 }` for "M5 with a 404 from the live URL", and those expressions
+ * were never connected to the rows they named. Disabling row M5 entirely left this file green. A
+ * case here can only say which row and which input, and the harness below does the calling, so the
+ * only way to make a case pass is to make the row's own judgement pass.
+ */
+export async function selftestCases() {
+  // Imported here rather than at the top so an ordinary run never loads it. This is the transcript
+  // Chrome 152 actually produced, transcribed from the recorded runs, which is the right baseline
+  // for the browser row: a synthetic one would prove the row against a page that has never existed.
+  const { measuredChrome152, conforming } = await import('../tests/support/transcripts.mjs');
+  const live = measuredChrome152();
+  const healthy = healthyDrive(live);
+  const swapped = (() => {
+    const cards = healthy.cardVerdicts.map((card) => ({ ...card }));
+    const aFail = cards.find((c) => c.verdict === 'fail');
+    const aPass = cards.find((c) => c.verdict === 'pass');
+    aFail.verdict = 'pass';
+    aPass.verdict = 'fail';
+    return broken(healthy, { cardVerdicts: cards });
+  })();
+  const withoutObservation = (id) => {
+    const copy = JSON.parse(JSON.stringify(live));
+    delete copy.observations[id];
+    return healthyDrive(copy);
+  };
+  const oneFileTree = () => ({ fileCount: 1, files: { 'src/ui/app.js': hashOf('the tree') } });
+
+  return [
+    ['M1 with a licence that is not one', 'M1', { text: 'not a licence' }],
+    ['M2 with a page missing the sentence', 'M2', { readme: read('README.md'), page: 'some other page' }],
+    ['M3 with a banned name present', 'M3', (() => {
       const name = OTHER_COMPETITIONS.find((n) => n !== SIBLING_ENTRY);
-      return { ok: !new RegExp(`(^|[^a-z])${name}([^a-z]|$)`).test(`built for ${name}`) };
+      const texts = {};
+      for (const file of [...JUDGE_FACING_FILES, ...SIBLING_MUST_BE_NAMED_IN]) texts[file] = SIBLING_ENTRY;
+      texts[JUDGE_FACING_FILES[0]] = `built for ${name}, and it names ${SIBLING_ENTRY} too`;
+      return { texts };
+    })()],
+    ['M3 with the sibling entry not disclosed', 'M3', (() => {
+      const texts = {};
+      for (const file of JUDGE_FACING_FILES) texts[file] = SIBLING_ENTRY;
+      for (const file of SIBLING_MUST_BE_NAMED_IN) texts[file] = 'a readme with no disclosure';
+      return { texts };
+    })()],
+    ['M3 with a judge facing file that could not be read', 'M3', { texts: {} }],
+    ['M4 with a tool absent from the bundle', 'M4', { status: 200, body: 'nothing here', error: null }],
+    ['M4 with the deployed bundle answering 404', 'M4', { status: 404, body: '', error: null }],
+    ['M5 with a 404 from the live URL', 'M5', { status: 404, body: '', error: null }],
+    ['M5 with no response at all', 'M5', { status: 0, body: '', error: 'getaddrinfo ENOTFOUND' }],
+    ['M6 with one asset missing', 'M6', {
+      responses: [{ suffix: '', status: 200, error: null }, { suffix: 'src/ui/app.js', status: 404, error: null }],
+      fileCount: 1,
     }],
-    ['M3 with the sibling entry not disclosed', () => ({
-      ok: SIBLING_MUST_BE_NAMED_IN.filter(() => !'a readme with no disclosure'.includes(SIBLING_ENTRY)).length === 0,
+    ['M7 with a body that lost the sentence', 'M7', { status: 200, body: '<html>nothing</html>', error: null }],
+
+    ['M8 with no WebMCP host object', 'M8', broken(healthy, { hasCtx: false })],
+    ['M8 with a page that rendered no cards', 'M8', broken(healthy, { bootFailed: true })],
+    ['M8 with no transcript captured from the run the page rendered', 'M8',
+      broken(healthy, { transcript: null, transcriptError: 'the observer was never called' })],
+    ['M8 with completeness false because a row was never observed', 'M8', withoutObservation('A1')],
+    ['M8 with fatal errors present in the transcript', 'M8',
+      healthyDrive({ ...live, errors: ['the host object vanished mid run'] })],
+    ['M8 with the environment not identified', 'M8',
+      healthyDrive({ ...live, meta: { ...live.meta, api: null } })],
+    ['M8 with the page and the transcript disagreeing on one behaviour id while the totals match',
+      'M8', swapped],
+    ['M8 with a card missing from the render', 'M8', broken(healthy, { cards: BEHAVIOURS.length - 1 })],
+    ['M8 with a standing tool missing from the surface', 'M8',
+      broken(healthy, { toolsBefore: STANDING_TOOLS.slice(1) })],
+    ['M8 with a stray tool left on the surface during the run', 'M8',
+      broken(healthy, { toolsDuring: [...STANDING_TOOLS, FINDINGS_TOOL, 'nt_probe_leftover'] })],
+    ['M8 with nt_get_findings never withdrawn', 'M8',
+      broken(healthy, { toolsAfter: [...STANDING_TOOLS, FINDINGS_TOOL] })],
+    ['M8 with nt_get_findings never executed', 'M8',
+      broken(healthy, { findings: { called: false, error: null, text: null } })],
+    ['M8 with malformed nt_get_findings output', 'M8',
+      broken(healthy, { findings: { called: true, error: null, text: '{ not json at all' } })],
+    ['M8 with a stale run id in the tool answer', 'M8', broken(healthy, {
+      findings: {
+        ...healthy.findings,
+        text: JSON.stringify({
+          run: { id: 'run-2-9999' },
+          findings: JSON.parse(healthy.findings.text).findings,
+        }),
+      },
     })],
-    ['M4 with a tool absent from the bundle', () => ({ ok: CLAIMED_TOOLS.filter((n) => !'nothing here'.includes(n)).length === 0 })],
-    ['M5 with a 404 from the live URL', () => ({ ok: 404 === 200 })],
-    ['M6 with one asset missing', () => ({ ok: ['a -> 404'].length === 0 })],
-    ['M7 with a body that lost the sentence', () => ({ ok: flat('<html>nothing</html>').includes(flat(FLAGSHIP)) })],
-    ['M8 with an audit that judged nothing', () => ({ ok: 0 >= BEHAVIOURS.length - 2 })],
-    ['M8 with an audit that abstained on most of the catalogue', () => ({ ok: 3 >= BEHAVIOURS.length - 2 })],
-    ['M8 with the page disagreeing with the observations', () => ({
-      ok: ['the page rendered 14 broken and the observations say 12'].length === 0,
-    })],
-    ['M8 with no raw transcript to judge', () => ({ ok: Boolean(null) })],
-    ['R1 with a behaviour that has no mutation', () => ({ ok: ['C4'].length === 0 })],
-    ['R2 with failing tests', () => ({ ok: '3' === '0' })],
-    ['R3 with a style gate that never proved itself', () => ({ ok: /style gate: PASS/.test('style gate: PASS') && false })],
-    ['R4 with no falsification criterion', () => ({ ok: /falsif/i.test('a document with no such section') && true })],
-    ['R5 with a deployment behind the head', () => ({ ok: ['app.js: served bytes differ'].length === 0 })],
-    ['R5 with no manifest served at all', () => ({ ok: 404 === 200 })],
-    ['R5 with a manifest that does not describe the tree', () => ({
-      ok: ['src/ui/app.js has changed since the manifest was written'].length === 0,
-    })],
+    ['M8 with the subject observed a second time after the page rendered', 'M8',
+      broken(healthy, { observeCalls: 2 })],
+    ['M8 with no run id on the page', 'M8', broken(healthy, { runIdOnPage: null })],
+    ['M8 with a console error', 'M8',
+      broken(healthy, { consoleErrors: ['console.error: Uncaught TypeError'] })],
+    ['M8 with sideways scroll at 375 px', 'M8',
+      broken(healthy, { narrow: { viewport: 375, scrollWidth: 411, sideScroll: true } })],
+    ['M8 with sideways scroll at 1280 px', 'M8',
+      broken(healthy, { wide: { viewport: 1280, scrollWidth: 1460, sideScroll: true } })],
+    ['M8 with a run that abstained on a row nobody declared', 'M8', healthyDrive(
+      (() => { const copy = conforming(); delete copy.observations.D1; return copy; })(),
+    )],
+    ['M8 with rows the run left out of scope and one it selected but never counted', 'M8',
+      healthyDrive({ ...live, scope: { requestedBehaviours: ['A1'], selectedBehaviours: ['A1', 'A2'] } })],
+
+    ['R1 with a behaviour that has no mutation', 'R1', { text: '  A1: {\n' }],
+    ['R2 with failing tests', 'R2', { output: '# pass 40\n# fail 3\n', threw: true }],
+    ['R3 with a style gate that never proved itself', 'R3',
+      { output: 'style gate: scanned 60 files\nstyle gate: PASS\n', threw: false }],
+    ['R4 with no falsification criterion', 'R4',
+      { present: true, text: 'a document that does the same thing and nothing else' }],
+    ['R5 with a deployment behind the head', 'R5', (() => {
+      const fresh = oneFileTree();
+      return {
+        head: '0000000',
+        fresh,
+        committed: fresh,
+        servedManifest: { status: 200, body: JSON.stringify(fresh), error: null },
+        served: { 'src/ui/app.js': { status: 200, body: 'something else entirely', error: null } },
+      };
+    })()],
+    ['R5 with no manifest served at all', 'R5', (() => {
+      const fresh = oneFileTree();
+      return {
+        head: '0000000',
+        fresh,
+        committed: fresh,
+        servedManifest: { status: 404, body: '', error: null },
+        served: { 'src/ui/app.js': { status: 200, body: 'the tree', error: null } },
+      };
+    })()],
+    ['R5 with a manifest that does not describe the tree', 'R5', (() => {
+      const fresh = oneFileTree();
+      const stale = { fileCount: 1, files: { 'src/ui/app.js': hashOf('what it used to be') } };
+      return {
+        head: '0000000',
+        fresh,
+        committed: stale,
+        servedManifest: { status: 200, body: JSON.stringify(fresh), error: null },
+        served: { 'src/ui/app.js': { status: 200, body: 'the tree', error: null } },
+      };
+    })()],
   ];
-  let broken = 0;
-  for (const [label, judgement] of cases) {
-    if (judgement().ok !== false) {
-      console.error(`  selftest: "${label}" did NOT go red. That row cannot fail.`);
-      broken += 1;
-    }
-  }
+}
+
+/**
+ * Break every automated row on purpose, by calling that row's own judgement, and require red.
+ *
+ * A `decide` that throws counts as red: several rows fail by refusing to judge an input they cannot
+ * read, and refusing is a failure, not a pass.
+ */
+export async function runSelftest() {
   const automated = ROWS.filter((r) => r.kind !== 'owner-gated');
-  if (cases.length < automated.length) {
-    console.error(`  selftest: ${automated.length} automated rows but ${cases.length} failure proofs. `
-      + 'Every automated row needs at least one.');
-    broken += 1;
+  const problems = [];
+
+  // EVERY AUTOMATED ROW HAS THE TWO HALVES. A row with the judgement back inside its gathering
+  // cannot be self tested, and this is the check that notices rather than the reader.
+  for (const row of automated) {
+    if (typeof row.decide !== 'function') problems.push(`${row.id} has no decide, so nothing about it can be proved`);
+    if (typeof row.gather !== 'function') problems.push(`${row.id} has no gather, so its judgement is not separated from its input`);
   }
-  if (broken) {
-    console.error(`readiness selftest: FAIL, ${broken} problems.`);
+
+  const { measuredChrome152 } = await import('../tests/support/transcripts.mjs');
+  const baseline = decideM8(healthyDrive(measuredChrome152()));
+  if (baseline.ok !== true) {
+    problems.push('the healthy browser row baseline is NOT green, so every M8 case below is red for '
+      + `reasons nobody chose and proves nothing: ${baseline.evidence}`);
+  }
+
+  const cases = await selftestCases();
+  for (const [label, rowId, input] of cases) {
+    const row = ROWS.find((r) => r.id === rowId);
+    if (!row || typeof row.decide !== 'function') {
+      problems.push(`"${label}" names row ${rowId}, which has no judgement to call`);
+      continue;
+    }
+    let verdict;
+    try { verdict = row.decide(input); } catch { verdict = { ok: false }; }
+    if (verdict.ok !== false) problems.push(`"${label}" did NOT go red. Row ${rowId} cannot fail on it.`);
+  }
+
+  const covered = new Set(cases.map(([, rowId]) => rowId));
+  for (const row of automated) {
+    if (!covered.has(row.id)) problems.push(`row ${row.id} has no failure proof. Every automated row needs one.`);
+  }
+
+  return { problems, cases: cases.length, rows: automated.length };
+}
+
+async function selftest() {
+  const { problems, cases, rows } = await runSelftest();
+  for (const problem of problems) console.error(`  selftest: ${problem}`);
+  if (problems.length) {
+    console.error(`readiness selftest: FAIL, ${problems.length} problems.`);
     process.exit(1);
   }
-  console.log(`readiness selftest: PASS, all ${cases.length} automated rows were seen to fail on a deliberate input.`);
+  console.log(`readiness selftest: PASS, ${cases} deliberately broken inputs were handed to the real `
+    + `judgement of all ${rows} automated rows and every one of them went red.`);
 }
 
 /* ------------------------------------------------------------------ run */
 
-const drift = thresholdDrift();
-if (drift.length) {
-  console.error('readiness: REFUSING TO RUN. The thresholds and their fixture disagree:');
-  for (const line of drift) console.error(`  - ${line}`);
-  console.error('Somebody has changed a threshold in one place only. Fix reality, not the number.');
-  process.exit(2);
+async function main() {
+  const drift = thresholdDrift();
+  if (drift.length) {
+    console.error('readiness: REFUSING TO RUN. The thresholds and their fixture disagree:');
+    for (const line of drift) console.error(`  - ${line}`);
+    console.error('Somebody has changed a threshold in one place only. Fix reality, not the number.');
+    process.exit(2);
+  }
+
+  if (args.selftest) { await selftest(); process.exit(0); }
+
+  const results = [];
+  for (const row of ROWS) {
+    if (row.kind === 'owner-gated') {
+      results.push({ ...row, state: 'user-gated', evidence: row.manual });
+      continue;
+    }
+    if ((row.network && args.offline) || (row.browser && args.noBrowser)) {
+      results.push({ ...row, state: 'not-run', evidence: row.browser ? 'skipped, no browser run requested' : 'skipped, offline' });
+      continue;
+    }
+    try {
+      const outcome = row.decide(await row.gather());
+      results.push({ ...row, state: outcome.ok ? 'pass' : 'fail', evidence: outcome.evidence });
+    } catch (error) {
+      results.push({ ...row, state: 'fail', evidence: String((error && error.message) || error) });
+    }
+  }
+
+  const automated = results.filter((r) => r.kind !== 'owner-gated');
+  const mandatory = automated.filter((r) => r.kind === 'mandatory');
+  const passed = automated.filter((r) => r.state === 'pass');
+  const failed = automated.filter((r) => r.state === 'fail');
+  const notRun = automated.filter((r) => r.state === 'not-run');
+  const ownerGated = results.filter((r) => r.kind === 'owner-gated');
+  const mandatoryPassed = mandatory.filter((r) => r.state === 'pass');
+
+  // A row that could not be run is NOT credit. It divides into the denominator all the same, because
+  // a gate that shrinks its own denominator when a check is skipped reports a higher score for doing
+  // less.
+  const rate = automated.length ? passed.length / automated.length : 0;
+  const mandatoryRate = mandatory.length ? mandatoryPassed.length / mandatory.length : 0;
+  const ok = mandatoryRate >= MANDATORY_PASS_RATE && rate >= OVERALL_PASS_RATE;
+
+  if (args.json) {
+    console.log(JSON.stringify({
+      ok, rate, mandatoryRate,
+      counts: { total: automated.length, pass: passed.length, fail: failed.length, notRun: notRun.length, ownerGated: ownerGated.length },
+      rows: results.map((r) => ({ id: r.id, kind: r.kind, title: r.title, state: r.state, evidence: r.evidence })),
+    }, null, 1));
+  } else {
+    const BAR = '-'.repeat(78);
+    console.log(BAR);
+    console.log('readiness');
+    console.log(BAR);
+    const mark = { pass: 'PASS      ', fail: 'FAIL      ', 'not-run': 'NOT RUN   ', 'user-gated': 'USER GATED' };
+    for (const row of results) {
+      if (row.kind === 'owner-gated') continue;
+      console.log(`[${mark[row.state]}] ${row.id} ${row.title}`);
+      console.log(`               ${row.evidence}`);
+    }
+    console.log('');
+    console.log('OWNER GATED, counted separately and never a pass:');
+    for (const row of ownerGated) {
+      console.log(`[${mark[row.state]}] ${row.id} ${row.title}`);
+      console.log(`               ${row.evidence}`);
+    }
+    console.log('');
+    console.log(BAR);
+    console.log(`mandatory ${mandatoryPassed.length} of ${mandatory.length}`
+      + `, automated ${passed.length} of ${automated.length} (${(rate * 100).toFixed(0)} percent)`
+      + `${notRun.length ? `, ${notRun.length} could not be run` : ''}`
+      + `, ${ownerGated.length} owner gated and still open.`);
+    console.log(ok
+      ? 'READY on every automated row. The owner gated rows above are what is left.'
+      : `NOT READY. Mandatory must be ${MANDATORY_PASS_RATE * 100} percent and overall at least ${OVERALL_PASS_RATE * 100} percent.`);
+    console.log(BAR);
+  }
+
+  process.exit(ok ? 0 : 1);
 }
 
-if (args.selftest) { await selftest(); process.exit(0); }
-
-const results = [];
-for (const row of ROWS) {
-  if (row.kind === 'owner-gated') {
-    results.push({ ...row, state: 'user-gated', evidence: row.manual });
-    continue;
-  }
-  if ((row.network && args.offline) || (row.browser && args.noBrowser)) {
-    results.push({ ...row, state: 'not-run', evidence: row.browser ? 'skipped, no browser run requested' : 'skipped, offline' });
-    continue;
-  }
-  try {
-    const outcome = await row.run();
-    results.push({ ...row, state: outcome.ok ? 'pass' : 'fail', evidence: outcome.evidence });
-  } catch (error) {
-    results.push({ ...row, state: 'fail', evidence: String((error && error.message) || error) });
-  }
-}
-
-const automated = results.filter((r) => r.kind !== 'owner-gated');
-const mandatory = automated.filter((r) => r.kind === 'mandatory');
-const passed = automated.filter((r) => r.state === 'pass');
-const failed = automated.filter((r) => r.state === 'fail');
-const notRun = automated.filter((r) => r.state === 'not-run');
-const ownerGated = results.filter((r) => r.kind === 'owner-gated');
-const mandatoryPassed = mandatory.filter((r) => r.state === 'pass');
-
-// A row that could not be run is NOT credit. It divides into the denominator all the same, because
-// a gate that shrinks its own denominator when a check is skipped reports a higher score for doing
-// less.
-const rate = automated.length ? passed.length / automated.length : 0;
-const mandatoryRate = mandatory.length ? mandatoryPassed.length / mandatory.length : 0;
-const ok = mandatoryRate >= MANDATORY_PASS_RATE && rate >= OVERALL_PASS_RATE;
-
-if (args.json) {
-  console.log(JSON.stringify({
-    ok, rate, mandatoryRate,
-    counts: { total: automated.length, pass: passed.length, fail: failed.length, notRun: notRun.length, ownerGated: ownerGated.length },
-    rows: results.map((r) => ({ id: r.id, kind: r.kind, title: r.title, state: r.state, evidence: r.evidence })),
-  }, null, 1));
-} else {
-  const BAR = '-'.repeat(78);
-  console.log(BAR);
-  console.log('readiness');
-  console.log(BAR);
-  const mark = { pass: 'PASS      ', fail: 'FAIL      ', 'not-run': 'NOT RUN   ', 'user-gated': 'USER GATED' };
-  for (const row of results) {
-    if (row.kind === 'owner-gated') continue;
-    console.log(`[${mark[row.state]}] ${row.id} ${row.title}`);
-    console.log(`               ${row.evidence}`);
-  }
-  console.log('');
-  console.log('OWNER GATED, counted separately and never a pass:');
-  for (const row of ownerGated) {
-    console.log(`[${mark[row.state]}] ${row.id} ${row.title}`);
-    console.log(`               ${row.evidence}`);
-  }
-  console.log('');
-  console.log(BAR);
-  console.log(`mandatory ${mandatoryPassed.length} of ${mandatory.length}`
-    + `, automated ${passed.length} of ${automated.length} (${(rate * 100).toFixed(0)} percent)`
-    + `${notRun.length ? `, ${notRun.length} could not be run` : ''}`
-    + `, ${ownerGated.length} owner gated and still open.`);
-  console.log(ok
-    ? 'READY on every automated row. The owner gated rows above are what is left.'
-    : `NOT READY. Mandatory must be ${MANDATORY_PASS_RATE * 100} percent and overall at least ${OVERALL_PASS_RATE * 100} percent.`);
-  console.log(BAR);
-}
-
-process.exit(ok ? 0 : 1);
+// Only when this file IS the command. A test that imports ROWS to check every row has a judgement
+// must not set off a live run and a process.exit in the middle of the suite.
+const invokedDirectly = Boolean(process.argv[1])
+  && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (invokedDirectly) await main();
