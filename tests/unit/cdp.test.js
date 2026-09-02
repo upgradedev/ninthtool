@@ -15,23 +15,28 @@
  * here set no mask bit, and `readClientFrame` unmasks in the other direction to read what the
  * session wrote.
  *
- * WHAT IS NOT HERE. `openSession` does an HTTP GET for `/json` and then `net.connect`, and
- * `evaluateInPage` goes through it, so neither runs without a live Chrome. They are marked below
- * with a skip rather than faked into something that always passes. The outgoing side of the codec
- * IS here: the commands `send` writes are read back off the fake socket and unmasked, at all three
- * header widths, because a short command would otherwise be the only one ever built.
+ * The outgoing side of the codec IS here: the commands `send` writes are read back off the fake
+ * socket and unmasked, at all three header widths, because a short command would otherwise be the
+ * only one ever built.
  *
- * No socket, no browser, no files. Everything below is the Session class fed buffers by hand.
+ * `openSession` AND `evaluateInPage` ARE DRIVEN TOO, AND STILL WITHOUT A BROWSER. They were skipped
+ * here for a while, on the reasoning that an HTTP GET for `/json` followed by `net.connect` cannot
+ * be asserted on without a live Chrome. That reasoning was wrong by one word: it needs a live
+ * LISTENER, not a live browser. The last section of this file starts two servers of its own on
+ * loopback, one answering `/json` and one completing the WebSocket upgrade and speaking the
+ * protocol back, and drives the real functions against them. Nothing is stubbed inside the module.
+ *
+ * THE FAKE BROWSER IS WRITTEN FROM THE WIRE FORMAT, in both directions, for the same reason the
+ * frame fixtures are: a fake built out of the module's own encoder agrees with it by construction.
+ *
+ * No browser and no files. Everything below is either the Session class fed buffers by hand, or the
+ * real client talking to a socket this file owns.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
+import net from 'node:net';
 
-// `openSession` and `evaluateInPage` are imported and never called. That is deliberate, and it is
-// the only honest check this file can make on them. A named import of a missing export is a link
-// time SyntaxError, so if either export were dropped this whole file would fail to load rather than
-// quietly stop covering them. A test asserting `typeof openSession === 'function'` used to sit at
-// the bottom of this file. It was removed because it could never fail: the import below had already
-// done the work, and the test passed against stubs with no behaviour in them at all.
 import { Session, openSession, evaluateInPage } from '../../src/probe/cdp.mjs';
 
 /* ------------------------------------------------------------------ the wire format, by hand */
@@ -496,11 +501,325 @@ test('every frame carries its own mask', async () => {
     'the same four mask bytes were used for both frames');
 });
 
-/* ------------------------------------------------------------------ what is left uncovered */
+/* --------------------------------------------------- the real client, against a fake browser */
 
-test('openSession picks the right target and completes the upgrade', {
-  skip: 'openSession does an HTTP GET for /json and then net.connect. There is no honest unit '
-    + 'assertion about it without a listening socket, and this suite opens none. It is driven for '
-    + 'real by tests/integration/side_effect_isolation.mjs line 111, which needs Chrome. '
-    + 'evaluateInPage has no caller anywhere in the repository, so nothing drives it at all.',
-}, () => {});
+/**
+ * Read every complete client frame out of an accumulated buffer, and hand back what is left.
+ *
+ * The server side of the connection needs this, and it is not `readClientFrame` above: that one
+ * asserts about a single frame handed to it whole, while a socket delivers whatever bytes have
+ * arrived. Getting this wrong in the fake would look like the client failing to send.
+ *
+ * @param {Buffer} buffer everything received since the handshake
+ * @returns {{texts: string[], rest: Buffer}}
+ */
+function drainClientFrames(buffer) {
+  const texts = [];
+  let at = 0;
+  for (;;) {
+    if (at + 2 > buffer.length) break;
+    let length = buffer[at + 1] & 0x7f;
+    let start = at + 2;
+    if (length === 126) {
+      if (start + 2 > buffer.length) break;
+      length = buffer.readUInt16BE(start);
+      start += 2;
+    } else if (length === 127) {
+      if (start + 8 > buffer.length) break;
+      length = Number(buffer.readBigUInt64BE(start));
+      start += 8;
+    }
+    const masked = (buffer[at + 1] & 0x80) !== 0;
+    const maskLength = masked ? 4 : 0;
+    if (start + maskLength + length > buffer.length) break;
+    const mask = buffer.subarray(start, start + maskLength);
+    const body = buffer.subarray(start + maskLength, start + maskLength + length);
+    const clear = Buffer.alloc(body.length);
+    for (let i = 0; i < body.length; i++) clear[i] = masked ? body[i] ^ mask[i % 4] : body[i];
+    texts.push(clear.toString('utf8'));
+    at = start + maskLength + length;
+  }
+  return { texts, rest: buffer.subarray(at) };
+}
+
+/**
+ * A stand in for a browser with a debugging port open: the HTTP endpoint that lists targets and the
+ * socket endpoint that speaks the protocol.
+ *
+ * WHAT IS DELIBERATELY REAL. Both are ordinary node servers on 127.0.0.1, so `getJson` does a real
+ * request, `net.connect` opens a real socket, the upgrade is a real HTTP response and every frame
+ * crosses a real TCP connection. The only thing that is not a browser is what answers the commands.
+ *
+ * @param {object} options
+ * @param {function(number): *} [options.listing] what `/json` answers, given the socket port. It may
+ *   return a string, which is how a body that is not JSON is arranged.
+ * @param {string} [options.handshake] `whole` writes the upgrade headers in one write, `split`
+ *   writes them in two so the client sees a partial header block first, and `glued` writes the
+ *   headers and a protocol frame in a single write.
+ * @param {function(object): object} [options.answer] the reply to one command message
+ */
+async function fakeBrowser(options = {}) {
+  const {
+    handshake = 'whole',
+    answer = (command) => ({ id: command.id, result: { result: { value: 'answered' } } }),
+  } = options;
+  const sockets = new Set();
+  const commands = [];
+  const paths = [];
+
+  const wire = net.createServer((socket) => {
+    sockets.add(socket);
+    socket.on('error', () => {});
+    let upgraded = false;
+    let pending = Buffer.alloc(0);
+    socket.on('data', (chunk) => {
+      if (!upgraded) {
+        upgraded = true;
+        // Which target this connection asked for. The client puts it in the request line, and it
+        // is the only place the choice of target is observable from outside the module.
+        const requested = /^GET (\S+) HTTP\/1\.1/.exec(chunk.toString('utf8'));
+        paths.push(requested ? requested[1] : null);
+        const headers = 'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n'
+          + 'Connection: Upgrade\r\nSec-WebSocket-Accept: ignored-by-this-client\r\n\r\n';
+        if (handshake === 'split') {
+          const cut = headers.length - 8;
+          socket.write(headers.slice(0, cut));
+          setTimeout(() => socket.write(headers.slice(cut)), 30);
+        } else if (handshake === 'glued') {
+          // The event rides in on the same write as the end of the handshake, which is the case
+          // that makes the client's leftover bytes matter.
+          socket.write(Buffer.concat([
+            Buffer.from(headers),
+            serverFrame(JSON.stringify({
+              method: 'Runtime.consoleAPICalled',
+              params: { type: 'error', args: [{ value: 'glued to the handshake' }] },
+            })),
+          ]));
+        } else {
+          socket.write(headers);
+        }
+        return;
+      }
+      const { texts, rest } = drainClientFrames(Buffer.concat([pending, chunk]));
+      pending = rest;
+      for (const text of texts) {
+        const command = JSON.parse(text);
+        commands.push(command);
+        const reply = answer(command);
+        if (reply) socket.write(serverFrame(JSON.stringify(reply)));
+      }
+    });
+    socket.on('close', () => sockets.delete(socket));
+  });
+  await new Promise((resolve) => wire.listen(0, '127.0.0.1', resolve));
+  const wirePort = wire.address().port;
+
+  const listing = options.listing || ((port) => [{
+    id: 'PAGE1',
+    type: 'page',
+    url: 'https://example.test/subject.html',
+    webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/PAGE1`,
+  }]);
+
+  const json = http.createServer((req, res) => {
+    const body = listing(wirePort);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(typeof body === 'string' ? body : JSON.stringify(body));
+  });
+  await new Promise((resolve) => json.listen(0, '127.0.0.1', resolve));
+
+  return {
+    port: json.address().port,
+    wirePort,
+    commands,
+    paths,
+    /** How many connections this fake browser still holds open. */
+    openSockets: () => [...sockets].filter((socket) => !socket.destroyed).length,
+    close() {
+      for (const socket of sockets) socket.destroy();
+      json.close();
+      wire.close();
+    },
+  };
+}
+
+/** A loopback port with nothing listening on it, obtained by closing a server that just had it. */
+async function deadPort() {
+  const idle = net.createServer();
+  await new Promise((resolve) => idle.listen(0, '127.0.0.1', resolve));
+  const { port } = idle.address();
+  await new Promise((resolve) => idle.close(resolve));
+  return port;
+}
+
+test('openSession completes the upgrade and the session then works end to end', async (t) => {
+  const browser = await fakeBrowser();
+  t.after(() => browser.close());
+
+  const { session, socket } = await openSession(browser.port);
+  t.after(() => socket.destroy());
+
+  const value = await session.evaluate('1 + 1', 4000);
+  assert.equal(value, 'answered', 'the answer never came back through the upgraded socket');
+  assert.deepEqual(browser.commands.map((c) => c.method), ['Runtime.evaluate']);
+  assert.equal(browser.commands[0].params.expression, '1 + 1');
+  assert.equal(browser.commands[0].params.returnByValue, true);
+  assert.equal(browser.commands[0].params.awaitPromise, true);
+});
+
+test('without a matcher the first page target wins, and with one the match does', async (t) => {
+  /*
+   * THE DEFECT THE MATCHER EXISTS FOR. Chrome opens about:blank first and navigates afterwards, so
+   * the first page target is not the page. A run that attached to it found no WebMCP and reported
+   * fourteen behaviours unobserved against a document nobody asked about. The matcher has to reach
+   * past the blank one, and this is the ordering that proves it does.
+   */
+  const listing = (port) => [
+    { type: 'page', url: 'about:blank', webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/BLANK` },
+    { type: 'page', url: 'https://example.test/subject.html', webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/page/REAL` },
+  ];
+  const browser = await fakeBrowser({ listing });
+  t.after(() => browser.close());
+
+  const first = await openSession(browser.port);
+  t.after(() => first.socket.destroy());
+  assert.deepEqual(browser.paths, ['/devtools/page/BLANK'],
+    'with no matcher the first page target wins, which is the behaviour the matcher overrides');
+
+  const chosen = await openSession(browser.port, (target) => target.url.endsWith('subject.html'));
+  t.after(() => chosen.socket.destroy());
+  assert.deepEqual(browser.paths, ['/devtools/page/BLANK', '/devtools/page/REAL'],
+    'the matcher was ignored and the run would have measured about:blank');
+});
+
+test('a target that is not a page, or a page with no socket, is not attachable', async (t) => {
+  const listing = () => [
+    { type: 'service_worker', url: 'https://example.test/sw.js', webSocketDebuggerUrl: 'ws://127.0.0.1:1/x' },
+    { type: 'page', url: 'https://example.test/no-socket.html' },
+  ];
+  const browser = await fakeBrowser({ listing });
+  t.after(() => browser.close());
+
+  await assert.rejects(
+    () => openSession(browser.port),
+    /Chrome is running but has no page target\. Give it the page URL\./,
+    'a worker or a page with no debugger URL was treated as attachable',
+  );
+});
+
+test('a matcher that matches nothing names the targets that are open', async (t) => {
+  const browser = await fakeBrowser();
+  t.after(() => browser.close());
+
+  await assert.rejects(
+    () => openSession(browser.port, (target) => target.url === 'https://nowhere.test/'),
+    /no page target matching the requested URL\. Open targets: https:\/\/example\.test\/subject\.html/,
+    'the refusal has to say what IS open, or there is nothing to act on',
+  );
+});
+
+test('a matcher that matches nothing when nothing is open says none rather than an empty list', async (t) => {
+  const browser = await fakeBrowser({ listing: () => [] });
+  t.after(() => browser.close());
+
+  await assert.rejects(
+    () => openSession(browser.port, () => true),
+    /Open targets: none/,
+  );
+});
+
+test('a target listing that is not JSON is a rejection, not a crash', async (t) => {
+  const browser = await fakeBrowser({ listing: () => '<html>this is not the debugging endpoint</html>' });
+  t.after(() => browser.close());
+
+  await assert.rejects(() => openSession(browser.port), (error) => {
+    assert.ok(error instanceof SyntaxError, `expected a parse failure, got ${error}`);
+    return true;
+  });
+});
+
+test('a debugging port with nothing on it is a rejection naming the connection', async () => {
+  const port = await deadPort();
+  await assert.rejects(() => openSession(port), (error) => {
+    assert.match(String(error.code || error.message), /ECONNREFUSED|ECONNRESET/,
+      `a closed port produced ${error}`);
+    return true;
+  });
+});
+
+test('a handshake arriving in two pieces still upgrades', async (t) => {
+  // The client holds the partial header block until the blank line arrives. Read the two pieces as
+  // one and the upgrade never completes, and the whole run times out ten seconds later with a
+  // message about the browser rather than about the split.
+  const browser = await fakeBrowser({ handshake: 'split' });
+  t.after(() => browser.close());
+
+  const { session, socket } = await openSession(browser.port);
+  t.after(() => socket.destroy());
+  assert.equal(await session.evaluate('ok', 4000), 'answered');
+});
+
+test('a frame glued to the end of the handshake is kept, not thrown away with the headers', async (t) => {
+  // The bytes after the blank line are protocol, and they arrive in the same chunk as the headers
+  // often enough to matter. Dropping them loses whatever the page said first.
+  const browser = await fakeBrowser({ handshake: 'glued' });
+  t.after(() => browser.close());
+
+  const { session, socket } = await openSession(browser.port);
+  t.after(() => socket.destroy());
+
+  assert.deepEqual(session.problems(), ['console.error: glued to the handshake'],
+    'the event that arrived with the handshake was discarded');
+});
+
+test('evaluateInPage asks once and leaves nothing open behind it', async (t) => {
+  const browser = await fakeBrowser({
+    answer: (command) => ({ id: command.id, result: { result: { value: { tools: 3 } } } }),
+  });
+  t.after(() => browser.close());
+
+  const value = await evaluateInPage(browser.port, 'window.__ninthtool_probe()');
+  assert.deepEqual(value, { tools: 3 });
+  assert.deepEqual(browser.commands.map((c) => c.params.expression), ['window.__ninthtool_probe()']);
+});
+
+test('a command at every header width survives the round trip intact', async (t) => {
+  /*
+   * The three header widths, across a real socket rather than into a buffer this file then reads
+   * back. The long ones also arrive in several TCP chunks, so the client's outgoing framing and the
+   * reassembly on the far side have to agree about where each frame ends. An expression built from
+   * a repeated character would hide an off by one in the middle of it, so each one carries its own
+   * length in its text and the length is asserted rather than the shape.
+   */
+  const browser = await fakeBrowser();
+  t.after(() => browser.close());
+  const { session, socket } = await openSession(browser.port);
+  t.after(() => socket.destroy());
+
+  for (const size of [40, 400, 70000]) {
+    const expression = `probe(${size},"${'x'.repeat(Math.max(0, size - 12))}")`;
+    await session.evaluate(expression, 8000);
+    const sent = browser.commands[browser.commands.length - 1].params.expression;
+    assert.equal(sent, expression, `the ${expression.length} byte command did not arrive whole`);
+  }
+  assert.equal(browser.commands.length, 3);
+});
+
+test('evaluateInPage closes the socket even when the page threw', async (t) => {
+  const browser = await fakeBrowser({
+    answer: (command) => ({
+      id: command.id,
+      result: { exceptionDetails: { text: 'ReferenceError: nothing is defined' } },
+    }),
+  });
+  t.after(() => browser.close());
+
+  await assert.rejects(
+    () => evaluateInPage(browser.port, 'nothing()'),
+    /the page threw: .*ReferenceError/,
+  );
+  // The finally has to run on the failing path too, or a run that hits one page error leaks a
+  // socket for every page after it.
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(browser.openSockets(), 0, 'the socket was left open after a page error');
+});
