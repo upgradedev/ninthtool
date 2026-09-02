@@ -1,9 +1,14 @@
 /**
  * The one comparative number this entry makes, and the guards that keep it honest.
  *
- * Every existing WebMCP checker named in docs/prior-art.md reads a page's DECLARED METADATA: names,
- * descriptions, schemas, annotations. So the fair question is how much of this catalogue that
- * reaches, and the answer is computed from the catalogue rather than typed anywhere.
+ * The question is how much of this catalogue a reading of a page's DECLARED METADATA can reach:
+ * names, descriptions, schemas, annotations. The answer is computed from the catalogue rather than
+ * typed anywhere.
+ *
+ * THIS DOCBLOCK USED TO SAY that every existing WebMCP checker named in docs/prior-art.md reads
+ * only declared metadata. A prior art re-check on 2026-09-02 falsified that: several of them
+ * execute tools. The premise is gone and the number stands, because it was never a claim about
+ * anybody else's product.
  *
  * WHAT THE NUMBER IS NOT. It is not a survey, not a benchmark against a named product, and not a
  * measurement of how well anybody implements the metadata half. It is a property of these twenty

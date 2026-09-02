@@ -57,9 +57,14 @@ export const GROUPS = ['your-page', 'spec-divergence', 'standard-gap', 'silent-t
  *   execution  needs a tool to be called, or a tool of the checker's own to be registered
  *
  * THIS IS THE ENTRY'S ONE COMPARATIVE NUMBER, and it is a property of this catalogue rather than a
- * survey of anybody's product. Every existing WebMCP checker found in docs/prior-art.md reads
- * declared metadata. Counting how much of this catalogue that reaches is therefore a fair, and
- * fairly narrow, statement about where these defects live. Recount it yourself:
+ * survey of anybody's product.
+ *
+ * THE PREMISE WAS CORRECTED ON 2026-09-02 AND THE NUMBER SURVIVED IT. This used to read "every
+ * existing WebMCP checker reads declared metadata", which a prior art re-check falsified: at least
+ * three of the products in docs/prior-art.md execute tools rather than only reading declarations.
+ * The number is unaffected because it never depended on that claim. It counts how much of THIS
+ * catalogue a metadata-only reading can reach, which is a fact about these twenty rows and about
+ * where these defects live, whoever else is or is not calling anything. Recount it yourself:
  *
  *   node -e "import('./src/judge/behaviours.js').then(m=>console.log(m.decidability()))"
  *
