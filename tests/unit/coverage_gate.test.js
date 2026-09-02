@@ -252,9 +252,11 @@ test('a threshold passed on the command line is the one enforced', () => {
  * THE RAW `all files` ROW IS NOT A COVERAGE MEASUREMENT ON THIS TREE.
  *
  * Node writes one record per module INSTANCE. `ui_state.test.js` imports `src/ui/app.js?fresh=N`
- * once per mount, so a single 635 line file contributes eighteen records and every other file
- * contributes one. The aggregate therefore moves when a UI test adds a mount, which makes it a
- * number about the harness. Measured: raw 81.65 lines, one record per file 96.74.
+ * once per mount, and `manifest_cli.test.js` imports `scripts/build_manifest.mjs` a second time to
+ * run its command line block, so those two files contribute several records each. The aggregate
+ * therefore moves when a test adds an instance, which makes it a number about the harness.
+ * Measured on 369c769: raw 81.65 lines, one record per file 96.74. Both figures have moved since,
+ * which is the point of them being dated, and the gate prints today's pair on every run.
  *
  * These pin the deduplicated reading, including that it can still fail and that it never hides a
  * weak file inside an average.

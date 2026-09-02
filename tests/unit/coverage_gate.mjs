@@ -20,10 +20,10 @@
  *
  * The second exists because the first is depressed by something no test can fix: node reports one
  * coverage record per module INSTANCE, and tests/unit/ui_state.test.js imports
- * `src/ui/app.js?fresh=N` once per mount, so one 635 line file is counted eighteen times in the
- * aggregate's denominator. Measured on commit 369c769: 11,430 of the 24,621 counted lines are
- * eighteen copies of that one file. The gate prints that count when it fails, so the number is
- * attributable rather than mysterious.
+ * `src/ui/app.js?fresh=N` once per mount, so one 635 line file is counted many times over in the
+ * aggregate's denominator. Measured on commit 369c769: eighteen copies of that one file, 11,430 of
+ * the 24,621 counted lines. That count is not fixed and has moved since, so the gate prints today's
+ * one when it fails, and the number is attributable rather than mysterious.
  *
  * WHAT THIS FILE WILL NOT DO. It will not exclude a file, widen a threshold, or read the aggregate
  * at whichever level happens to pass. If the aggregate is below the floor, the aggregate fails and
@@ -235,10 +235,11 @@ if (invokedDirectly) {
   /*
    * --per-file: the aggregate over one record per FILE, which is the one worth gating on.
    *
-   * The raw `all files` row divides by a denominator in which src/ui/app.js appears eighteen times,
+   * The raw `all files` row divides by a denominator in which src/ui/app.js appears many times over,
    * because node writes one record per module INSTANCE and the UI suite imports it with a fresh
    * query string per mount. That number moves when a test adds a mount, so it is a fact about the
-   * harness. It is still printed here, right beside this one, and nothing is excluded.
+   * harness. The exact count is not written here, because it changes; it is PRINTED on every run,
+   * right beside this aggregate, and nothing is excluded.
    */
   if (args.includes('--per-file')) {
     const d = checkDeduplicated(text, { threshold });
@@ -318,9 +319,9 @@ if (invokedDirectly) {
  *
  * WHY A SECOND AGGREGATE EXISTS RATHER THAN A LOWER FLOOR. Node writes one coverage record per
  * module INSTANCE, and `tests/unit/ui_state.test.js` imports `src/ui/app.js?fresh=N` once per mount.
- * Measured on this tree: eighteen records for that one 635 line file, and one record for every other
- * file. So the `all files` row divides by a denominator in which a single file appears eighteen
- * times, and the number it produces moves when the UI suite adds a mount. That is a fact about the
+ * Measured on commit 369c769: eighteen records for that one 635 line file and one for every other.
+ * So the `all files` row divides by a denominator in which a single file appears many times over,
+ * and the number it produces moves when the UI suite adds a mount. That is a fact about the
  * harness, not about how much of this code is covered.
  *
  * Gating on it would be gating on a ruler that measures the wrong thing, which is the defect this
@@ -329,8 +330,16 @@ if (invokedDirectly) {
  *
  * THE BEST RECORD PER FILE, and that choice is stated rather than hidden. Each instance exercises a
  * different subset, so the true union is at least the best record and no single record overstates
- * it. Where a file has one record, which is every file except `app.js`, best and only are the same
- * number and nothing changes.
+ * it. Where a file has only one record, best and only are the same number and nothing changes.
+ *
+ * MORE THAN ONE FILE HAS MORE THAN ONE RECORD NOW, AND THE OLD WORDING HERE SAID OTHERWISE. This
+ * paragraph used to read "which is every file except `app.js`", and it stopped being true the day
+ * `tests/unit/manifest_cli.test.js` imported `scripts/build_manifest.mjs` a second time with a
+ * query string, in order to run its command line block. Best-by-lines is load bearing on that file:
+ * its two records read 77.24 and 85.37 lines. Which files repeat is not written down here for the
+ * same reason the count is not, and for the reason the old sentence rotted: it is printed on every
+ * run, as one `N records for <file>` line each, so a reader gets today's answer rather than the
+ * answer that was true when somebody last edited this comment.
  *
  * NOTHING IS EXCLUDED AND NOTHING IS WIDENED. Every file still has to clear the floor on its own,
  * and the files that do not are named by `filesBelow` so a reader sees them rather than an average
