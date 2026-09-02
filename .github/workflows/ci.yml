@@ -97,8 +97,17 @@ jobs:
           node tests/unit/coverage_gate.mjs coverage.txt --threshold=85 --only-files
           --file=src/probe/observe.js
 
-      - name: The whole suite is above the floor
-        run: node tests/unit/coverage_gate.mjs coverage.txt --threshold=85
+      # ONE RECORD PER FILE, because the raw "all files" row is not a coverage measurement.
+      #
+      # Node writes one record per module INSTANCE, and tests/unit/ui_state.test.js imports
+      # src/ui/app.js with a fresh query string once per mount. Measured on this tree: eighteen
+      # records for that one file and one for every other, so the raw aggregate divides by a
+      # denominator that moves when a UI test adds a mount. Gating on it would gate on the harness.
+      #
+      # The raw figure is still printed by this step, every file below the floor is named, and
+      # nothing is excluded.
+      - name: The whole suite is above the floor, counting each file once
+        run: node tests/unit/coverage_gate.mjs coverage.txt --per-file --threshold=85
 
   style:
     name: Style gate

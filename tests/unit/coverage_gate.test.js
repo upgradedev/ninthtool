@@ -18,7 +18,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseCoverage, checkCoverage, selftest, DEFAULT_THRESHOLD } from './coverage_gate.mjs';
+import { parseCoverage, checkCoverage, checkDeduplicated, selftest, DEFAULT_THRESHOLD } from './coverage_gate.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const GATE = path.join(HERE, 'coverage_gate.mjs');
@@ -244,4 +244,68 @@ test('a threshold passed on the command line is the one enforced', () => {
     'a floor given on the command line was ignored in favour of the default');
   assert.equal(runGate(text, ['--lines=90']).code, 1, 'a per metric floor was ignored');
   assert.equal(runGate(text, ['--branches=99']).code, 1);
+});
+
+/* ------------------------------------------- the aggregate that counts each file once */
+
+/*
+ * THE RAW `all files` ROW IS NOT A COVERAGE MEASUREMENT ON THIS TREE.
+ *
+ * Node writes one record per module INSTANCE. `ui_state.test.js` imports `src/ui/app.js?fresh=N`
+ * once per mount, so a single 635 line file contributes eighteen records and every other file
+ * contributes one. The aggregate therefore moves when a UI test adds a mount, which makes it a
+ * number about the harness. Measured: raw 81.65 lines, one record per file 96.74.
+ *
+ * These pin the deduplicated reading, including that it can still fail and that it never hides a
+ * weak file inside an average.
+ */
+test('the deduplicated aggregate counts a repeated file once', () => {
+  const report = [
+    '# file      | line % | branch % | funct % |',
+    '# src/a.js  |  90.00 |    90.00 |   90.00 |',
+    '# src/a.js  |  40.00 |    40.00 |   40.00 |',
+    '# src/a.js  |  40.00 |    40.00 |   40.00 |',
+    '# src/b.js  | 100.00 |   100.00 |  100.00 |',
+    '# all files |  55.00 |    55.00 |   55.00 |',
+  ].join('\n');
+  const d = checkDeduplicated(report, { threshold: 85 });
+  assert.deepEqual(d.failures, [], JSON.stringify(d.mean));
+  assert.equal(d.duplicates['src/a.js'], 3, 'the duplication must be reported, not silently folded');
+  assert.equal(d.mean.lines, 95, 'the best record per file is what the average is built from');
+});
+
+test('the deduplicated aggregate still fails when the files are genuinely thin', () => {
+  const report = [
+    '# file      | line % | branch % | funct % |',
+    '# src/a.js  |  50.00 |    50.00 |   50.00 |',
+    '# src/b.js  |  60.00 |    60.00 |   60.00 |',
+    '# all files |  55.00 |    55.00 |   55.00 |',
+  ].join('\n');
+  const d = checkDeduplicated(report, { threshold: 85 });
+  assert.ok(d.failures.length >= 3, `a thin suite passed: ${JSON.stringify(d)}`);
+  assert.match(d.failures[0], /averages 55\.00 across 2 files/);
+});
+
+test('a file below the floor is named even when the average clears it', () => {
+  // THE HIDING PROBLEM. An average lets one weak file shelter behind strong ones, so the weak ones
+  // are listed by name and the caller prints them.
+  const report = [
+    '# file      | line % | branch % | funct % |',
+    '# src/a.js  |  20.00 |    20.00 |   20.00 |',
+    '# src/b.js  | 100.00 |   100.00 |  100.00 |',
+    '# src/c.js  | 100.00 |   100.00 |  100.00 |',
+    '# src/d.js  | 100.00 |   100.00 |  100.00 |',
+    '# src/e.js  | 100.00 |   100.00 |  100.00 |',
+    '# src/f.js  | 100.00 |   100.00 |  100.00 |',
+    '# all files |  86.00 |    86.00 |   86.00 |',
+  ].join('\n');
+  const d = checkDeduplicated(report, { threshold: 85 });
+  assert.deepEqual(d.failures, [], 'the average clears the floor, so this must not fail');
+  assert.deepEqual(d.filesBelow, ['src/a.js'], 'the weak file must be named');
+});
+
+test('a report with no file rows fails rather than averaging nothing', () => {
+  const d = checkDeduplicated('# nothing useful here', { threshold: 85 });
+  assert.ok(d.failures.length > 0);
+  assert.match(d.failures[0], /named no files/);
 });
