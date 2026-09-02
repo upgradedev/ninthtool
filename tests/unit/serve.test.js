@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { allowlistFor, resolveRequest } from '../../src/probe/serve.mjs';
+import { allowlistFor, resolveRequest, serveRuntime, keepAlive } from '../../src/probe/serve.mjs';
 
 const ROOT = path.resolve(
   path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '../..',
@@ -102,4 +102,122 @@ test('a query string and a fragment do not defeat the allowlist', () => {
 test('leading slashes are collapsed rather than creating a second name', () => {
   assert.equal(resolveRequest(ROOT, allowed, '//index.html').status, 200);
   assert.equal(resolveRequest(ROOT, allowed, '///.git/config').status, 404);
+});
+
+test('a name in the allowlist that resolves outside the root is refused by containment', () => {
+  /*
+   * The second gate, reached by defeating the first. The allowlist is derived, so today nothing in
+   * it points out of the tree, and the containment check is therefore never the thing that says no.
+   * That is exactly why it has to be tested directly: a check nothing reaches is a check nobody
+   * would notice breaking. `resolveRequest` takes the allowlist as an argument, so handing it a
+   * poisoned one is the honest way in.
+   */
+  const poisoned = new Set([...allowed, '../secrets.txt']);
+  const decision = resolveRequest(ROOT, poisoned, '/../secrets.txt');
+  assert.equal(decision.status, 403);
+  assert.equal(decision.said, 'outside the served root');
+  assert.equal(decision.file, null, 'a refused request must not name a path to read');
+});
+
+/* ------------------------------------------------------- the server itself, on a real port */
+
+/** Start the server, run one body against it, and close it however that body ends. */
+async function served(body) {
+  const running = await serveRuntime(ROOT);
+  try {
+    return await body(running);
+  } finally {
+    await new Promise((resolve) => running.server.close(resolve));
+  }
+}
+
+test('the running server hands out the page with the right type, and nothing else', async () => {
+  // Everything above decides a request without a socket. This is the same decision reached through
+  // an actual request, which is the only version of it a browser ever performs. The two used to be
+  // impossible to tell apart, because the second half was never run.
+  await served(async ({ origin, allowed: live }) => {
+    assert.match(origin, /^http:\/\/127\.0\.0\.1:\d+$/, 'the server must bind loopback and nothing else');
+    assert.deepEqual([...live].sort(), [...allowed].sort(),
+      'the running server is serving a different list from the one asserted above');
+
+    const page = await fetch(`${origin}/`);
+    assert.equal(page.status, 200);
+    assert.equal(page.headers.get('content-type'), 'text/html; charset=utf-8');
+    assert.equal(await page.text(), fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'),
+      'the body served is not the file on disk');
+
+    const styles = await fetch(`${origin}/assets/styles.css`);
+    assert.equal(styles.status, 200);
+    assert.equal(styles.headers.get('content-type'), 'text/css; charset=utf-8');
+
+    const script = await fetch(`${origin}/src/ui/app.js`);
+    assert.equal(script.status, 200);
+    assert.equal(script.headers.get('content-type'), 'text/javascript; charset=utf-8',
+      'a module served as anything else is a module the browser refuses to execute');
+
+    // THE REFUSALS, OVER THE NETWORK. This is the half that was never exercised: the decision was
+    // tested, and whether the server acts on it was not.
+    const leak = await fetch(`${origin}/.git/config`);
+    assert.equal(leak.status, 404);
+    assert.match(await leak.text(), /only the files runtime-manifest\.json lists/);
+
+    const malformed = await fetch(`${origin}/%E0%A4%A`);
+    assert.equal(malformed.status, 400);
+    assert.equal(await malformed.text(), 'bad request');
+  });
+});
+
+test('the hold open handle keeps the loop open and lets go when it is released', () => {
+  /*
+   * WHAT THIS PINS, AND WHY IT IS THE TIMER RATHER THAN THE PROCESS. `--keep-open` promises to
+   * leave the browser and the loopback origin running, and the runner used to call process.exit and
+   * close the very things it promised to leave up. Not exiting is most of the fix; the rest is that
+   * a run given its own URL starts no server, so with nothing listening the event loop drains and
+   * the process ends anyway a second later, for an unrelated reason.
+   *
+   * That means an unref'd timer would satisfy every observable outcome a test could reach for while
+   * still failing to hold anything open. So the timer itself is the assertion. It is captured by
+   * standing in for setInterval for the length of one synchronous call, with nothing awaited in
+   * between, so nothing else in this process can create a timer while the stand in is installed.
+   */
+  const realSet = globalThis.setInterval;
+  const realClear = globalThis.clearInterval;
+  const created = [];
+  const cleared = [];
+  let handle;
+  try {
+    globalThis.setInterval = (fn, ms) => {
+      const timer = { fn, ms, unrefCalls: 0, unref() { this.unrefCalls += 1; return this; } };
+      created.push(timer);
+      return timer;
+    };
+    globalThis.clearInterval = (timer) => { cleared.push(timer); };
+    handle = keepAlive();
+    handle.release();
+  } finally {
+    globalThis.setInterval = realSet;
+    globalThis.clearInterval = realClear;
+  }
+
+  assert.equal(created.length, 1, 'nothing was scheduled, so nothing is holding the loop open');
+  assert.equal(created[0].unrefCalls, 0,
+    'the timer was unref\'d, which lets the loop drain and closes the surfaces --keep-open promised');
+  assert.ok(created[0].ms > 60000,
+    `a hold open timer that fires every ${created[0].ms} ms is a busy loop, not a hold`);
+  assert.deepEqual(cleared, [created[0]],
+    'release did not clear the timer it created, so the process can never end');
+});
+
+test('the hold open handle really does hold this process, with the real timer', async () => {
+  // The same thing again without the stand in, so the test above cannot pass against a keepAlive
+  // that only behaves when it is being watched. A ref'd timer counts as an active handle; an
+  // unref'd one does not, and neither does a cleared one.
+  const before = process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length;
+  const handle = keepAlive();
+  const during = process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length;
+  handle.release();
+  const after = process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length;
+
+  assert.equal(during, before + 1, 'keepAlive added no timer this process would wait for');
+  assert.equal(after, before, 'release left the timer behind and the process can never end');
 });
