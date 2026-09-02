@@ -264,3 +264,92 @@ test('the fixture tool name the judge scopes D2 to is the one the probe looks fo
   assert.equal(finding.verdict, 'pass',
     `the judge scopes D2 to a different tool name than the probe reads: ${finding.observed}`);
 });
+
+/* ---------------------------------------------------- P6, a control that nothing answered */
+
+/*
+ * P6 USED TO PASS ON A RUN IN WHICH NOTHING WAS EVER READ.
+ *
+ * Its only precondition was that two control reads AGREE. But the probe normalises every
+ * non-resolved outcome to a constant, so two tools that reject every call produce two identical
+ * reads, an empty `moved`, and a confident pass. Reproduced end to end against a fake host: both
+ * all-reject and all-timeout gave verdict=pass, complete=true, observed "2 read only tools, stable
+ * across a control read, and none changed what another answers".
+ *
+ * Stability of an error string is not evidence that nothing moved. It is evidence that nothing was
+ * read. The row now needs at least two oracles that actually answered in BOTH control reads.
+ *
+ * TWO, not one, and that is the row's own arity precondition rather than a taste. The observable
+ * set is the pairs (caller, oracle) where caller is not oracle and both answered; with one answered
+ * oracle that set is empty, so `moved` could not be non-empty whatever the page did.
+ */
+const p6 = (over) => judgeBehaviour('P6', {
+  observations: {
+    P6: {
+      oracleCount: 2,
+      oracles: ['read_state', 'read_notes'],
+      stable: true,
+      unstable: [],
+      moved: [],
+      selfChanged: [],
+      controlAnswered: ['read_state', 'read_notes'],
+      controlUnanswered: [],
+      ...over,
+    },
+  },
+});
+
+test('P6 passes when two oracles answered and neither moved the other', () => {
+  const finding = p6({});
+  assert.equal(finding.verdict, 'pass', finding.observed);
+  assert.match(finding.observed, /2 of 2 read only tools answered/);
+});
+
+test('P6 abstains when every oracle rejected the control call', () => {
+  const finding = p6({
+    controlAnswered: [],
+    controlUnanswered: ['read_state: rejected then rejected', 'read_notes: rejected then rejected'],
+  });
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+  assert.match(finding.reason, /rejected then rejected/,
+    'the abstention must name what actually happened, not just that it abstained');
+});
+
+test('P6 abstains when every oracle timed out, and says so distinctly', () => {
+  const finding = p6({
+    controlAnswered: [],
+    controlUnanswered: ['read_state: timeout then timeout', 'read_notes: timeout then timeout'],
+  });
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+  assert.match(finding.reason, /timeout then timeout/,
+    'all-timeout and all-reject must stay distinguishable in the report');
+});
+
+test('P6 abstains when only one oracle answered, because a differential needs two', () => {
+  // The pair set is empty with one answered oracle, so the row would pass by construction.
+  const finding = p6({
+    controlAnswered: ['read_state'],
+    controlUnanswered: ['read_notes: rejected then rejected'],
+  });
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+  assert.match(finding.reason, /at least two/);
+});
+
+test('P6 counts what answered, not what the page published', () => {
+  // A page publishing ten read only tools of which two answer is a two-tool differential, and the
+  // sentence has to say two. It used to quantify over every published tool.
+  const finding = p6({
+    oracleCount: 10,
+    controlAnswered: ['read_state', 'read_notes'],
+    controlUnanswered: ['eight_others: rejected then rejected'],
+  });
+  assert.equal(finding.verdict, 'pass', finding.observed);
+  assert.match(finding.observed, /2 of 10 read only tools answered/);
+  assert.match(finding.observed, /Not counted: eight_others/);
+});
+
+test('P6 still fails when an answering tool moved what another answers', () => {
+  const finding = p6({ moved: ['read_state changed what read_notes answers'] });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /changed what read_notes answers/);
+});

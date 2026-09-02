@@ -85,6 +85,11 @@ export function conforming() {
         unstable: [],
         moved: [],
         selfChanged: [],
+        // Both oracles answered a schema valid call in BOTH control reads. Without this the row
+        // could pass on a page whose read only tools reject everything, because two identical
+        // rejections read as a stable control.
+        controlAnswered: ['read_state', 'read_notes'],
+        controlUnanswered: [],
       },
     },
   };
@@ -205,6 +210,8 @@ export function measuredChrome152() {
         unstable: [],
         moved: [],
         selfChanged: [],
+        controlAnswered: ['nt_explain_behaviour', 'nt_list_behaviours'],
+        controlUnanswered: [],
       },
     },
   };
