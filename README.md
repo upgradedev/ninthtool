@@ -328,8 +328,9 @@ is not a behaviour that passed.
 
 The probe **calls only tools your page has marked `readOnlyHint`**. A tool carrying no annotations is
 never called, and that refusal is reported as a finding, because a page that gives an auditor no way
-to know a tool is safe gives an agent no way either. Two rows submit a form, which is a write, and
-they run only against the subject page this repository ships.
+to know a tool is safe gives an agent no way either. THREE rows submit a form, which is a write:
+C1, C3 and C4. They run only against a fixture this runner owns, meaning one it served itself or the
+document it is executing inside, because every other signal a page exposes here is copyable.
 
 ## Run the checks
 
@@ -357,8 +358,10 @@ with no account reach every mandatory artifact right now?
 **It fetches the live URL and fails on anything but 200**, checks every asset that page needs, greps
 the **deployed bytes** rather than the source for the tools this README claims, and then opens the
 live origin in a real browser and presses the button a visitor presses. That last row asserts the
-audit judged all twenty behaviours, that at most two abstained, and that the conditional tool both
-appeared and withdrew.
+audit judged all twenty behaviours, that the only row allowed to abstain is the one named in the
+config, currently P5, and that the conditional tool both appeared and withdrew. A numeric allowance
+was there before, and a named list is stricter: a second unsettled row now fails the gate where a
+floor of two accepted it.
 
 A file existence check and a regular expression over the source prove that something was written,
 not that anything is deployed. A gate elsewhere once stayed green through a two day outage because

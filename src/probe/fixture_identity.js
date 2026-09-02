@@ -1,7 +1,8 @@
 /**
  * Proving that the page about to have a form submitted on it is the fixture this repository ships.
  *
- * WHY THIS FILE EXISTS, AND IT IS THE MOST IMPORTANT ONE HERE. Two rows submit a form, which is a
+ * WHY THIS FILE EXISTS, AND IT IS THE MOST IMPORTANT ONE HERE. Three rows submit a form, C1, C3 and
+ * C4, which is a
  * write. Until now the only thing separating "our subject page" from "a stranger's page" was the
  * public tool name `nt_form_answers`. An audit pointed the runner at an unrelated page that
  * declared that name and watched it get submitted twice. The suite was performing external writes
