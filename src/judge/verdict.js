@@ -227,25 +227,62 @@ const RULES = {
    * constraints, and a constraint nobody enforces is a failure rather than an agreement.
    */
   C3(o) {
-    need(o, ['constraints']);
+    /*
+     * A REFUSAL FROM A HALF THAT REFUSES EVERYTHING IS NOT ENFORCEMENT.
+     *
+     * This read one bit per call, `settled === 'rejected'`, and called it `enforced`. Reproduced
+     * against a host that rejects every call with SERVICE_UNAVAILABLE: verdict pass, "3 of 3
+     * enforced on both", on a run where no schema was ever looked at, and indistinguishable from a
+     * host that really enforces.
+     *
+     * The probe now sends each half a schema valid call first. A half that will not answer that has
+     * refused for a reason of its own, and none of its other refusals can be attributed to a
+     * constraint, so the row abstains rather than scoring. `controls` is REQUIRED: an omitted field
+     * would silently restore the old reading, which is the same fail open in a new key.
+     */
+    need(o, ['constraints', 'controls']);
     const constraints = Array.isArray(o.constraints) ? o.constraints : [];
     const declared = constraints.filter((c) => c && c.declared);
     if (!declared.length) {
-      throw new Error('the schema under test declares none of the constraints this row compares, '
-        + 'so there was nothing to enforce on either half');
+      throw new Error('the captured schema declares none of the constraints this row compares');
     }
 
-    const say = (c) => `${c.name}: script ${c.script}, form ${c.form}`;
+    const controls = o.controls || {};
+    const dead = ['script', 'form'].filter((half) => !(controls[half] && controls[half].answered));
+    if (dead.length) {
+      const how = dead
+        .map((half) => `the ${half} half ${(controls[half] && controls[half].settled) || 'was never measured'}`
+          + `${controls[half] && controls[half].errName ? ` with ${controls[half].errName}` : ''}`)
+        .join(', and ');
+      throw new Error(`${how} on a schema valid call. A half that will not accept a call breaking `
+        + 'nothing has refused for a reason of its own, so no refusal here could be attributed to a '
+        + 'constraint');
+    }
+
     const bothEnforce = declared.filter((c) => c.script === 'enforced' && c.form === 'enforced');
-    const neitherEnforces = declared.filter((c) => c.script !== 'enforced' && c.form !== 'enforced');
-    const disagree = declared.filter((c) => (c.script === 'enforced') !== (c.form === 'enforced'));
+    const oneSided = declared.filter((c) => c.script !== c.form);
+    const neither = declared.filter((c) => c.script !== 'enforced' && c.form !== 'enforced'
+      && c.script !== 'unattributable' && c.form !== 'unattributable');
+    const unattributable = declared.filter((c) => c.script === 'unattributable' || c.form === 'unattributable');
 
     return {
       held: bothEnforce.length === declared.length,
-      expected: `all ${declared.length} declared constraints are enforced on both halves`,
-      observed: `${bothEnforce.length} of ${declared.length} enforced on both`
-        + (disagree.length ? `; ${disagree.length} enforced on one half only: ${disagree.map(say).join(', ')}` : '')
-        + (neitherEnforces.length ? `; ${neitherEnforces.length} enforced by neither: ${neitherEnforces.map(say).join(', ')}` : ''),
+      expected: `every constraint the schema declares is enforced on both halves, measured against `
+        + 'a call that breaks nothing',
+      observed: bothEnforce.length === declared.length
+        ? `${declared.length} of ${declared.length} enforced on both, and both halves answered the `
+          + 'schema valid control'
+        : `${bothEnforce.length} of ${declared.length} enforced on both`
+          + (oneSided.length
+            ? `; ${oneSided.length} enforced on one half only: `
+              + oneSided.map((c) => `${c.name}: script ${c.script}, form ${c.form}`).join(', ')
+            : '')
+          + (neither.length
+            ? `; ${neither.length} enforced by neither: ${neither.map((c) => c.name).join(', ')}`
+            : '')
+          + (unattributable.length
+            ? `; ${unattributable.length} could not be attributed`
+            : ''),
     };
   },
 

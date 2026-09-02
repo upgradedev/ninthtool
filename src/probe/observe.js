@@ -668,6 +668,35 @@ export async function observeAll(ctx, options = {}) {
           : null,
       };
 
+      /*
+       * A CONTROL THAT SUCCEEDS, OR NOTHING BELOW MEANS ANYTHING.
+       *
+       * Every outcome was read from one bit: `settled === 'rejected'` became `enforced`, anything
+       * else became `ignored`. So a host that refuses every call, for a reason having nothing to do
+       * with any schema, scored as enforcing the whole of it. Reproduced against a fixture whose
+       * host rejects every call with SERVICE_UNAVAILABLE:
+       *
+       *   VERDICT : pass, "3 of 3 enforced on both"
+       *
+       * on a run where no schema was ever looked at, and identical to a host that really enforces.
+       *
+       * Message matching cannot rescue it. Row B1 measured that this browser rejects as
+       * UnknownError with the page's own reason erased, so there is no text to read a constraint
+       * name out of. The only available discriminator is a controlled difference: does this half
+       * ACCEPT a call that breaks nothing? A half that refuses the valid control has refused for a
+       * reason of its own, and none of its other refusals can be attributed to a constraint.
+       */
+      const controlFor = async (tool) => {
+        const outcome = await settle(call(ctx, tool, valid), SETTLE_TIMEOUT_MS);
+        return {
+          answered: outcome.settled === 'resolved',
+          settled: outcome.settled,
+          errName: outcome.errName || null,
+          waitedMs: outcome.waitedMs,
+        };
+      };
+      const controls = { script: await controlFor(scriptTool), form: await controlFor(form) };
+
       const constraints = [];
       for (const key of ['required', 'type', 'enumerated', 'unknownProperty']) {
         if (!declares[key] || badCalls[key] === null) {
@@ -675,12 +704,24 @@ export async function observeAll(ctx, options = {}) {
           continue;
         }
         handlerSaw = null;
+        /*
+         * FOUR OUTCOMES, NOT TWO. `enforced` only from a half that ANSWERED its control, because a
+         * refusal from a half that refuses everything is not enforcement. `unattributable` when the
+         * control failed, so an unavailable service and a browser error land there instead of being
+         * scored as a pass. `inconclusive` on a timeout, which is neither a refusal nor an answer.
+         */
+        const verdictFrom = (outcome, control) => {
+          if (!control.answered) return 'unattributable';
+          if (outcome.settled === 'timeout') return 'inconclusive';
+          return outcome.settled === 'rejected' ? 'enforced' : 'ignored';
+        };
+
         const onScript = await settle(call(ctx, scriptTool, badCalls[key]), SETTLE_TIMEOUT_MS);
-        const scriptVerdict = onScript.settled === 'rejected' ? 'enforced' : 'ignored';
+        const scriptVerdict = verdictFrom(onScript, controls.script);
         const sawOnScript = JSON.stringify(handlerSaw);
 
         const onForm = await settle(call(ctx, form, badCalls[key]), SETTLE_TIMEOUT_MS);
-        const formVerdict = onForm.settled === 'rejected' ? 'enforced' : 'ignored';
+        const formVerdict = verdictFrom(onForm, controls.form);
 
         constraints.push({
           name: key,
@@ -698,6 +739,9 @@ export async function observeAll(ctx, options = {}) {
 
       return {
         constraints,
+        // How we know the refusals mean anything. Without this the judge cannot tell a schema
+        // refusal from a half that was never working.
+        controls,
         formSchema: JSON.stringify(formSchema),
         scriptPathEnforces: scriptEnforces,
         formPathEnforces: constraints.filter((c) => c.declared).every((c) => c.form === 'enforced'),

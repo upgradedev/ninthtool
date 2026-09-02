@@ -390,6 +390,12 @@ const c3 = (constraints, extra = {}) => judgeBehaviour('C3', {
   observations: {
     C3: {
       constraints,
+      // Both halves answered a schema valid call. Without this the row abstains, correctly, because
+      // a half that refuses everything cannot have its refusals attributed to a constraint.
+      controls: {
+        script: { answered: true, settled: 'resolved', errName: null, waitedMs: 2 },
+        form: { answered: true, settled: 'resolved', errName: null, waitedMs: 4 },
+      },
       scriptPathEnforces: false,
       formPathEnforces: true,
       ...extra,
@@ -510,6 +516,123 @@ test('C1 abstains when the telemetry field is missing entirely', () => {
   // The same fail-open in a new field: an omitted key must not read as "nothing leaked".
   const finding = judgeBehaviour('C1', {
     observations: { C1: { settled: 'rejected', handlerSawStaleValue: false, staleValue: null } },
+  });
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+});
+
+/* ---------------------------------------- C3, a refusal from a half that refuses everything */
+
+/*
+ * C3 SCORED A DEAD SERVICE AS FULL ENFORCEMENT.
+ *
+ * It read one bit per call, `settled === 'rejected'`, and called it `enforced`. Reproduced against
+ * a host that rejects every call with SERVICE_UNAVAILABLE:
+ *
+ *   VERDICT : pass, "3 of 3 enforced on both"
+ *
+ * on a run where no schema was ever looked at, and indistinguishable from a host that really
+ * enforces. Message matching cannot rescue it: row B1 measured that this browser rejects as
+ * UnknownError with the page's reason erased, so there is no text to read a constraint out of.
+ *
+ * The probe now sends each half a schema valid call FIRST. A half that will not answer that has
+ * refused for a reason of its own.
+ */
+const c3control = (over) => {
+  const enforced = (name) => ({ name, declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' });
+  return judgeBehaviour('C3', {
+    observations: {
+      C3: {
+        constraints: [enforced('required'), enforced('type'), enforced('enumerated')],
+        controls: {
+          script: { answered: true, settled: 'resolved', errName: null, waitedMs: 2 },
+          form: { answered: true, settled: 'resolved', errName: null, waitedMs: 4 },
+        },
+        scriptPathEnforces: true,
+        formPathEnforces: true,
+        ...over,
+      },
+    },
+  });
+};
+
+test('C3 passes when every declared constraint is enforced and both controls answered', () => {
+  const finding = c3control({});
+  assert.equal(finding.verdict, 'pass', finding.observed);
+  assert.match(finding.observed, /both halves answered the schema valid control/);
+});
+
+test('C3 abstains when the valid control is refused too, on both halves', () => {
+  // THE REPRODUCTION. Every call rejected, including the one that breaks nothing.
+  const finding = c3control({
+    controls: {
+      script: { answered: false, settled: 'rejected', errName: 'SERVICE_UNAVAILABLE', waitedMs: 1 },
+      form: { answered: false, settled: 'rejected', errName: 'SERVICE_UNAVAILABLE', waitedMs: 1 },
+    },
+  });
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+  assert.match(finding.reason, /SERVICE_UNAVAILABLE/);
+  assert.match(finding.reason, /breaking nothing/);
+});
+
+test('C3 abstains when only one half refuses its control', () => {
+  // Half a control is not a control. The other half's refusals are still unattributable.
+  const finding = c3control({
+    controls: {
+      script: { answered: true, settled: 'resolved', errName: null, waitedMs: 2 },
+      form: { answered: false, settled: 'rejected', errName: 'UnknownError', waitedMs: 1 },
+    },
+  });
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+  assert.match(finding.reason, /form half/);
+});
+
+test('C3 abstains when a control times out rather than answering', () => {
+  const finding = c3control({
+    controls: {
+      script: { answered: false, settled: 'timeout', errName: null, waitedMs: 2500 },
+      form: { answered: true, settled: 'resolved', errName: null, waitedMs: 4 },
+    },
+  });
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+  assert.match(finding.reason, /timeout/);
+});
+
+test('C3 fails when only one of the declared constraints is genuinely enforced', () => {
+  const finding = c3control({
+    constraints: [
+      { name: 'required', declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' },
+      { name: 'type', declared: true, script: 'ignored', form: 'ignored', detail: 'both accepted it' },
+      { name: 'enumerated', declared: true, script: 'ignored', form: 'ignored', detail: 'both accepted it' },
+    ],
+  });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /1 of 3 enforced on both/);
+  assert.match(finding.observed, /enforced by neither: type, enumerated/);
+});
+
+test('C3 abstains rather than scoring a constraint it could not attribute', () => {
+  // `unattributable` is what the probe records for a half whose control failed. It must never read
+  // as enforcement, and it must not be silently counted as a plain failure either.
+  const finding = c3control({
+    constraints: [
+      { name: 'required', declared: true, script: 'unattributable', form: 'unattributable', detail: 'the control failed' },
+      { name: 'type', declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' },
+      { name: 'enumerated', declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' },
+    ],
+  });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /could not be attributed/);
+});
+
+test('C3 requires the controls field, so an omitted one cannot read as clean', () => {
+  const finding = judgeBehaviour('C3', {
+    observations: {
+      C3: {
+        constraints: [{ name: 'required', declared: true, script: 'enforced', form: 'enforced', detail: 'x' }],
+        scriptPathEnforces: true,
+        formPathEnforces: true,
+      },
+    },
   });
   assert.equal(finding.verdict, 'not-applicable', finding.observed);
 });
