@@ -786,24 +786,64 @@ export async function observeAll(ctx, options = {}) {
         const broken = { ...wellFormed };
         delete broken[record.schema.required[0]];
 
-        const good = await settle(call(ctx, tool, wellFormed), SETTLE_TIMEOUT_MS);
-        const bad = await settle(call(ctx, tool, broken), SETTLE_TIMEOUT_MS);
+        /*
+         * COUNTERBALANCED, BECAUSE FIXED ORDER CANNOT SEE CAUSE.
+         *
+         * This sent the well formed call and then the broken one, always in that order, and read a
+         * rejection of the second as validation. A tool that rejects every SECOND call, for reasons
+         * having nothing to do with its arguments, therefore scored exactly like a tool that checks
+         * its input. Reproduced against a fake host: an alternator returned "all 1 rejected it",
+         * verdict pass, indistinguishable from a real validator.
+         *
+         * The order is now good, bad, bad, good. Each kind is sent twice and neither kind owns a
+         * position, so a refusal counts only when it tracks the INPUT: every broken call refused and
+         * no well formed call refused. Anything else is reported as inconclusive rather than scored,
+         * because a tool that refuses unpredictably has not demonstrated validation.
+         *
+         * Four calls rather than two. They go only to tools the page marked readOnlyHint, and only
+         * with --allow-tool-calls, which is the same authorisation the two calls already needed.
+         */
+        const plan = [
+          { kind: 'good', args: wellFormed },
+          { kind: 'bad', args: broken },
+          { kind: 'bad', args: broken },
+          { kind: 'good', args: wellFormed },
+        ];
+        const results = [];
+        for (const leg of plan) {
+          results.push({ kind: leg.kind, ...(await settle(call(ctx, tool, leg.args), SETTLE_TIMEOUT_MS)) });
+        }
+        const goods = results.filter((r) => r.kind === 'good');
+        const bads = results.filter((r) => r.kind === 'bad');
+        const good = goods[0];
+        const bad = bads[0];
 
-        // THE CONTROL. If the well formed call did not succeed, the comparison is meaningless:
-        // two failures that differ prove nothing about validation. Say so rather than scoring it.
-        if (good.settled !== 'resolved') {
-          inconclusive.push(`${record.name}: the well formed call itself ${good.settled}, so there `
-            + 'was nothing to compare against');
+        // THE CONTROL. If a well formed call did not succeed, the comparison is meaningless: two
+        // failures that differ prove nothing about validation. Say so rather than scoring it.
+        if (goods.some((r) => r.settled !== 'resolved')) {
+          const how = goods.map((r) => r.settled).join(' then ');
+          inconclusive.push(`${record.name}: a well formed call itself failed (${how}), so either `
+            + 'there was nothing to compare against, or the failures do not track the arguments');
           continue;
         }
 
         const goodText = String(good.value ?? '');
         const badText = bad.settled === 'resolved' ? String(bad.value ?? '') : `[${bad.settled}]`;
 
-        if (bad.settled === 'rejected') {
+        // A refusal that does not track the input is not a refusal, it is noise with a pattern.
+        const rejectedBads = bads.filter((r) => r.settled === 'rejected').length;
+        if (rejectedBads > 0 && rejectedBads < bads.length) {
+          inconclusive.push(`${record.name}: rejected ${rejectedBads} of ${bads.length} identical `
+            + 'broken calls, so the rejection does not track the arguments');
+          continue;
+        }
+
+        if (rejectedBads === bads.length) {
           // The only failure signal WebMCP has. Behaviour B1 measured that it erases the reason,
           // which is a separate finding; as a signal that the tool refused, it is unambiguous.
-          refused.push(`${record.name}: rejected the call`);
+          // Every broken call refused and every well formed one answered, in both orders.
+          refused.push(`${record.name}: rejected every broken call and answered every well formed `
+            + 'one, in both orders');
         } else if (badText === goodText) {
           // The tool answered a call missing a required property exactly as it answered a complete
           // one. It did not look at its input. This is the only outcome that PROVES a defect.
