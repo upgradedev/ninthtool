@@ -125,4 +125,30 @@ browser version. Any sentence in a judge-facing file that implies more than that
 
 ## Amendments
 
-None.
+### 2026-09-02, after the thirteen runs existed. Two reporting defects, and the primary metric stands.
+
+Both were found by looking at the generated numbers rather than at the code, and both are recorded
+here because the protocol says corrections append instead of overwriting.
+
+**One.** The first generated `results.md` read *"The hypothesis holds on this population"* on a
+median of 8 against a threshold of 3. It was wrong. Every one of the twelve judged pages had
+returned the SAME eight execution verdicts, so the metric had one value for the whole population
+and could not have distinguished a page from a browser. Nothing in the metric could report that,
+because a median does not know whether its inputs varied. `report.mjs` now computes, from the run
+files, whether any `execution` row varies across pages, and the headline is decided by that.
+
+**Two.** The corrected version then stated, as a measured fact, *"13 of 13 pages exposed zero tools
+of their own."* That was a misspelt field: the transcript publishes `pageTools` and the report read
+`transcript.tools`, which is `undefined` on every run and reports zero. Seven of the twelve pages
+had published between 2 and 14 tools. A wrong field name does not throw, it returns a number, and a
+number in a generated table is believed.
+
+**The primary metric and its threshold are NOT changed**, and the median of 8 is still reported.
+Section 11 forbids changing it once results exist, and it would be self-serving to swap a metric
+that technically passed for one that says something better. The reading that the execution rows
+measure the browser rather than the page is reported as a SECONDARY, post-hoc result and labelled
+so in `results.md`.
+
+**What the study is now understood to have measured**, stated plainly: 5 of 20 rows vary between
+pages and all 5 are `metadata` rows, so on this population Ninth Tool did not produce page-specific
+findings beyond what a declaration-only reading reaches. The preregistered hypothesis fails.

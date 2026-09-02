@@ -1,0 +1,532 @@
+{
+ "corpusId": "school-of-freelancing",
+ "repo": "SchoolOfFreelancing/School-Of-Freelancing",
+ "sourceCommit": "3d9b9057703b1ef4b8a44f68fa73bd71928f4065",
+ "entryPoint": "index.html",
+ "servedAt": "http://127.0.0.1:56888/index.html",
+ "toolCommit": "c4104380e7a342e8987814af17d951c0101dc88e",
+ "browser": "Opening in existing browser session.",
+ "flags": [
+  "--enable-features=WebMCP"
+ ],
+ "authorisation": "no tool calls",
+ "startedAt": "2026-09-02T15:32:40.605Z",
+ "endedAt": "2026-09-02T15:32:48.881Z",
+ "elapsedMs": 6007,
+ "exitCode": 3,
+ "signal": null,
+ "stderr": "",
+ "stdoutBytes": 16873,
+ "parseError": null,
+ "transcript": {
+  "meta": {
+   "url": "http://127.0.0.1:56888/index.html",
+   "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+   "api": "document.modelContext"
+  },
+  "observations": {
+   "A1": {
+    "argCount": 1,
+    "optionsTypeof": "undefined",
+    "hasSignal": false
+   },
+   "A2": {
+    "inputSchemaTypeof": "string"
+   },
+   "A3": {
+    "returnedAnnotationKeys": [
+     "readOnlyHint",
+     "untrustedContentHint"
+    ]
+   },
+   "B3": {
+    "sentAnnotationKeys": [
+     "readOnlyHint",
+     "untrustedContentHint",
+     "consequentialHint",
+     "destructiveHint",
+     "idempotentHint",
+     "openWorldHint"
+    ],
+    "returnedAnnotationKeys": [
+     "readOnlyHint",
+     "untrustedContentHint"
+    ],
+    "subject": [
+     "destructiveHint",
+     "idempotentHint",
+     "openWorldHint"
+    ],
+    "measuredElsewhere": {
+     "consequentialHint": "A3"
+    }
+   },
+   "B2": {
+    "settled": "resolved",
+    "callerSaw": "{\"content\":[{\"type\":\"text\",\"text\":\"REFUSED_STALE: the draft moved, quote revision 4.\"}],\"isError\":true}"
+   },
+   "B1": {
+    "routes": [
+     {
+      "route": "return { isError: true }",
+      "settled": "resolved",
+      "errName": null,
+      "pageMessageSurvived": false,
+      "callerSaw": "{\"content\":[{\"type\":\"text\",\"text\":\"REFUSED_STALE: the draft moved, quote revision 4.\"}],\"isError\":true}"
+     },
+     {
+      "route": "throw Error",
+      "settled": "rejected",
+      "errName": "UnknownError",
+      "pageMessageSurvived": false,
+      "callerSaw": "Tool was executed but the invocation failed. For example, the script function threw an error"
+     },
+     {
+      "route": "reject DOMException(\"InvalidStateError\")",
+      "settled": "rejected",
+      "errName": "UnknownError",
+      "pageMessageSurvived": false,
+      "callerSaw": "Tool was executed but the invocation failed. For example, the script function threw an error"
+     }
+    ]
+   },
+   "B5": {
+    "stringReturn": {
+     "typeofValue": "string",
+     "parsesAsJson": false,
+     "sample": "Added to-do: Buy milk"
+    },
+    "objectReturn": {
+     "typeofValue": "string",
+     "parsesAsJson": true,
+     "sample": "{\"title\":\"a title\",\"count\":3}"
+    }
+   },
+   "C2": {
+    "optionsBag": {
+     "presentBefore": true,
+     "presentAfter": false
+    },
+    "onDescriptor": {
+     "presentBefore": true,
+     "presentAfter": true
+    }
+   },
+   "D1": {
+    "onRegister": 1,
+    "onWithdraw": 1
+   },
+   "B4": {
+    "annotationsTypeof": "undefined",
+    "toolName": "get_contact_info"
+   },
+   "D2": {
+    "schema": "{\"type\":\"object\",\"properties\":{}}",
+    "toolName": "get_contact_info"
+   },
+   "P1": {
+    "toolCount": 3,
+    "withoutAnnotations": [
+     "get_contact_info",
+     "search_services",
+     "search_training_programs"
+    ],
+    "withoutReadOnlyHint": [],
+    "readOnlyCount": 0
+   },
+   "P2": {
+    "toolCount": 3,
+    "unusableSchemas": []
+   },
+   "P3": {
+    "toolCount": 3,
+    "undescribedTools": [],
+    "undescribedParams": []
+   },
+   "P4": {
+    "toolCount": 3,
+    "fromOtherDocuments": []
+   }
+  },
+  "errors": [],
+  "scope": {
+   "requestedBehaviours": null,
+   "steps": [
+    "arity",
+    "schemaRoundTrip",
+    "annotations",
+    "refusalRoutes",
+    "resultShape",
+    "withdrawal",
+    "lifecycleEvent",
+    "scriptValidation",
+    "declarativeMetadata",
+    "pageAnnotations",
+    "pageSchemas",
+    "pageDescriptions",
+    "pageProvenance"
+   ],
+   "refusedSteps": [
+    "formValidation",
+    "staleRequired",
+    "humanHold",
+    "pageRequired",
+    "pageReadOnlyDifferential"
+   ],
+   "selectedBehaviours": [
+    "A1",
+    "A2",
+    "A3",
+    "B3",
+    "B1",
+    "B2",
+    "B5",
+    "C2",
+    "D1",
+    "B4",
+    "D2",
+    "P1",
+    "P2",
+    "P3",
+    "P4"
+   ],
+   "allow": {
+    "toolCalls": false,
+    "fixtureForms": false
+   },
+   "nonceIssued": true,
+   "fixture": null
+  },
+  "skipped": {
+   "C3": "submitting a form was not authorised. Pass --allow-fixture-forms, which additionally runs only against a page that passes the bundled fixture identity check",
+   "C1": "submitting a form was not authorised. Pass --allow-fixture-forms, which additionally runs only against a page that passes the bundled fixture identity check",
+   "C4": "submitting a form was not authorised. Pass --allow-fixture-forms, which additionally runs only against a page that passes the bundled fixture identity check",
+   "P5": "calling a tool on the page under test was not authorised. Pass --allow-tool-calls to let this run, and read what it does first: it calls tools the page marked readOnlyHint, which is an annotation this suite exists to doubt",
+   "P6": "calling a tool on the page under test was not authorised. Pass --allow-tool-calls to let this run, and read what it does first: it calls tools the page marked readOnlyHint, which is an annotation this suite exists to doubt"
+  },
+  "pageTools": [
+   {
+    "name": "get_contact_info",
+    "origin": "http://127.0.0.1:56888",
+    "annotations": "undefined",
+    "declarative": true,
+    "fromThisDocument": true
+   },
+   {
+    "name": "search_services",
+    "origin": "http://127.0.0.1:56888",
+    "annotations": "undefined",
+    "declarative": true,
+    "fromThisDocument": true
+   },
+   {
+    "name": "search_training_programs",
+    "origin": "http://127.0.0.1:56888",
+    "annotations": "undefined",
+    "declarative": true,
+    "fromThisDocument": true
+   }
+  ]
+ },
+ "result": {
+  "findings": [
+   {
+    "id": "A1",
+    "group": "spec-divergence",
+    "subject": "browser",
+    "title": "The execute callback receives one argument, not two",
+    "reproduce": "node bin/ninthtool.mjs --behaviour A1",
+    "verdict": "fail",
+    "expected": "execute(input, options) with options.signal an AbortSignal",
+    "observed": "arguments.length=1, typeof options=undefined, options.signal present=false",
+    "reason": null
+   },
+   {
+    "id": "A2",
+    "group": "spec-divergence",
+    "subject": "browser",
+    "title": "inputSchema is written as an object and read back as a string",
+    "reproduce": "node bin/ninthtool.mjs --behaviour A2",
+    "verdict": "fail",
+    "expected": "typeof tool.inputSchema === \"object\", per the W3C draft",
+    "observed": "typeof tool.inputSchema === \"string\"",
+    "reason": null
+   },
+   {
+    "id": "A3",
+    "group": "spec-divergence",
+    "subject": "browser",
+    "title": "consequentialHint is in the IDL and not in this build",
+    "reproduce": "node bin/ninthtool.mjs --behaviour A3",
+    "verdict": "fail",
+    "expected": "consequentialHint survives registration, per Chromium model_context_tool.idl",
+    "observed": "annotations read back: readOnlyHint, untrustedContentHint",
+    "reason": null
+   },
+   {
+    "id": "B1",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "No route makes a refusal both a failure and readable",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B1",
+    "verdict": "fail",
+    "expected": "at least one route where the promise signals failure AND carries the page’s reason",
+    "observed": "return { isError: true }: resolved | throw Error: rejected, name=UnknownError, reason survived=false | reject DOMException(\"InvalidStateError\"): rejected, name=UnknownError, reason survived=false",
+    "reason": null
+   },
+   {
+    "id": "B2",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "isError is payload, not a signal",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B2",
+    "verdict": "fail",
+    "expected": "returning { isError: true } is surfaced to the caller as a failure",
+    "observed": "the promise resolved, so the caller reads success",
+    "reason": null
+   },
+   {
+    "id": "B3",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "The MCP annotation names do not exist in WebMCP",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B3",
+    "verdict": "fail",
+    "expected": "the 3 backend MCP annotation names survive registration",
+    "observed": "3 of 3 dropped with no error and no console warning: destructiveHint, idempotentHint, openWorldHint. Counted by another row and not here: consequentialHint is row A3",
+    "reason": null
+   },
+   {
+    "id": "B4",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "A declarative tool carries no annotations at all",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B4",
+    "verdict": "fail",
+    "expected": "a form derived tool carries annotations, at least readOnlyHint",
+    "observed": "typeof tool.annotations === \"undefined\"",
+    "reason": null
+   },
+   {
+    "id": "B5",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "The caller cannot tell whether to parse the result",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B5",
+    "verdict": "fail",
+    "expected": "the caller can distinguish a text result from a data result",
+    "observed": "a string handler gave typeof \"string\" (does not parse as JSON), an object handler gave typeof \"string\" (parses as JSON)",
+    "reason": null
+   },
+   {
+    "id": "C1",
+    "group": "silent-trap",
+    "subject": "browser",
+    "title": "A missing required property is filled from the control’s stale value",
+    "reproduce": "node bin/ninthtool.mjs --behaviour C1",
+    "verdict": "not-applicable",
+    "expected": "A call that omits a required property is refused.",
+    "observed": "",
+    "reason": "submitting a form was not authorised. Pass --allow-fixture-forms, which additionally runs only against a page that passes the bundled fixture identity check"
+   },
+   {
+    "id": "C2",
+    "group": "silent-trap",
+    "subject": "browser",
+    "title": "A tool withdraws only when the signal is in the options bag",
+    "reproduce": "node bin/ninthtool.mjs --behaviour C2",
+    "verdict": "fail",
+    "expected": "aborting the signal withdraws the tool, wherever the signal was passed",
+    "observed": "signal in the options bag: withdraws; signal on the descriptor: does NOT withdraw, and nothing is thrown",
+    "reason": null
+   },
+   {
+    "id": "C3",
+    "group": "silent-trap",
+    "subject": "browser",
+    "title": "The two halves of the standard enforce different parts of one schema",
+    "reproduce": "node bin/ninthtool.mjs --behaviour C3",
+    "verdict": "not-applicable",
+    "expected": "Every constraint the declared schema expresses is enforced.",
+    "observed": "",
+    "reason": "submitting a form was not authorised. Pass --allow-fixture-forms, which additionally runs only against a page that passes the bundled fixture identity check"
+   },
+   {
+    "id": "C4",
+    "group": "by-design",
+    "subject": "browser",
+    "title": "Nothing says which declarative tools wait for a human",
+    "reproduce": "node bin/ninthtool.mjs --behaviour C4",
+    "verdict": "not-applicable",
+    "expected": "An agent can tell, before calling, whether a tool will answer it.",
+    "observed": "",
+    "reason": "submitting a form was not authorised. Pass --allow-fixture-forms, which additionally runs only against a page that passes the bundled fixture identity check"
+   },
+   {
+    "id": "D1",
+    "group": "holds",
+    "subject": "browser",
+    "title": "toolchange fires on both registration and withdrawal",
+    "reproduce": "node bin/ninthtool.mjs --behaviour D1",
+    "verdict": "pass",
+    "expected": "toolchange fires on registration and on withdrawal",
+    "observed": "1 on register, 1 on withdraw",
+    "reason": null
+   },
+   {
+    "id": "D2",
+    "group": "holds",
+    "subject": "browser",
+    "title": "A form derived schema is built richly and correctly from markup",
+    "reproduce": "node bin/ninthtool.mjs --behaviour D2",
+    "verdict": "not-applicable",
+    "expected": "Four HTML attributes produce a real JSON Schema.",
+    "observed": "",
+    "reason": "this row compares a synthesised schema against markup known in advance, and the only markup known in advance is the bundled fixture's. The tool read here was \"get_contact_info\", so what its page declared is unknown and nothing can be concluded about the browser from it"
+   },
+   {
+    "id": "P1",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Every tool you publish says whether it writes",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P1",
+    "verdict": "fail",
+    "expected": "all 3 tools carry a readOnlyHint",
+    "observed": "3 carry no annotations at all: get_contact_info, search_services, search_training_programs. If any of those came from an HTML form, the standard offers no way to annotate it and that part is row B4 rather than anything this page can change",
+    "reason": null
+   },
+   {
+    "id": "P2",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Every tool you publish declares a schema an agent can read",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P2",
+    "verdict": "pass",
+    "expected": "all 3 tools declare a readable object schema",
+    "observed": "all 3 schemas parsed",
+    "reason": null
+   },
+   {
+    "id": "P3",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Every tool you publish describes itself, and every parameter is described",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P3",
+    "verdict": "pass",
+    "expected": "every tool and every parameter is described",
+    "observed": "all 3 tools and every parameter described",
+    "reason": null
+   },
+   {
+    "id": "P4",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Your tool surface carries nothing registered by a frame you may not control",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P4",
+    "verdict": "pass",
+    "expected": "every tool on the surface was registered by this document",
+    "observed": "all 3 tools were registered by this document",
+    "reason": null
+   },
+   {
+    "id": "P5",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Your read only tools demonstrably refuse a call that breaks their own required list",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P5",
+    "verdict": "not-applicable",
+    "expected": "A tool enforces the schema it published, because the browser does not.",
+    "observed": "",
+    "reason": "calling a tool on the page under test was not authorised. Pass --allow-tool-calls to let this run, and read what it does first: it calls tools the page marked readOnlyHint, which is an annotation this suite exists to doubt"
+   },
+   {
+    "id": "P6",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Calling one read only tool does not change what another one answers",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P6",
+    "verdict": "not-applicable",
+    "expected": "A tool marked read only leaves the state your other read tools report alone.",
+    "observed": "",
+    "reason": "calling a tool on the page under test was not authorised. Pass --allow-tool-calls to let this run, and read what it does first: it calls tools the page marked readOnlyHint, which is an annotation this suite exists to doubt"
+   }
+  ],
+  "counts": {
+   "total": 20,
+   "pass": 4,
+   "fail": 10,
+   "notApplicable": 6,
+   "byDesign": 0,
+   "outOfScope": 0,
+   "catalogue": 20
+  },
+  "scope": {
+   "requested": null,
+   "steps": [
+    "arity",
+    "schemaRoundTrip",
+    "annotations",
+    "refusalRoutes",
+    "resultShape",
+    "withdrawal",
+    "lifecycleEvent",
+    "scriptValidation",
+    "declarativeMetadata",
+    "pageAnnotations",
+    "pageSchemas",
+    "pageDescriptions",
+    "pageProvenance"
+   ],
+   "refusedSteps": [
+    "formValidation",
+    "staleRequired",
+    "humanHold",
+    "pageRequired",
+    "pageReadOnlyDifferential"
+   ],
+   "allow": {
+    "toolCalls": false,
+    "fixtureForms": false
+   },
+   "fixture": null
+  },
+  "completeness": {
+   "everySelectedObserved": false,
+   "environmentIdentified": true,
+   "noFatalErrors": true,
+   "anythingMeasured": true
+  },
+  "errors": [],
+  "pageTools": [
+   {
+    "name": "get_contact_info",
+    "origin": "http://127.0.0.1:56888",
+    "annotations": "undefined",
+    "declarative": true,
+    "fromThisDocument": true
+   },
+   {
+    "name": "search_services",
+    "origin": "http://127.0.0.1:56888",
+    "annotations": "undefined",
+    "declarative": true,
+    "fromThisDocument": true
+   },
+   {
+    "name": "search_training_programs",
+    "origin": "http://127.0.0.1:56888",
+    "annotations": "undefined",
+    "declarative": true,
+    "fromThisDocument": true
+   }
+  ],
+  "environment": {
+   "url": "http://127.0.0.1:56888/index.html",
+   "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+   "api": "document.modelContext",
+   "catalogueMeasuredAgainst": "Chrome 152.0.7977.65",
+   "catalogueMeasuredOn": "2026-09-01"
+  },
+  "complete": false
+ }
+}
