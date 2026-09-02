@@ -64,6 +64,8 @@ export function conforming() {
           + '"age":{"type":"number","minimum":18,"maximum":120,"multipleOf":1,"description":"Age in years."},'
           + '"severity":{"type":"string","enum":["dent","write_off"],"description":"How bad."}},'
           + '"required":["witness_name"]}',
+        // D2 is scoped to the bundled fixture, because only that markup is known in advance.
+        toolName: 'nt_form_answers',
       },
       P1: { toolCount: 3, withoutAnnotations: [], withoutReadOnlyHint: [], readOnlyCount: 2 },
       P2: { toolCount: 3, unusableSchemas: [] },
@@ -164,6 +166,7 @@ export function measuredChrome152() {
           + '"severity":{"type":"string","anyOf":[{"type":"string","const":"dent","title":"dent"},'
           + '{"type":"string","const":"write_off","title":"write_off"}],"enum":["dent","write_off"],'
           + '"description":"How bad."}},"required":["witness_name"]}',
+        toolName: 'nt_form_answers',
       },
       // The your-page rows, measured against this suite's own page on 2026-09-01. Two fail, and
       // both are owned rather than hidden: P1 because the standard has no way to annotate a form

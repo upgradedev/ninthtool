@@ -93,7 +93,7 @@ const MUTATIONS = {
 
   D2: { what: 'the browser synthesises nothing beyond bare properties',
     break: (o) => { o.schema = '{"type":"object","properties":{"a":{"type":"string"}}}'; },
-    expect: /nothing beyond bare properties/ },
+    expect: /missing: numeric bounds/ },
   P1: { what: 'a tool carries no annotations at all',
     break: (o) => { o.withoutAnnotations = ['your_form_tool']; },
     expect: /your_form_tool/ },
@@ -169,4 +169,98 @@ test('every behaviour in the catalogue has a mutation proving it can fail', () =
   const orphans = covered.filter((id) => !BEHAVIOUR_IDS.includes(id));
   assert.deepEqual(orphans, [],
     'a mutation names a behaviour that is no longer in the catalogue');
+});
+
+/* ------------------------------------------------------------ D2, one mutation per tightening */
+
+/*
+ * WHY EACH OF THESE EXISTS SEPARATELY.
+ *
+ * D2 read `unique.length >= 3` against a promise of four, so the row carried a spare life: measured
+ * against the fixture's own schema, dropping ALL the bounds, the enum, ALL the descriptions, or the
+ * required array each still returned PASS. Nine deliberately broken schemas, nine passes.
+ *
+ * Raising the threshold to four was not enough, because the counting was OR-folded across
+ * properties. So each feature is now tied to the markup construct that produces it, and each of
+ * those tightenings gets its own mutation. Without them, reverting one `&&` to `||`, or "every
+ * property" to "any property", leaves the whole suite green and the tightening is a gate nobody has
+ * watched fail.
+ */
+const D2_FIXTURE_SCHEMA = () => ({
+  type: 'object',
+  properties: {
+    witness_name: { type: 'string', description: 'Full name.' },
+    age: { type: 'number', minimum: 18, maximum: 120, multipleOf: 1, description: 'Age in years.' },
+    severity: { type: 'string', enum: ['dent', 'write_off'], description: 'How bad.' },
+  },
+  required: ['witness_name'],
+});
+
+const d2 = (mutate, toolName = 'nt_form_answers') => {
+  const schema = D2_FIXTURE_SCHEMA();
+  if (mutate) mutate(schema);
+  return judgeBehaviour('D2', { observations: { D2: { schema, toolName } } });
+};
+
+test('D2 passes the fixture schema as the browser actually synthesises it', () => {
+  const finding = d2(null);
+  assert.equal(finding.verdict, 'pass', finding.observed);
+  assert.match(finding.observed, /all four synthesised/);
+});
+
+test('D2 fails when only one half of a numeric bound is lost', () => {
+  // The `||` that was there before: minimum OR maximum counted as "numeric bounds", so a browser
+  // that dropped the max attribute scored the feature as present.
+  const finding = d2((s) => { delete s.properties.age.maximum; });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /numeric bounds/);
+});
+
+test('D2 fails when descriptions survive on some controls but not all', () => {
+  // Every control in the fixture carries toolparamdescription. "Any property has one" was the old
+  // test, so a browser honouring the attribute on one control in three scored a pass.
+  const finding = d2((s) => {
+    delete s.properties.age.description;
+    delete s.properties.severity.description;
+  });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /age, severity carry none/);
+});
+
+test('D2 fails when every feature is piled onto one property', () => {
+  // Four features come from four markup constructs. One property carrying a bound, an enum and a
+  // description is one control, not three, and it used to score four of four.
+  const finding = d2((s) => {
+    s.properties = { only: { type: 'string', minimum: 1, maximum: 2, enum: ['x'], description: 'd' } };
+    s.required = ['only'];
+  });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /different controls/);
+});
+
+test('D2 fails when required names something that is not a control', () => {
+  const finding = d2((s) => { s.required = ['not_a_control']; });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /none of which is a property/);
+});
+
+test('D2 abstains on a form this repository did not write', () => {
+  /*
+   * THE FALSE ACCUSATION THIS AVOIDS. The probe falls back to whatever declarative tool a page
+   * publishes, and D2's subject is the BROWSER. On a stranger's form with no number input, demanding
+   * numeric bounds would report a browser defect for markup the page never wrote. The row can only
+   * be decided where the markup is known in advance, which is the bundled fixture.
+   */
+  const finding = d2(null, 'somebody_elses_form');
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+  assert.match(finding.reason, /known in advance/);
+});
+
+test('the fixture tool name the judge scopes D2 to is the one the probe looks for', async () => {
+  // The judge declares this constant itself so it never imports the probe. That duplication is only
+  // safe while something asserts the two spellings agree.
+  const { FIXTURE_FORM_ANSWERS } = await import('../../src/probe/observe.js');
+  const finding = d2(null, FIXTURE_FORM_ANSWERS);
+  assert.equal(finding.verdict, 'pass',
+    `the judge scopes D2 to a different tool name than the probe reads: ${finding.observed}`);
 });
