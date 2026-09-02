@@ -11,7 +11,7 @@
   "src/judge/behaviours.js": "85f82c01b398f0fb68f22f3efdf181b576f550873f242a7c3ef7a1e62ceef2c0",
   "src/judge/verdict.js": "29d5ba97bc96079b772dda656d4d46120c15facdc2995e67a7b4cb644b57eaa6",
   "src/probe/fixture_identity.js": "82d182d01c8a5d6d4654990b0975a8c7e5f2c33bd88be4640849b8f48d577307",
-  "src/probe/observe.js": "9ba4d1707fd70fa6b8a2d09e4dc5839babef556d97739950b422bd432fde84b3",
+  "src/probe/observe.js": "bdef50175c9c5b23b1dbbb3164da2f1a0d98d337ad587160be66dba1601c8714",
   "src/probe/steps.js": "ce12cf53217a323532f258c41ceef0635464769c578092bf624acacd40edc045",
   "src/ui/app.js": "afc734ca78cdeb3c37d03b45d5b18f37eb2e900d7b0f9e949a53b07bf9f4ddfe"
  }
