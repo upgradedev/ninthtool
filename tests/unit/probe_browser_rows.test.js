@@ -5,8 +5,8 @@
  * registering a tool, calling it, and writing down what came back. Until now nothing drove that
  * code. The suite tested src/judge/verdict.js against hand written transcripts, which proves the
  * judge reads a transcript correctly and proves nothing about whether the transcript is what the
- * host did. Measured before this file: src/probe/observe.js at 65.04 percent of lines, from
- * `node --experimental-test-coverage --test tests/unit` on commit 481d0f2.
+ * host did. Measured before this file: src/probe/observe.js at 66.33 percent of lines, from
+ * `node --experimental-test-coverage --test tests/unit` on commit 369c769, this branch's base.
  *
  * THE PROPERTY EACH TEST ASSERTS. The same probe, run against two hosts that differ in one named
  * way, produces two transcripts that differ in exactly that way. That is falsifiable in both

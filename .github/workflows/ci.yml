@@ -59,11 +59,15 @@ jobs:
   # The aggregate is depressed by something no test can fix from here: node writes one coverage
   # record per module INSTANCE, and tests/unit/ui_state.test.js imports `src/ui/app.js?fresh=N`
   # once per mount, so one 635 line file is counted eighteen times in the denominator. Measured on
-  # 481d0f2, that is 11,430 of 22,318 counted lines. Even with every file outside src/ui/app.js at
-  # 100 percent the aggregate reaches about 82.4 on lines, so the floor cannot be met by writing
-  # more tests for the probe. The gate prints the eighteen rows when it fails, so the number is
+  # 369c769, that is 11,430 of 24,621 counted lines, together at 65.80 percent, against a union
+  # across those eighteen records of 95.75 percent. Everything that is not app.js is already at
+  # 95.38 percent of lines; set it to 100 and the aggregate reaches 84.12, so the floor cannot be
+  # met by writing more tests. The gate prints the eighteen rows when it fails, so the number is
   # attributable rather than mysterious, and the step stays red until the harness or app.js is
   # fixed. Widening the floor to make it green would be the wrong repair.
+  #
+  # Those figures carry a date and a commit because they will drift. Reproduce them by reading the
+  # `18 rows for src/ui/app.js` line the gate prints on any failing run.
   coverage:
     name: Coverage thresholds
     runs-on: ubuntu-latest

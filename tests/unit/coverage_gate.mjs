@@ -21,7 +21,7 @@
  * The second exists because the first is depressed by something no test can fix: node reports one
  * coverage record per module INSTANCE, and tests/unit/ui_state.test.js imports
  * `src/ui/app.js?fresh=N` once per mount, so one 635 line file is counted eighteen times in the
- * aggregate's denominator. Measured on commit 481d0f2: 11,430 of the 22,318 counted lines are
+ * aggregate's denominator. Measured on commit 369c769: 11,430 of the 24,621 counted lines are
  * eighteen copies of that one file. The gate prints that count when it fails, so the number is
  * attributable rather than mysterious.
  *
