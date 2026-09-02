@@ -80,9 +80,19 @@ main > section:last-child { border-bottom: 0; }
 .primary:disabled { opacity: .5; cursor: not-allowed; }
 .primary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .status { margin: 0; color: var(--ink-soft); font-size: 14px; }
+/* THE ERROR PATH IS A LAYOUT TOO.
+ *
+ * Readiness row M8 measures 375 px on the SUCCESS path, where this element is hidden, so the
+ * overflow check it runs could never see this. Measured on the real error path: clientWidth 375,
+ * scrollWidth 459, this element 438 wide inside a 333 box, computed overflow-wrap "normal".
+ *
+ * The text is unbreakable by design: it quotes chrome://flags/#enable-webmcp-testing and a full
+ * subject URL, because the whole point of that screen is telling a reader exactly what to type. So
+ * the strings stay and the box learns to break them. */
 .blocker {
   margin: 14px 0 0; padding: 12px 14px; border-radius: 8px;
   background: var(--fail-bg); color: var(--fail); border: 1px solid currentColor; max-width: 72ch;
+  overflow-wrap: anywhere; min-width: 0;
 }
 
 /* ---------------------------------------------------------------- summary tiles */
