@@ -50,7 +50,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   LIVE_URL, LIVE_PATHS, CLAIMED_TOOLS, FLAGSHIP, MANIFEST_PATH,
   MANDATORY_PASS_RATE, OVERALL_PASS_RATE, VIDEO_MAX_SECONDS, thresholdDrift,
-  STANDING_TOOLS, FINDINGS_TOOL, EXPECTED_CATALOGUE_ROWS, MAY_ABSTAIN, sortedAbstainIds,
+  STANDING_TOOLS, SUBJECT_FRAME_TOOLS, FINDINGS_TOOL, EXPECTED_CATALOGUE_ROWS, MAY_ABSTAIN,
+  sortedAbstainIds, surfaceAtRest, surfaceDuringRun,
 } from './readiness_config.mjs';
 import { buildManifest, readManifest, manifestDrift, hashOf } from './build_manifest.mjs';
 import { OTHER_COMPETITIONS, JUDGE_FACING_FILES, SIBLING_ENTRY, SIBLING_MAY_BE_NAMED_IN,
@@ -87,6 +88,28 @@ async function get(url) {
 /** Parse, or say plainly that it did not parse. Never throw on somebody else's bytes. */
 function safeParse(text) {
   try { return JSON.parse(text); } catch { return null; }
+}
+
+/**
+ * The findings payload, out of whatever envelope the host wrapped it in.
+ *
+ * MEASURED, AND THE FIRST TWO READINGS WERE BOTH WRONG. The handler returns
+ * `{ content: [{ type: 'text', text: '<the json>' }] }`. Reading `content[0].text` off the value
+ * `executeTool` resolves to gave nothing, because Chrome hands the caller a STRING. Reading that
+ * string as the payload gave an object with no run and no findings, because the string is the whole
+ * envelope serialised rather than the text inside it. So this parses once, and when what comes back
+ * is an envelope it parses the text within. Neither step invents anything: an answer that is not
+ * JSON, or JSON with no findings in it, still fails the row.
+ */
+function readFindingsPayload(text) {
+  const once = safeParse(text);
+  if (!once || typeof once !== 'object') return null;
+  const first = (Array.isArray(once.content) ? once.content[0] : null) || null;
+  if (first && typeof first.text === 'string') {
+    const inner = safeParse(first.text);
+    if (inner && typeof inner === 'object') return inner;
+  }
+  return once;
 }
 
 /** Two lists of names hold the same names the same number of times. Order is not a finding. */
@@ -556,7 +579,9 @@ export function decideM8(result) {
   if (answer.error) {
     problems.push(`executing nt_get_findings failed: ${answer.error}`);
   }
-  const parsed = answer.text === null || answer.text === undefined ? null : safeParse(answer.text);
+  const parsed = answer.text === null || answer.text === undefined
+    ? null
+    : readFindingsPayload(answer.text);
   if (answer.called === true && !answer.error && !parsed) {
     problems.push('nt_get_findings answered with something that is not a JSON object, so an agent '
       + `reading it gets no structured result: ${String(answer.text).slice(0, 120)}`);
@@ -583,26 +608,45 @@ export function decideM8(result) {
   }
 
   /* ---- the exact tool surface, before, during and after */
-  const duringWanted = [...STANDING_TOOLS, FINDINGS_TOOL];
-  if (!sameMultiset(result.toolsBefore, STANDING_TOOLS)) {
-    problems.push(`before the run the surface was not the standing tools (${multisetDrift(result.toolsBefore, STANDING_TOOLS)})`);
+  const atRest = surfaceAtRest();
+  const duringWanted = surfaceDuringRun();
+  if (!sameMultiset(result.toolsBefore, atRest)) {
+    problems.push(`before the run the surface was not the declared one (${multisetDrift(result.toolsBefore, atRest)})`);
   }
   if (!sameMultiset(result.toolsDuring, duringWanted)) {
-    problems.push(`during the run the surface was not the standing tools plus ${FINDINGS_TOOL} `
+    problems.push(`during the run the surface was not the declared one plus ${FINDINGS_TOOL} `
       + `(${multisetDrift(result.toolsDuring, duringWanted)})`);
   }
-  if (!sameMultiset(result.toolsAfter, STANDING_TOOLS)) {
-    problems.push(`after the findings were cleared the surface was not back to the standing tools `
-      + `(${multisetDrift(result.toolsAfter, STANDING_TOOLS)})`);
+  if (!sameMultiset(result.toolsAfter, atRest)) {
+    problems.push(`after the findings were cleared the surface was not back to the declared one `
+      + `(${multisetDrift(result.toolsAfter, atRest)})`);
   }
   if (result.namesItsOwnTools !== true) {
     problems.push('the page does not name its own tools anywhere a reader can see them');
   }
 
-  /* ---- the page did not complain, and does not scroll sideways at either width */
-  const consoleErrors = Array.isArray(result.consoleErrors) ? result.consoleErrors : [];
-  if (consoleErrors.length) {
-    problems.push(`${consoleErrors.length} console errors: ${consoleErrors.slice(0, 3).join(' | ')}`);
+  /* ---- the page loaded without complaining, and does not scroll sideways at either width */
+  /*
+   * THE CONSOLE CHECK IS SCOPED TO THE LOAD, AND HERE IS WHY, MEASURED.
+   *
+   * A judge opening this page must see a clean console. That is what `loadConsoleErrors` gates, and
+   * it is measured between the reload finishing and the button being pressed.
+   *
+   * Pressing the button is different. The audit's whole method is to provoke refusals from tools it
+   * registers itself, and Chrome logs every one of them as "WebMCP tool execution failed". The live
+   * run recorded two, both the fixture's own REFUSED_STALE, which is behaviour C1 doing exactly what
+   * the catalogue says it does. Gating on those would mean a correct page can never pass, and a gate
+   * that a correct page cannot pass gets deleted rather than fixed.
+   *
+   * So they are counted and printed rather than ignored, and the LIMITATION IS STATED: this row does
+   * not distinguish an error the audit provoked from one the page emitted while running. What it
+   * refuses outright is any console error before the visitor has touched anything.
+   */
+  const loadErrors = Array.isArray(result.loadConsoleErrors) ? result.loadConsoleErrors : [];
+  const runErrors = Array.isArray(result.runConsoleErrors) ? result.runConsoleErrors : [];
+  if (loadErrors.length) {
+    problems.push(`${loadErrors.length} console errors before anything was clicked: `
+      + `${loadErrors.slice(0, 3).join(' | ')}`);
   }
   const narrow = result.narrow || {};
   const wide = result.wide || {};
@@ -629,13 +673,24 @@ export function decideM8(result) {
       + `${(parsed && parsed.run && parsed.run.id) || 'nothing'}`
       + `, tool surface ${(result.toolsBefore || []).length}/${(result.toolsDuring || []).length}/`
       + `${(result.toolsAfter || []).length} before/during/after`
-      + `, ${consoleErrors.length} console errors`
+      + `, ${loadErrors.length} console errors on load and ${runErrors.length} while the audit ran`
+      + `${runErrors.length ? ` (not gated, and here they are: ${runErrors.slice(0, 2).join(' | ')})` : ''}`
       + `, document ${narrow.scrollWidth} px at 375 and ${wide.scrollWidth} px at 1280`
       + (problems.length ? `. FAILING: ${problems.join('. ')}` : ''),
   };
 }
 
 /* ------------------------------------------------------------------ the browser row */
+
+/**
+ * Console errors only, from everything the session has collected so far.
+ *
+ * Warnings are deliberately not here. The prefixes come from the protocol client's own `problems()`,
+ * which labels each line by where it came from. Dropping the errors as well would be the widening
+ * this repository refuses; keeping the warnings would fail the row on things that are not errors.
+ */
+const errorsOnly = (session) => session.problems()
+  .filter((line) => /^(console\.error|page error|log error)/.test(line));
 
 /** Open the live URL in a flagged Chrome, press the button, and report what happened. */
 async function driveLivePage() {
@@ -663,8 +718,23 @@ async function driveLivePage() {
     // page, so anything logged while it loaded happened before this session existed. Reloading with
     // the domains enabled, and dropping what was collected first, means the errors this row counts
     // are the ones a visitor's own console would show from the first byte.
-    await session.send('Page.reload', { ignoreCache: false }).catch(() => {});
+    //
+    // THE MARKER IS NOT DECORATION. `waitForDocument` asks the page for its URL and readyState, and
+    // the OLD document answers "complete" at the right URL for the whole round trip to the origin.
+    // Waiting on it alone can therefore return ok for the document that is about to be destroyed,
+    // and everything after this would then run in a dying context. So a value is written into the
+    // current context first and this waits for it to disappear, which only happens when the context
+    // has actually been replaced.
+    await session.evaluate('window.__ninthtoolPreReload = 1');
     session.events.length = 0;
+    await session.send('Page.reload', { ignoreCache: false }).catch(() => {});
+    const replacedBy = Date.now() + 30000;
+    while (Date.now() < replacedBy) {
+      try {
+        if (await session.evaluate('window.__ninthtoolPreReload || null', 5000) === null) break;
+      } catch { /* the context is being replaced, which is the thing we are waiting for */ }
+      await new Promise((r) => setTimeout(r, 200));
+    }
 
     const loaded = await waitForDocument(session, LIVE_URL);
     if (!loaded.ok) {
@@ -672,7 +742,7 @@ async function driveLivePage() {
         + ` in state "${loaded.readyState}" after ${loaded.waitedMs} ms.`);
     }
 
-    const driven = await session.evaluate(`(async () => {
+    const booted = await session.evaluate(`(async () => {
       const out = { hasCtx: false, bootFailed: false, observeCalls: 0, transcript: null,
         transcriptError: null, toolsBefore: [], toolsDuring: [], toolsAfter: [],
         cardVerdicts: [], runIdOnPage: null,
@@ -730,6 +800,7 @@ async function driveLivePage() {
       }
       const real = inner.__ninthtool_observe;
       const captured = { calls: 0, transcript: null };
+      window.__ninthtoolCaptured = captured;
       inner.__ninthtool_observe = async function capturingObserve() {
         captured.calls += 1;
         const seen = await real.call(inner);
@@ -737,8 +808,21 @@ async function driveLivePage() {
         return seen;
       };
 
+      out.toolsBefore = (await ctx.getTools()).map(t => String(t.name));
+      return out;
+    })()`, 90000);
+
+    // THE CONSOLE AS A JUDGE FINDS IT, READ BEFORE ANYTHING IS CLICKED. One total at the end cannot
+    // tell a defect in the page from the instrument working, because the audit provokes refusals on
+    // purpose and the browser logs every one of them.
+    const loadConsoleErrors = errorsOnly(session);
+
+    const drivable = booted.hasCtx && !booted.bootFailed && !booted.transcriptError;
+    const driven = !drivable ? {} : await session.evaluate(`(async () => {
+      const out = {};
+      const ctx = document.modelContext;
+      const captured = window.__ninthtoolCaptured;
       const names = async () => (await ctx.getTools()).map(t => String(t.name));
-      out.toolsBefore = await names();
       const started = Date.now();
       document.querySelector('[data-el="run"]').click();
       while (Date.now() - started < 60000) {
@@ -784,6 +868,7 @@ async function driveLivePage() {
 
       // EXECUTE IT, DO NOT JUST WATCH IT APPEAR. A tool on the surface that has never been called
       // is a name, not a capability, and the difference is this suite's whole subject.
+      out.findings = { called: false, error: null, text: null, answerTypeof: null };
       try {
         const published = (await ctx.getTools()).filter(t => String(t.name) === 'nt_get_findings');
         if (published.length !== 1) {
@@ -791,9 +876,20 @@ async function driveLivePage() {
         } else {
           out.findings.called = true;
           const answer = await ctx.executeTool(published[0], JSON.stringify({}));
-          const first = ((answer || {}).content || [])[0] || {};
-          out.findings.text = typeof first.text === 'string' ? first.text : null;
-          if (out.findings.text === null) out.findings.error = 'the tool answered with no text content';
+          out.findings.answerTypeof = typeof answer;
+          // BOTH SHAPES, BECAUSE THE FIRST GUESS WAS WRONG. This read content[0].text, which is the
+          // shape the HANDLER returns. Chrome flattens it: the caller of executeTool is handed the
+          // text itself, which is what behaviour B5 records and what the live run measured when this
+          // reported "the tool answered with no text content" on a tool that answered perfectly.
+          if (typeof answer === 'string') {
+            out.findings.text = answer;
+          } else {
+            const first = ((answer || {}).content || [])[0] || {};
+            out.findings.text = typeof first.text === 'string' ? first.text : null;
+          }
+          if (out.findings.text === null) {
+            out.findings.error = 'the tool answered a ' + typeof answer + ' with no readable text in it';
+          }
         }
       } catch (error) {
         out.findings.error = String((error && error.message) || error);
@@ -821,25 +917,23 @@ async function driveLivePage() {
       await new Promise((r) => setTimeout(r, 700));
       return session.evaluate(measure, 20000);
     };
-    const wide = await atWidth(1280, 900, false);
-    const narrow = await atWidth(375, 812, true);
+    const wide = drivable ? await atWidth(1280, 900, false) : {};
+    const narrow = drivable ? await atWidth(375, 812, true) : {};
     await session.send('Emulation.clearDeviceMetricsOverride').catch(() => {});
 
     // WITHDRAWAL LAST, because clearing the findings nulls the result nt_get_findings serves. Doing
     // this before the tool was executed left a null dereference where a clean verdict belongs.
-    const closed = await session.evaluate(`(async () => {
+    const closed = !drivable ? {} : await session.evaluate(`(async () => {
       const ctx = document.modelContext;
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       await new Promise(r => setTimeout(r, 800));
       return { toolsAfter: (await ctx.getTools()).map(t => String(t.name)) };
     })()`, 30000);
 
-    // Errors only. Warnings are not a failure of this row, and dropping the errors as well would be
-    // the widening this repository refuses.
-    const consoleErrors = session.problems()
-      .filter((line) => /^(console\.error|page error|log error)/.test(line));
+    // The events arrive in order, so what came after the load snapshot is what the run produced.
+    const runConsoleErrors = errorsOnly(session).slice(loadConsoleErrors.length);
 
-    return { ...driven, ...closed, wide, narrow, consoleErrors };
+    return { ...booted, ...driven, ...closed, wide, narrow, loadConsoleErrors, runConsoleErrors };
   } finally {
     if (socket) socket.destroy();
     launched.close();
@@ -882,11 +976,12 @@ export function healthyDrive(transcript) {
       error: null,
       text: JSON.stringify({ run: { id: runId }, findings: served }),
     },
-    toolsBefore: [...STANDING_TOOLS],
-    toolsDuring: [...STANDING_TOOLS, FINDINGS_TOOL],
-    toolsAfter: [...STANDING_TOOLS],
+    toolsBefore: surfaceAtRest(),
+    toolsDuring: surfaceDuringRun(),
+    toolsAfter: surfaceAtRest(),
     namesItsOwnTools: true,
-    consoleErrors: [],
+    loadConsoleErrors: [],
+    runConsoleErrors: [],
     elapsedMs: 4900,
     narrow: { viewport: 375, scrollWidth: 375, sideScroll: false },
     wide: { viewport: 1280, scrollWidth: 1280, sideScroll: false },
@@ -967,15 +1062,24 @@ export async function selftestCases() {
       'M8', swapped],
     ['M8 with a card missing from the render', 'M8', broken(healthy, { cards: BEHAVIOURS.length - 1 })],
     ['M8 with a standing tool missing from the surface', 'M8',
-      broken(healthy, { toolsBefore: STANDING_TOOLS.slice(1) })],
+      broken(healthy, { toolsBefore: surfaceAtRest().filter((n) => n !== STANDING_TOOLS[0]) })],
+    ['M8 with the subject frame tools gone from the surface', 'M8',
+      broken(healthy, { toolsBefore: [...STANDING_TOOLS] })],
     ['M8 with a stray tool left on the surface during the run', 'M8',
-      broken(healthy, { toolsDuring: [...STANDING_TOOLS, FINDINGS_TOOL, 'nt_probe_leftover'] })],
+      broken(healthy, { toolsDuring: [...surfaceDuringRun(), 'nt_probe_leftover'] })],
     ['M8 with nt_get_findings never withdrawn', 'M8',
-      broken(healthy, { toolsAfter: [...STANDING_TOOLS, FINDINGS_TOOL] })],
+      broken(healthy, { toolsAfter: surfaceDuringRun() })],
     ['M8 with nt_get_findings never executed', 'M8',
       broken(healthy, { findings: { called: false, error: null, text: null } })],
     ['M8 with malformed nt_get_findings output', 'M8',
       broken(healthy, { findings: { called: true, error: null, text: '{ not json at all' } })],
+    ['M8 with an nt_get_findings envelope whose payload is malformed', 'M8', broken(healthy, {
+      findings: {
+        called: true,
+        error: null,
+        text: JSON.stringify({ content: [{ type: 'text', text: '{ not json at all' }] }),
+      },
+    })],
     ['M8 with a stale run id in the tool answer', 'M8', broken(healthy, {
       findings: {
         ...healthy.findings,
@@ -988,8 +1092,8 @@ export async function selftestCases() {
     ['M8 with the subject observed a second time after the page rendered', 'M8',
       broken(healthy, { observeCalls: 2 })],
     ['M8 with no run id on the page', 'M8', broken(healthy, { runIdOnPage: null })],
-    ['M8 with a console error', 'M8',
-      broken(healthy, { consoleErrors: ['console.error: Uncaught TypeError'] })],
+    ['M8 with a console error before anything was clicked', 'M8',
+      broken(healthy, { loadConsoleErrors: ['console.error: Uncaught TypeError'] })],
     ['M8 with sideways scroll at 375 px', 'M8',
       broken(healthy, { narrow: { viewport: 375, scrollWidth: 411, sideScroll: true } })],
     ['M8 with sideways scroll at 1280 px', 'M8',
@@ -1041,6 +1145,44 @@ export async function selftestCases() {
 }
 
 /**
+ * One input per automated row that MUST come out green.
+ *
+ * WITHOUT THESE THE TABLE ABOVE PROVES LESS THAN IT LOOKS. A broken case is only evidence when the
+ * same row, handed a healthy input of the same shape, passes. Otherwise a typo in the shape of a
+ * hand written case makes it red for a reason nobody chose, and the case would go on reporting
+ * success while testing nothing. That is the same defect class as the hollow self test itself, one
+ * level down.
+ */
+export async function greenBaselines() {
+  const { measuredChrome152 } = await import('../tests/support/transcripts.mjs');
+  const cleanTexts = {};
+  for (const file of [...JUDGE_FACING_FILES, ...SIBLING_MUST_BE_NAMED_IN]) cleanTexts[file] = read(file);
+  const oneFileTree = { fileCount: 1, files: { 'src/ui/app.js': hashOf('the tree') } };
+
+  return [
+    ['M1', { text: read('LICENSE') }],
+    ['M2', { readme: read('README.md'), page: read('index.html') }],
+    ['M3', { texts: cleanTexts }],
+    ['M4', { status: 200, body: CLAIMED_TOOLS.join(' '), error: null }],
+    ['M5', { status: 200, body: 'a page', error: null }],
+    ['M6', { responses: [{ suffix: '', status: 200, error: null }], fileCount: 1 }],
+    ['M7', { status: 200, body: `<html>${FLAGSHIP}</html>`, error: null }],
+    ['M8', healthyDrive(measuredChrome152())],
+    ['R1', { text: read('tests/unit/verdict_mutations.test.js') }],
+    ['R2', { output: '# pass 260\n# fail 0\n', threw: false }],
+    ['R3', { output: 'style gate: scanned 45 files\nstyle selftest: PASS\nstyle gate: PASS\n', threw: false }],
+    ['R4', { present: true, text: 'a rival that does the same thing, and what would falsify this' }],
+    ['R5', {
+      head: '0000000',
+      fresh: oneFileTree,
+      committed: oneFileTree,
+      servedManifest: { status: 200, body: JSON.stringify(oneFileTree), error: null },
+      served: { 'src/ui/app.js': { status: 200, body: 'the tree', error: null } },
+    }],
+  ];
+}
+
+/**
  * Break every automated row on purpose, by calling that row's own judgement, and require red.
  *
  * A `decide` that throws counts as red: several rows fail by refusing to judge an input they cannot
@@ -1057,11 +1199,22 @@ export async function runSelftest() {
     if (typeof row.gather !== 'function') problems.push(`${row.id} has no gather, so its judgement is not separated from its input`);
   }
 
-  const { measuredChrome152 } = await import('../tests/support/transcripts.mjs');
-  const baseline = decideM8(healthyDrive(measuredChrome152()));
-  if (baseline.ok !== true) {
-    problems.push('the healthy browser row baseline is NOT green, so every M8 case below is red for '
-      + `reasons nobody chose and proves nothing: ${baseline.evidence}`);
+  // GREEN FIRST. If a row's healthy input is not accepted, that row's broken inputs prove nothing,
+  // so this runs before the table and says which row it was.
+  const green = await greenBaselines();
+  const greenIds = new Set(green.map(([rowId]) => rowId));
+  for (const row of automated) {
+    if (!greenIds.has(row.id)) problems.push(`row ${row.id} has no healthy input, so its failures prove nothing`);
+  }
+  for (const [rowId, input] of green) {
+    const row = ROWS.find((r) => r.id === rowId);
+    if (!row || typeof row.decide !== 'function') { problems.push(`the healthy input names row ${rowId}, which has no judgement`); continue; }
+    let verdict;
+    try { verdict = row.decide(input); } catch (error) { verdict = { ok: false, evidence: String((error && error.message) || error) }; }
+    if (verdict.ok !== true) {
+      problems.push(`the healthy input for ${rowId} is NOT green, so every case for that row is red `
+        + `for reasons nobody chose: ${verdict.evidence}`);
+    }
   }
 
   const cases = await selftestCases();
@@ -1091,8 +1244,9 @@ async function selftest() {
     console.error(`readiness selftest: FAIL, ${problems.length} problems.`);
     process.exit(1);
   }
-  console.log(`readiness selftest: PASS, ${cases} deliberately broken inputs were handed to the real `
-    + `judgement of all ${rows} automated rows and every one of them went red.`);
+  console.log(`readiness selftest: PASS. All ${rows} automated rows accepted a healthy input, and `
+    + `${cases} deliberately broken inputs were handed to those same real judgements and every one `
+    + 'of them went red.');
 }
 
 /* ------------------------------------------------------------------ run */
