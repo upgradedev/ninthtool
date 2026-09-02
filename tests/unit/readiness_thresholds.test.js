@@ -18,7 +18,8 @@ import path from 'node:path';
 import {
   MANDATORY_PASS_RATE, OVERALL_PASS_RATE, VIDEO_MAX_SECONDS,
   LIVE_URL, REPO, CLAIMED_TOOLS, LIVE_PATHS, FLAGSHIP, thresholdDrift,
-  STANDING_TOOLS, FINDINGS_TOOL, EXPECTED_CATALOGUE_ROWS, MAY_ABSTAIN,
+  STANDING_TOOLS, SUBJECT_FRAME_TOOLS, FINDINGS_TOOL, EXPECTED_CATALOGUE_ROWS, MAY_ABSTAIN,
+  surfaceAtRest, surfaceDuringRun,
 } from '../../scripts/readiness_config.mjs';
 import { BEHAVIOURS } from '../../src/judge/behaviours.js';
 
@@ -43,6 +44,14 @@ test('the tool surface the browser row compares against is exact, and covers the
   assert.deepEqual([...STANDING_TOOLS, FINDINGS_TOOL].sort(), [...CLAIMED_TOOLS].sort(),
     'the standing tools plus the conditional one ARE the claimed tools, and two lists describing '
     + 'one surface may not drift apart');
+  assert.deepEqual([...SUBJECT_FRAME_TOOLS].sort(), ['nt_form_answers', 'nt_form_silent'],
+    'the bundled subject fixture publishes these two, and the host folds them into the top '
+    + 'document surface, so they are part of what an agent sees');
+  assert.deepEqual(surfaceAtRest().sort(), [...STANDING_TOOLS, ...SUBJECT_FRAME_TOOLS].sort());
+  assert.deepEqual(surfaceDuringRun().sort(), [...surfaceAtRest(), FINDINGS_TOOL].sort(),
+    'the only thing a run may add to the surface is the conditional tool');
+  assert.equal(new Set(surfaceDuringRun()).size, surfaceDuringRun().length,
+    'the expected surface names a tool twice, so the multiset comparison would accept a duplicate');
 });
 
 test('the catalogue row count is pinned to the catalogue itself', () => {

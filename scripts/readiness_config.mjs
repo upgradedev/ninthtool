@@ -52,8 +52,29 @@ export const CLAIMED_TOOLS = ['nt_list_behaviours', 'nt_explain_behaviour', 'nt_
  */
 export const STANDING_TOOLS = ['nt_list_behaviours', 'nt_explain_behaviour', 'nt_run_audit'];
 
+/**
+ * The subject frame's own tools, which the host folds into the top document's surface.
+ *
+ * MEASURED, NOT ASSUMED, AND THE FIRST GUESS WAS WRONG. This list started empty, because the page's
+ * three tools looked like the whole surface. The live run then read five names before the audit,
+ * five after it and six during it: the bundled fixture the page embeds publishes these two, and
+ * Chrome returns an iframe's tools from `document.modelContext.getTools()` on the top document.
+ *
+ * They are named here rather than ignored. An agent talking to this page really can see them, so
+ * leaving them out of the expected surface would have been describing a page that does not exist.
+ * The comparison stays an exact multiset: any other name appearing, or any of these five going
+ * missing at any of the three moments, is still a failure.
+ */
+export const SUBJECT_FRAME_TOOLS = ['nt_form_answers', 'nt_form_silent'];
+
 /** The one tool that exists only while a run has findings to serve. */
 export const FINDINGS_TOOL = 'nt_get_findings';
+
+/** The whole surface an agent sees when no run is holding findings. */
+export const surfaceAtRest = () => [...STANDING_TOOLS, ...SUBJECT_FRAME_TOOLS];
+
+/** The whole surface while a run is holding findings. */
+export const surfaceDuringRun = () => [...surfaceAtRest(), FINDINGS_TOOL];
 
 /**
  * How many rows the catalogue has, pinned here so a row that vanishes from the page is a failure
@@ -118,6 +139,7 @@ export const THRESHOLD_FIXTURE = Object.freeze({
   CLAIMED_TOOL_COUNT: 4,
   LIVE_PATH_COUNT: 2,
   STANDING_TOOL_NAMES: 'nt_explain_behaviour,nt_list_behaviours,nt_run_audit',
+  SUBJECT_FRAME_TOOL_NAMES: 'nt_form_answers,nt_form_silent',
   FINDINGS_TOOL: 'nt_get_findings',
   EXPECTED_CATALOGUE_ROWS: 20,
   MAY_ABSTAIN_IDS: 'P5',
@@ -146,6 +168,7 @@ export function thresholdDrift() {
   check('CLAIMED_TOOL_COUNT', CLAIMED_TOOLS.length, THRESHOLD_FIXTURE.CLAIMED_TOOL_COUNT);
   check('LIVE_PATH_COUNT', LIVE_PATHS.length, THRESHOLD_FIXTURE.LIVE_PATH_COUNT);
   check('STANDING_TOOL_NAMES', sortedStandingTools().join(','), THRESHOLD_FIXTURE.STANDING_TOOL_NAMES);
+  check('SUBJECT_FRAME_TOOL_NAMES', [...SUBJECT_FRAME_TOOLS].sort().join(','), THRESHOLD_FIXTURE.SUBJECT_FRAME_TOOL_NAMES);
   check('FINDINGS_TOOL', FINDINGS_TOOL, THRESHOLD_FIXTURE.FINDINGS_TOOL);
   check('EXPECTED_CATALOGUE_ROWS', EXPECTED_CATALOGUE_ROWS, THRESHOLD_FIXTURE.EXPECTED_CATALOGUE_ROWS);
   check('MAY_ABSTAIN_IDS', sortedAbstainIds().join(','), THRESHOLD_FIXTURE.MAY_ABSTAIN_IDS);

@@ -17,8 +17,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ROWS, decideM8, healthyDrive, selftestCases, runSelftest } from '../../scripts/readiness.mjs';
-import { STANDING_TOOLS, FINDINGS_TOOL, MAY_ABSTAIN } from '../../scripts/readiness_config.mjs';
+import { ROWS, decideM8, healthyDrive, selftestCases, greenBaselines, runSelftest } from '../../scripts/readiness.mjs';
+import { STANDING_TOOLS, FINDINGS_TOOL, MAY_ABSTAIN, surfaceAtRest, surfaceDuringRun } from '../../scripts/readiness_config.mjs';
 import { BEHAVIOURS } from '../../src/judge/behaviours.js';
 import { measuredChrome152 } from '../support/transcripts.mjs';
 
@@ -33,6 +33,17 @@ test('every automated row separates what it gathers from what it decides', () =>
       + 'go back to imitating the row');
     assert.equal(typeof row.run, 'undefined',
       `${row.id} still carries a combined run, which is where judgement hides from the self test`);
+  }
+});
+
+test('every automated row accepts a healthy input, or its failures prove nothing', async () => {
+  const green = await greenBaselines();
+  const covered = new Set(green.map(([rowId]) => rowId));
+  for (const row of automated) assert.ok(covered.has(row.id), `${row.id} has no healthy input`);
+  for (const [rowId, input] of green) {
+    const row = ROWS.find((r) => r.id === rowId);
+    const verdict = row.decide(input);
+    assert.equal(verdict.ok, true, `${rowId} rejected its healthy input: ${verdict.evidence}`);
   }
 });
 
@@ -141,27 +152,62 @@ test('the browser row refuses a result it cannot bind to the run the page render
   assert.equal(decideM8(stale).ok, false, 'a tool answer from a different run was accepted');
   assert.equal(decideM8({ ...healthy, findings: { called: true, error: null, text: 'not json' } }).ok, false,
     'a malformed tool answer was accepted');
+
+  // THE SHAPE THE BROWSER ACTUALLY HANDS BACK. The handler returns a content envelope and Chrome
+  // resolves executeTool with that envelope serialised, so the payload is one parse further in.
+  // Reading it at the wrong depth made a working tool look like it answered nothing at all.
+  const enveloped = {
+    ...healthy,
+    findings: {
+      called: true,
+      error: null,
+      text: JSON.stringify({ content: [{ type: 'text', text: healthy.findings.text }] }),
+    },
+  };
+  assert.equal(decideM8(enveloped).ok, true, decideM8(enveloped).evidence);
+  const emptyEnvelope = {
+    ...healthy,
+    findings: {
+      called: true,
+      error: null,
+      text: JSON.stringify({ content: [{ type: 'text', text: '{ not json' }] }),
+    },
+  };
+  assert.equal(decideM8(emptyEnvelope).ok, false,
+    'unwrapping the envelope must not swallow a payload that is not readable');
   assert.equal(decideM8({ ...healthy, findings: { called: false, error: null, text: null } }).ok, false,
     'a tool that was never executed was accepted as a proved capability');
 });
 
 test('the browser row compares the tool surface as an exact multiset at all three moments', () => {
   const healthy = healthyDrive(measuredChrome152());
-  assert.equal(decideM8({ ...healthy, toolsBefore: STANDING_TOOLS.slice(1) }).ok, false,
-    'a standing tool missing before the run was accepted');
   assert.equal(decideM8({
-    ...healthy, toolsDuring: [...STANDING_TOOLS, FINDINGS_TOOL, 'nt_probe_leftover'],
+    ...healthy, toolsBefore: surfaceAtRest().filter((n) => n !== STANDING_TOOLS[0]),
+  }).ok, false, 'a standing tool missing before the run was accepted');
+  assert.equal(decideM8({ ...healthy, toolsBefore: [...STANDING_TOOLS] }).ok, false,
+    'the subject frame tools vanishing from the surface was accepted');
+  assert.equal(decideM8({
+    ...healthy, toolsDuring: [...surfaceDuringRun(), 'nt_probe_leftover'],
   }).ok, false, 'a stray tool on the surface during the run was accepted');
-  assert.equal(decideM8({ ...healthy, toolsAfter: [...STANDING_TOOLS, FINDINGS_TOOL] }).ok, false,
+  assert.equal(decideM8({ ...healthy, toolsAfter: surfaceDuringRun() }).ok, false,
     'the conditional tool never being withdrawn was accepted');
-  assert.equal(decideM8({
-    ...healthy, toolsBefore: [STANDING_TOOLS[0], STANDING_TOOLS[0], STANDING_TOOLS[1]],
-  }).ok, false, 'a surface with the right COUNT and the wrong names was accepted');
+  const rightCountWrongNames = surfaceAtRest().map(() => STANDING_TOOLS[0]);
+  assert.equal(decideM8({ ...healthy, toolsBefore: rightCountWrongNames }).ok, false,
+    'a surface with the right COUNT and the wrong names was accepted');
+  assert.deepEqual(surfaceDuringRun(), [...surfaceAtRest(), FINDINGS_TOOL],
+    'the only difference the run may make to the surface is the conditional tool');
 });
 
-test('the browser row fails on a console error and on sideways scroll at either width', () => {
+test('the browser row fails on a console error before the visitor touches anything', () => {
   const healthy = healthyDrive(measuredChrome152());
-  assert.equal(decideM8({ ...healthy, consoleErrors: ['console.error: boom'] }).ok, false);
+  assert.equal(decideM8({ ...healthy, loadConsoleErrors: ['console.error: boom'] }).ok, false);
+  // STATED LIMITATION, ASSERTED SO IT CANNOT BE FORGOTTEN. Errors raised while the audit runs are
+  // the browser logging the refusals the audit provokes on purpose, so they are printed and not
+  // gated. If that ever becomes gateable, this assertion is the thing that has to change.
+  const duringRun = decideM8({ ...healthy, runConsoleErrors: ['log error: WebMCP tool execution failed'] });
+  assert.equal(duringRun.ok, true, 'the audit provoking a refusal is not a defect in the page');
+  assert.ok(duringRun.evidence.includes('while the audit ran'),
+    'an ungated error must still be printed, or it is being hidden rather than scoped');
   assert.equal(decideM8({
     ...healthy, narrow: { viewport: 375, scrollWidth: 411, sideScroll: true },
   }).ok, false, 'sideways scroll at 375 px was accepted');
