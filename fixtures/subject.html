@@ -161,9 +161,11 @@ window.__ninthtool_observe = async function observe() {
     // fixture is not written to.
     allow: { toolCalls: true, fixtureForms: true },
     expectedOrigin: location.origin,
-    // THIS document is the fixture, so identity here is exact rather than inferred from a path.
+    // THIS document is the fixture, so identity here is exact rather than inferred from a path,
+    // and it is established before anything is written rather than by reading back an answer.
     expectedWindow: window,
     expectedPath: location.pathname,
+    fixtureOwnership: 'same-document',
   });
   transcript.meta.api = found.where;
   log(`audit done, ${Object.keys(transcript.observations).length} observations`);

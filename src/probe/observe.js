@@ -226,6 +226,23 @@ export async function observeAll(ctx, options = {}) {
   const nonce = makeNonce(options.random);
   const fixtureTrust = {};
 
+  /*
+   * WHETHER THIS RUN OWNS THE FIXTURE, decided before any row runs.
+   *
+   * Two ways to own it, and both are established without calling anything:
+   *   'served-by-runner'  the command line served the bundled fixture from its own tree and
+   *                       navigated to it, so the bytes under test are the bytes it shipped.
+   *   'same-document'     the probe is executing INSIDE the document that publishes the forms,
+   *                       which is how the page drives its own subject frame.
+   *
+   * Anything else is 'unproven', and unproven means no writes. The flag is passed IN by the caller
+   * that actually knows, rather than inferred here from something a page could arrange.
+   */
+  const ownership = options.fixtureOwnership || 'unproven';
+  const ownsFixture = ownership === 'served-by-runner'
+    || (ownership === 'same-document' && options.expectedWindow
+      && typeof window !== 'undefined' && options.expectedWindow === window);
+
   // BEFORE ANYTHING ELSE. Read the page's own surface while it is still only the page's own
   // surface. Everything in the your-page group is judged against this.
   let pageTools = [];
@@ -275,6 +292,40 @@ export async function observeAll(ctx, options = {}) {
    * passed origin, exact document path, build marker and the nonce channel.
    */
   const trustedFixture = async (toolName) => {
+    /*
+     * OWNERSHIP IS PROVED BEFORE ANYTHING IS WRITTEN, AND THE NONCE ECHO CANNOT DO THAT.
+     *
+     * The four checks ended by WRITING a nonce onto the document and returning trusted. The echo,
+     * which is the only unforgeable half, was read from the answer to the FIRST CALL, and on a form
+     * tool that call is the submission. So identity was confirmed one write too late.
+     *
+     * Reproduced against a page served at the expected path that copied the marker, which is a
+     * public constant in this repository, and never read the nonce:
+     *
+     *   fixture identity : trusted true, "origin, document path, build marker and nonce channel all hold"
+     *   form submissions : 1
+     *
+     * and the run's own error text admitted it: "One call was made and no further call was sent".
+     *
+     * WHY A CLEVERER CHECK WOULD BE A LIE. Everything a page exposes here is copyable: the tool
+     * name, the pathname, the schema, and the marker. The nonce is not, but reading it back
+     * requires calling the tool. There is no challenge WebMCP lets us issue that a document must
+     * answer BEFORE it is invoked, so no amount of ordering makes an arbitrary page provable.
+     *
+     * So form writing is bound to a fixture this runner OWNS: one it served itself from its own
+     * bundle, or the document the probe is running inside. Anything else is refused, and the rows
+     * that need a write report not-applicable with the reason. That is narrower than before and it
+     * is the only version of the promise that is true.
+     */
+    if (!ownsFixture) {
+      throw new Error('this run cannot prove the page it was pointed at is the bundled fixture '
+        + 'before writing to it. Every signal a page exposes here is copyable, the tool name, the '
+        + 'pathname, the schema and the build marker, and the one that is not, the nonce echo, can '
+        + 'only be read by calling the tool, which for a form IS the write. So nothing was '
+        + 'submitted. Run this against the fixture this tool serves itself, with no URL, to '
+        + 'measure the declarative rows');
+    }
+
     if (Object.prototype.hasOwnProperty.call(fixtureTrust, toolName)) {
       const cached = fixtureTrust[toolName];
       if (!cached.decision.trusted) {
@@ -305,21 +356,6 @@ export async function observeAll(ctx, options = {}) {
     const decision = checkFixtureIdentity(tool, {
       expectedOrigin: options.expectedOrigin
         || (typeof location === 'undefined' ? '' : location.origin),
-      /*
-       * SUPPLIED ONLY WHEN THE PROBE IS THE FIXTURE.
-       *
-       * It is, in the page transport: index.html calls observeAll INSIDE the subject iframe, so its
-       * own document is the identity and nothing stronger exists.
-       *
-       * It is NOT, on the command line's own bundled run: that navigates to index.html and
-       * evaluates here, in the TOP document, while the form tools are registered by the iframe.
-       * Requiring same-document there refused the fixture the runner had just served itself, which
-       * is how `node bin/ninthtool.mjs --behaviour C1` started reporting NOT RUN. Caught by running
-       * the command, not by a test.
-       *
-       * Where it cannot apply, identity rests on the exact path the run INTENDED, the build marker
-       * and the nonce echo, which is what closes the `/attacker/fixtures/subject.html` hole.
-       */
       expectedWindow: options.expectedWindow || null,
       expectedPath: options.expectedPath
         || (typeof location === 'undefined' ? '' : location.pathname),

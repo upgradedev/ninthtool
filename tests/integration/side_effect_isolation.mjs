@@ -164,12 +164,28 @@ console.log('2. --allow-fixture-forms, which must still fail the identity checks
   check('forms submitted on the foreign page', r.after.formSubmissions, 0);
   // Keyed by tool name since the per-tool binding fix. EVERY tool that was asked for must have been
   // refused; a single trusted entry anywhere is the defect this file exists to catch.
+  /*
+   * THE REFUSAL NOW HAPPENS EARLIER THAN THIS USED TO CHECK.
+   *
+   * It asserted that the per tool identity check RAN and refused. That was written for an ordering
+   * in which the nonce was written, trust was returned, and the echo was read from the answer to
+   * the first call, which for a form is the submission. One write happened before the only
+   * unforgeable check.
+   *
+   * Ownership is now settled before any of that, so on a page this runner cannot prove it owns the
+   * per tool checks are never reached and `scope.fixture` is empty. Refusing sooner is strictly
+   * safer, so the assertion is the property rather than the mechanism: no tool trusted, nothing
+   * submitted, and the transcript says why.
+   */
   const fixture = r.transcript.scope.fixture || {};
   const decisions = Object.entries(fixture);
-  check('the identity check ran for at least one tool', decisions.length > 0, true);
   check('no tool was trusted on the foreign page',
     decisions.some(([, d]) => d.trusted), false);
+  check('every row that would have written refused, and said so',
+    r.transcript.errors.filter((e) => /cannot prove|not the bundled fixture/.test(e)).length > 0,
+    true);
   for (const [name, d] of decisions) console.log(`        ${name}: ${d.reason}`);
+  for (const e of r.transcript.errors) console.log(`        ${String(e).slice(0, 110)}`);
 }
 
 console.log('');

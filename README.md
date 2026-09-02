@@ -425,6 +425,15 @@ share no code that expresses it.
   `tools` Permissions Policy defaults to `self`, and a cross origin iframe was measured
   contributing zero tools. That boundary is why this is shaped as a suite you run against your own
   page rather than a scanner you point at a stranger's.
+- **It will not submit a form to a page it cannot prove it owns, and the proof happens first.**
+  Three of the four identity checks, the tool name, the pathname and the build marker, are copyable
+  from this public repository. The fourth, a per run nonce the fixture's own handler echoes, is not,
+  but reading it back requires calling the tool, and for a form that call IS the submission.
+  Measured against a page that copied the marker and never read the nonce: it was trusted, and one
+  form was submitted. There is no ordering that repairs that, because WebMCP exposes no challenge a
+  document must answer before it is invoked. So the declarative rows run only against a fixture this
+  runner owns, one it served itself or the document it is executing inside, and against anything
+  else they refuse and report why.
 - **On a page that is not ours it calls only tools marked `readOnlyHint`.** Here, where the subject
   page ships with this repository, some rows drive its forms too, because that is the only way to
   measure the declarative half at all. Nothing leaves the browser either way.
