@@ -426,7 +426,7 @@ export const ROWS = [
 
   /* ---------------------------------------------------------------- owner gated */
   {
-    id: 'M10', kind: 'mandatory',
+    id: 'M9', kind: 'mandatory',
     title: 'The written description is staged, four parts, with the flagship sentence first',
     gather: () => {
       const file = path.join(ROOT, 'docs/description.md');
@@ -789,6 +789,23 @@ export function decideM8(result) {
     problems.push(`at 1280 px the document is ${wide.scrollWidth} px inside a ${wide.viewport} px viewport`);
   }
 
+  /*
+   * THE ERROR LAYOUT, MEASURED RATHER THAN ASSUMED.
+   *
+   * Both widths above are the SUCCESS layout, where the blocker is hidden, so the layout an
+   * unsupported visitor sees was never measured by this gate. It overflowed: 459 px of document
+   * inside a 375 px viewport, found by hand. A row that could not see the page a judge on the wrong
+   * browser gets was measuring the wrong half of the product.
+   */
+  const errorPath = result.errorPath || {};
+  if (errorPath.reached !== true) {
+    problems.push('the error layout could not be reached, so the page an unsupported visitor sees '
+      + 'was never measured. That is the half of the product a judge on the wrong browser gets');
+  } else if (errorPath.sideScroll !== false) {
+    problems.push(`on the ERROR path at 375 px the document is ${errorPath.scrollWidth} px inside a `
+      + `${errorPath.viewport} px viewport`);
+  }
+
   const allowanceUsed = abstained.length
     ? abstained.map((id) => `${id} (${MAY_ABSTAIN[id] ? 'declared' : 'NOT DECLARED'})`).join(', ')
     : 'none';
@@ -811,6 +828,7 @@ export function decideM8(result) {
       + `, ${loadErrors.length} console errors on load and ${runErrors.length} while the audit ran`
       + `${runErrors.length ? ` (not gated, and here they are: ${runErrors.slice(0, 2).join(' | ')})` : ''}`
       + `, document ${narrow.scrollWidth} px at 375 and ${wide.scrollWidth} px at 1280`
+      + `, and ${errorPath.scrollWidth} px at 375 on the error path`
       + (problems.length ? `. FAILING: ${problems.join('. ')}` : ''),
   };
 }
@@ -1059,6 +1077,64 @@ async function driveLivePage() {
     };
     const wide = drivable ? await atWidth(1280, 900, false) : {};
     const narrow = drivable ? await atWidth(375, 812, true) : {};
+
+    /*
+     * AND THE ERROR PATH, WHICH IS THE ONE AN UNSUPPORTED VISITOR ACTUALLY SEES.
+     *
+     * Both measurements above are of the SUCCESS layout, where the blocker is hidden. The error
+     * layout was never measured by any browser, and it overflowed: clientWidth 375, scrollWidth
+     * 459, the blocker 438 wide inside a 333 box, because its text quotes a chrome://flags URL and
+     * a full subject URL and had no overflow-wrap. That was found by hand, not by this gate.
+     *
+     * This does not fake the blocker. It removes the subject frame's observer and presses the
+     * button again, so the PAGE takes its own error branch and renders its own text, which is what
+     * a visitor without the flag gets. Then it measures at 375.
+     */
+    const errorPath = !drivable ? {} : await (async () => {
+      await session.send('Emulation.setDeviceMetricsOverride', {
+        width: 375, height: 812, deviceScaleFactor: 1, mobile: true,
+      }).catch(() => {});
+      const shown = await session.evaluate(`(async () => {
+        const frame = document.querySelector('[data-el="subject"]');
+        /*
+         * THE SHAPE A BROWSER WITH NO WebMCP IN THE FRAME REALLY PRODUCES.
+         *
+         * Deleting the observer was the first attempt and it was wrong: the page throws on a
+         * missing observer and takes its catch branch, which is a different screen. Measured: the
+         * blocker never appeared and reached stayed false.
+         *
+         * What the ChatGPT in-app browser actually produces is an observer that RUNS and returns a
+         * transcript with no host object and no observations, which is the branch that renders the
+         * blocker. That is what is simulated here.
+         */
+        try {
+          frame.contentWindow.__ninthtool_observe = async () => ({
+            meta: { url: frame.contentWindow.location.href, userAgent: navigator.userAgent, api: null },
+            observations: {},
+            errors: ['This browser exposes no WebMCP host object.'],
+            skipped: {},
+          });
+        } catch (e) { return { reached: false, why: String(e && e.message) }; }
+        document.querySelector('[data-el="run"]').click();
+        const deadline = Date.now() + 20000;
+        while (Date.now() < deadline) {
+          const blocker = document.querySelector('[data-el="blocker"]');
+          if (blocker && !blocker.hidden) break;
+          await new Promise(r => setTimeout(r, 200));
+        }
+        const blocker = document.querySelector('[data-el="blocker"]');
+        const d = document.documentElement;
+        return {
+          reached: Boolean(blocker && !blocker.hidden),
+          blockerText: blocker ? String(blocker.textContent).slice(0, 120) : '',
+          viewport: d.clientWidth,
+          scrollWidth: d.scrollWidth,
+          sideScroll: d.scrollWidth > d.clientWidth + 1,
+        };
+      })()`, 40000);
+      return shown;
+    })();
+
     await session.send('Emulation.clearDeviceMetricsOverride').catch(() => {});
 
     // WITHDRAWAL LAST, because clearing the findings nulls the result nt_get_findings serves. Doing
@@ -1073,7 +1149,7 @@ async function driveLivePage() {
     // The events arrive in order, so what came after the load snapshot is what the run produced.
     const runConsoleErrors = errorsOnly(session).slice(loadConsoleErrors.length);
 
-    return { ...booted, ...driven, ...closed, wide, narrow, loadConsoleErrors, runConsoleErrors };
+    return { ...booted, ...driven, ...closed, wide, narrow, errorPath, loadConsoleErrors, runConsoleErrors };
   } finally {
     if (socket) socket.destroy();
     launched.close();
@@ -1146,6 +1222,10 @@ export function healthyDrive(transcript) {
     elapsedMs: 4900,
     narrow: { viewport: 375, scrollWidth: 375, sideScroll: false },
     wide: { viewport: 1280, scrollWidth: 1280, sideScroll: false },
+    // The layout an unsupported visitor sees. Omitting it made the healthy input fail the moment
+    // the row learned to measure it, which is the fixture capping the check rather than the check
+    // being wrong.
+    errorPath: { reached: true, viewport: 375, scrollWidth: 375, sideScroll: false, blockerText: 'The top document exposed' },
   };
 }
 
@@ -1185,19 +1265,19 @@ export async function selftestCases() {
 
   return [
     ['M1 with a licence that is not one', 'M1', { text: 'not a licence' }],
-    ['M10 with no description staged at all', 'M10', { exists: false, text: '' }],
-    ['M10 with a section missing', 'M10',
+    ['M9 with no description staged at all', 'M9', { exists: false, text: '' }],
+    ['M9 with a section missing', 'M9',
       { exists: true, text: read('docs/description.md').replace('## Challenges', '## Something else') }],
-    ['M10 without the live URL', 'M10',
+    ['M9 without the live URL', 'M9',
       { exists: true, text: read('docs/description.md').split(LIVE_URL).join('https://elsewhere.example/') }],
-    ['M10 without the sibling disclosure', 'M10',
+    ['M9 without the sibling disclosure', 'M9',
       // Built from the constant rather than written out, because spelling it here would trip the
       // style gate that bans naming the sibling outside the files required to disclose it.
       { exists: true, text: read('docs/description.md')
         .replace(new RegExp(SIBLING_ENTRY, 'gi'), 'a different project') }],
     // Breaks a word the flagship owns. Splitting on the whole sentence finds nothing, because the
     // file wraps it across two lines and the comparison normalises whitespace.
-    ['M10 opening with something other than the flagship', 'M10',
+    ['M9 opening with something other than the flagship', 'M9',
       { exists: true, text: read('docs/description.md').replace('executes your page', 'does things to your page') }],
     ['M2 with a page missing the sentence', 'M2', { readme: read('README.md'), page: 'some other page' }],
     ['M3 with a banned name present', 'M3', (() => {
@@ -1294,6 +1374,10 @@ export async function selftestCases() {
     ['M8 with no run id on the page', 'M8', broken(healthy, { runIdOnPage: null })],
     ['M8 with a console error before anything was clicked', 'M8',
       broken(healthy, { loadConsoleErrors: ['console.error: Uncaught TypeError'] })],
+    ['M8 with an error layout that scrolls sideways', 'M8',
+      broken(healthy, { errorPath: { reached: true, viewport: 375, scrollWidth: 459, sideScroll: true } })],
+    ['M8 with an error layout that could not be reached at all', 'M8',
+      broken(healthy, { errorPath: { reached: false } })],
     ['M8 with sideways scroll at 375 px', 'M8',
       broken(healthy, { narrow: { viewport: 375, scrollWidth: 411, sideScroll: true } })],
     ['M8 with sideways scroll at 1280 px', 'M8',
@@ -1361,7 +1445,7 @@ export async function greenBaselines() {
 
   return [
     ['M1', { text: read('LICENSE') }],
-    ['M10', { exists: true, text: read('docs/description.md') }],
+    ['M9', { exists: true, text: read('docs/description.md') }],
     ['M2', { readme: read('README.md'), page: read('index.html') }],
     ['M3', { texts: cleanTexts }],
     ['M4', { status: 200, body: CLAIMED_TOOLS.join(' '), error: null }],
