@@ -426,6 +426,60 @@ export const ROWS = [
 
   /* ---------------------------------------------------------------- owner gated */
   {
+    id: 'M10', kind: 'mandatory',
+    title: 'The written description is staged, four parts, with the flagship sentence first',
+    gather: () => {
+      const file = path.join(ROOT, 'docs/description.md');
+      return {
+        exists: fs.existsSync(file),
+        text: fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '',
+      };
+    },
+    /*
+     * D3 IS A MANDATORY DELIVERABLE AND THE GATE USED TO IGNORE IT.
+     *
+     * Nine of nine mandatory rows were green while the description did not exist, so the summary
+     * read READY for something that could not be submitted. Engineering readiness is not submission
+     * readiness, and a gate that conflates them tells the owner the wrong thing on deadline day.
+     */
+    decide: ({ exists, text }) => {
+      if (!exists) throw new Error('docs/description.md does not exist, so there is no description '
+        + 'to paste and the entry cannot be submitted');
+      const missing = ['## Inspiration', '## What it does', '## How I built it', '## Challenges']
+        .filter((heading) => !text.includes(heading));
+      if (missing.length) throw new Error(`the description is missing ${missing.join(', ')}`);
+
+      // The elements the rules and the kit require, each checked rather than assumed.
+      const required = [
+        [LIVE_URL, 'the exact live URL'],
+        ['chrome://flags/#enable-webmcp-testing', 'the browser prerequisite'],
+        ['npx --yes', 'a copy paste command'],
+        ['nt_run_audit', 'a copy paste agent prompt'],
+        // Compared case insensitively: the constant is lower case for the style regex, and the
+        // prose spells the project the way a reader would.
+        [SIBLING_ENTRY, 'the sibling entry disclosure', true],
+      ];
+      const absent = required
+        .filter(([needle, , fold]) => (fold
+          ? !text.toLowerCase().includes(String(needle).toLowerCase())
+          : !text.includes(needle)))
+        .map(([, what]) => what);
+      if (absent.length) throw new Error(`the description does not carry ${absent.join(', ')}`);
+
+      if (!flat(text).includes(flat(FLAGSHIP))) {
+        throw new Error('the description does not open with the flagship sentence, so the one line '
+          + 'meant to travel is not the same in all three places');
+      }
+      const narrative = text.split('## Inspiration')[1].split('## Try it')[0];
+      const words = (narrative.match(/[A-Za-z0-9'`./:-]+/g) || []).length;
+      return {
+        ok: true,
+        evidence: `four parts present, flagship first, ${words} words of narrative, and it carries `
+          + 'the live URL, the flag, a command, an agent prompt and the sibling disclosure',
+      };
+    },
+  },
+  {
     id: 'O1', kind: 'owner-gated',
     title: 'The account is joined to this hackathon',
     manual: 'Open the event page, sign in, and confirm the account is registered. Five minutes. '
@@ -1029,6 +1083,17 @@ export async function selftestCases() {
 
   return [
     ['M1 with a licence that is not one', 'M1', { text: 'not a licence' }],
+    ['M10 with no description staged at all', 'M10', { exists: false, text: '' }],
+    ['M10 with a section missing', 'M10',
+      { exists: true, text: read('docs/description.md').replace('## Challenges', '## Something else') }],
+    ['M10 without the live URL', 'M10',
+      { exists: true, text: read('docs/description.md').split(LIVE_URL).join('https://elsewhere.example/') }],
+    ['M10 without the sibling disclosure', 'M10',
+      { exists: true, text: read('docs/description.md').replace(/claimready/gi, 'a different project') }],
+    // Breaks a word the flagship owns. Splitting on the whole sentence finds nothing, because the
+    // file wraps it across two lines and the comparison normalises whitespace.
+    ['M10 opening with something other than the flagship', 'M10',
+      { exists: true, text: read('docs/description.md').replace('executes your page', 'does things to your page') }],
     ['M2 with a page missing the sentence', 'M2', { readme: read('README.md'), page: 'some other page' }],
     ['M3 with a banned name present', 'M3', (() => {
       const name = OTHER_COMPETITIONS.find((n) => n !== SIBLING_ENTRY);
@@ -1166,6 +1231,7 @@ export async function greenBaselines() {
 
   return [
     ['M1', { text: read('LICENSE') }],
+    ['M10', { exists: true, text: read('docs/description.md') }],
     ['M2', { readme: read('README.md'), page: read('index.html') }],
     ['M3', { texts: cleanTexts }],
     ['M4', { status: 200, body: CLAIMED_TOOLS.join(' '), error: null }],
@@ -1329,8 +1395,17 @@ async function main() {
       + `, automated ${passed.length} of ${automated.length} (${(rate * 100).toFixed(0)} percent)`
       + `${notRun.length ? `, ${notRun.length} could not be run` : ''}`
       + `, ${ownerGated.length} owner gated and still open.`);
+    /*
+     * ENGINEERING READINESS IS NOT SUBMISSION READINESS.
+     *
+     * This printed READY while the description did not exist, the video did not exist and the form
+     * said Submitted nowhere. Every one of those is mandatory, and none of them is something an
+     * agent may do, so the summary names them instead of implying the work is finished.
+     */
     console.log(ok
-      ? 'READY on every automated row. The owner gated rows above are what is left.'
+      ? 'READY ON EVERY AUTOMATED ROW. That is engineering readiness, not submission readiness: '
+        + `${ownerGated.length} owner gated rows remain and the entry is NOT SUBMITTABLE until a `
+        + 'person closes them.'
       : `NOT READY. Mandatory must be ${MANDATORY_PASS_RATE * 100} percent and overall at least ${OVERALL_PASS_RATE * 100} percent.`);
     console.log(BAR);
   }

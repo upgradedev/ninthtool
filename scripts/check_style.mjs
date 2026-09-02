@@ -21,7 +21,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { SCANNED_DIRS, SCANNED_EXTENSIONS, EXEMPT, OTHER_COMPETITIONS } from './style_config.mjs';
+import { SCANNED_DIRS, SCANNED_EXTENSIONS, EXEMPT, OTHER_COMPETITIONS, SIBLING_MAY_BE_NAMED_IN }
+  from './style_config.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1'), '..');
 
@@ -41,8 +42,15 @@ const BANNED_WORDS = [
 /** Phrases that are always a finding. */
 const BANNED_PHRASES = ['in today\'s world', 'in the world of', 'it is important to note that'];
 
-/** Files where naming the sibling entry is required rather than forbidden. */
-const MAY_NAME_SIBLINGS = new Set(['README.md', 'docs/prior-art.md', 'docs/reuse.md']);
+/*
+ * Files where naming the sibling entry is required rather than forbidden.
+ *
+ * IMPORTED, NOT RESTATED. This was a second hardcoded copy of a list that already lives in
+ * style_config.mjs, and the two had already drifted: this one carried docs/reuse.md and not the
+ * Devpost description, so a file REQUIRED to disclose the sibling was flagged for disclosing it.
+ * One list, one place.
+ */
+const MAY_NAME_SIBLINGS = new Set(SIBLING_MAY_BE_NAMED_IN);
 
 function walk() {
   const files = [];
