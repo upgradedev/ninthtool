@@ -111,7 +111,12 @@ could not be cleared by any result, which is a defect in the protocol rather tha
 what this tool reaches. Authorising those two rows on the four pages that published a read only tool
 moved them from abstaining everywhere to settling somewhere, and neither varied across the pages it
 settled on. Two findings it did report were then checked against those pages' own source and
-retracted as defects in this tool, with the handler lines cited. The protocol was written and committed before any page ran, the failure
+retracted as defects in this tool, with the handler lines cited: one page had rejected the missing
+argument at its first line, and on the other this tool's own control call was as malformed as the
+one it meant to break. That is the thing worth reading. A conformance suite that runs against
+strangers' pages will produce false findings, and the useful question is whether it catches them and
+publishes the retraction beside the claim, with the handler cited, in the same generated file. It
+did, and the two weaknesses that caused it are recorded open rather than patched in a hurry. The protocol was written and committed before any page ran, the failure
 is published in `evidence/impact/results.md`, and the primary metric was not changed afterwards to
 make it read better. The same author has
 a second entry, ClaimReady; exactly one file is shared, a 200 line DevTools client, and the README
