@@ -1040,11 +1040,28 @@ export async function observeAll(ctx, options = {}) {
        * a tool is free to resolve with the literal string "[rejected]" and nothing downstream could
        * then tell that answer from a rejection. The probe knows. The judge would have to guess.
        */
-      const readOracles = async () => {
+      /*
+       * THE TARGET IS READ LAST, OR ITS OWN SELF READ ERASES WHAT IT DID.
+       *
+       * This walked `readOnly` in list order every time, so the re-read that is supposed to DETECT a
+       * side effect began by calling the very tool that caused it. A tool whose next call restores
+       * what its previous one moved therefore cleaned up before any independent oracle looked.
+       *
+       * Reproduced against a fake host where calling A moves state B reports and A's next call puts
+       * it back: `moved: []`, verdict pass, "calling any of them did not change what the others
+       * answered", on a run where A demonstrably moved it.
+       *
+       * `readLast` names the tool just called, so every other oracle is read while the effect is
+       * still there and the target is read afterwards, which is where a self change belongs anyway.
+       */
+      const readOracles = async (readLast = null) => {
         const answers = {};
         const settledAs = {};
         const resolved = [];
-        for (const record of readOnly) {
+        const order = readLast
+          ? [...readOnly.filter((r) => r.name !== readLast), ...readOnly.filter((r) => r.name === readLast)]
+          : readOnly;
+        for (const record of order) {
           const tool = await toolNamed(ctx, record.name);
           if (!tool) {
             answers[record.name] = '[gone from the surface]';
@@ -1101,7 +1118,8 @@ export async function observeAll(ctx, options = {}) {
         const tool = await toolNamed(ctx, record.name);
         if (!tool) continue;
         await settle(call(ctx, tool, synthesiseArguments(record.schema)), SETTLE_TIMEOUT_MS);
-        const after = await readOracles();
+        // The others first, this tool last. See readOracles.
+        const after = await readOracles(record.name);
         for (const oracle of Object.keys(baseline)) {
           if (after.answers[oracle] === baseline[oracle]) continue;
           // Self observation is REPORTED, not excluded. A tool whose own answer drifts is the one
