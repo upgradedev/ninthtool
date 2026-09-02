@@ -417,8 +417,13 @@ export const BEHAVIOURS = Object.freeze([
     measured: 'On this suite\'s own page a same origin frame contributes its two form tools to the '
       + 'top document list, each carrying tool.window pointing at the other document. A frame on a '
       + 'different origin of the same server contributed zero.',
-    why: 'Anything you embed same origin can put a tool in front of an agent on your page, under '
-      + 'your origin, and nothing on the surface says it came from somewhere else.',
+    why: 'Anything you embed same origin can put a tool in front of an agent on your page, '
+      + 'under your origin. The provenance IS available: every tool carries a window that '
+      + 'points at the document which registered it, and this row reads exactly that field '
+      + 'to decide. What the surface does not do is distinguish them for you. They arrive '
+      + 'in one list, in the same shape, and nothing prompts a caller to look. An earlier '
+      + 'version of this line claimed nothing on the surface says where a tool came from, '
+      + 'which the measured column beside it already contradicted.',
     reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P4',
   },
   {
