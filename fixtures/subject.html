@@ -80,7 +80,7 @@ so the declarative half of the standard is measured against real markup rather t
 
 <script type="module">
 import { observeAll, findModelContext } from '../src/probe/observe.js';
-import { FIXTURE_MARKER, MARKER_KEY, NONCE_KEY } from '../src/probe/fixture_identity.js';
+import { FIXTURE_MARKER, MARKER_KEY, NONCE_KEY, HANDLER_LOG_KEY } from '../src/probe/fixture_identity.js';
 
 /*
  * THE BUILD MARKER. src/probe/fixture_identity.js requires this before anything is submitted here,
@@ -111,6 +111,18 @@ document.getElementById('answers').addEventListener('submit', (event) => {
   event.preventDefault();
   const held = {};
   for (const [key, value] of new FormData(event.currentTarget).entries()) held[key] = value;
+
+  /*
+   * WHAT THE HANDLER SAW, RECORDED BEFORE ANYTHING IS RESOLVED.
+   *
+   * C1 asks whether a value left by an earlier call reaches this handler. The only evidence used to
+   * be the echoed answer below, which does not exist when the call rejects, so a handler that read
+   * the stale value and THEN rejected was recorded as clean and the row passed. This line runs
+   * first, so the read is visible whatever happens to the promise afterwards.
+   */
+  window[HANDLER_LOG_KEY] = window[HANDLER_LOG_KEY] || [];
+  window[HANDLER_LOG_KEY].push({ saw: held, agentInvoked: event.agentInvoked === true });
+
   log(`nt_form_answers submitted: ${JSON.stringify(held)}`);
   if (event.agentInvoked === true && typeof event.respondWith === 'function') {
     // THE NONCE ECHO, and it is the half a stranger's page cannot fake. The runner writes a fresh
@@ -149,6 +161,9 @@ window.__ninthtool_observe = async function observe() {
     // fixture is not written to.
     allow: { toolCalls: true, fixtureForms: true },
     expectedOrigin: location.origin,
+    // THIS document is the fixture, so identity here is exact rather than inferred from a path.
+    expectedWindow: window,
+    expectedPath: location.pathname,
   });
   transcript.meta.api = found.where;
   log(`audit done, ${Object.keys(transcript.observations).length} observations`);

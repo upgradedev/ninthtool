@@ -14,8 +14,16 @@
  *      contributes no tools at all, so this is cheap, but it rules out a tool that arrived from
  *      somewhere unexpected.
  *   2. DOCUMENT IDENTITY. The registering document is reachable through `tool.window` and its path
- *      ends with the fixture's own path. A tool registered by some other document on the same
- *      origin fails here.
+ *      EQUALS the path this run intended to audit, which the runner derives from the URL it was
+ *      given rather than from the document that loaded. It used to be `endsWith`, so any origin we
+ *      were pointed at could serve `/attacker/fixtures/subject.html`, carry the marker and be
+ *      handed the nonce. Comparing against the loaded document instead would compare a value with
+ *      itself and trust anything.
+ *
+ *      When the probe is running INSIDE the fixture, which it is on the page transport, the caller
+ *      also passes its own window and identity becomes exact. It cannot on the command line's
+ *      bundled run, where the runner navigates to `index.html` and the form tools belong to a
+ *      frame; requiring same-document there refused the fixture the runner had just served itself.
  *   3. BUILD MARKER. That document carries `__ninthtoolFixture` with the exact marker string below.
  *      The marker is a constant in this repository, so a page that has not deliberately copied our
  *      fixture does not have it.
@@ -45,6 +53,16 @@ export const NONCE_KEY = '__ninthtoolNonce';
 
 /** Where the fixture publishes its marker. */
 export const MARKER_KEY = '__ninthtoolFixture';
+
+/*
+ * Where the fixture records what its submit handler was HANDED, the moment it was handed it.
+ *
+ * C1 asks whether stale data from an earlier call reaches the handler. Its only evidence used to be
+ * the echoed answer, and a rejected call produces no answer, so a handler that READ the stale value
+ * and then rejected was recorded as clean and the row passed. This channel is written before
+ * anything is resolved, so it survives a rejection.
+ */
+export const HANDLER_LOG_KEY = '__ninthtoolHandlerSaw';
 
 /**
  * Decide whether a tool may have its form submitted, and say exactly why not when it may not.

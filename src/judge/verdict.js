@@ -157,13 +157,39 @@ const RULES = {
    * when the call succeeds and, worse, when the handler is handed a value from an earlier call.
    */
   C1(o) {
-    need(o, ['settled']);
+    // handlerTelemetry is REQUIRED, not optional. Left optional, a transcript that simply omitted it
+    // read as "nothing leaked" and passed, which is the same fail-open in a new field.
+    need(o, ['settled', 'handlerTelemetry']);
     const leaked = o.handlerSawStaleValue === true;
+
+    /*
+     * REJECTING IS NOT ENOUGH IF THE HANDLER ALREADY READ IT.
+     *
+     * This held on `settled === 'rejected'` alone, and the leak only ever reached it through the
+     * ECHOED ANSWER. A rejected call has no answer, so a handler that was handed the stale value
+     * and then rejected arrived here as `handlerSawStaleValue: false` and scored a pass. That is
+     * the worst shape of this defect and it was the one shape the row could not see: the data
+     * reached the handler, which is where it could be logged, forwarded or acted on, and the
+     * refusal afterwards does not take it back.
+     *
+     * The fixture now reports what it was handed before anything resolves, so a read is visible
+     * whichever way the promise goes.
+     */
+    if (o.handlerTelemetry !== 'read') {
+      throw new Error('this page does not report what its submit handler was handed, so whether the '
+        + 'stale value reached it could not be observed. A rejection alone does not settle it, '
+        + 'because a handler can read a value and refuse afterwards');
+    }
+
     return {
-      held: o.settled === 'rejected',
-      expected: 'a call omitting a required property is refused',
+      held: o.settled === 'rejected' && !leaked,
+      expected: 'a call omitting a required property is refused, and the handler never sees a value '
+        + 'left by an earlier call',
       observed: `the call ${o.settled}`
-        + (leaked ? `, and the handler was handed "${String(o.staleValue)}" left by an earlier call` : ''),
+        + (leaked
+          ? `, and the handler was handed "${String(o.staleValue)}" left by an earlier call`
+            + (o.settled === 'rejected' ? '. Refusing afterwards does not unread it' : '')
+          : ', and the handler was handed nothing left by an earlier call'),
     };
   },
 

@@ -6,12 +6,12 @@
  "refused": [],
  "files": {
   "assets/styles.css": "c30b201880f3a4de2618c689e7bc447f2c293f099bab872cad0e4719dcac3f62",
-  "fixtures/subject.html": "d3f152c4870d8d7be281c28f9c53257cb27225e946ac646f8aab41ecd18b2158",
+  "fixtures/subject.html": "42305e787c13a3bec354a18e558e3fda5c176066b11ac7d37877d6deb4b8f89e",
   "index.html": "351f0d0309a396edcae8585210b68d13112949196bccbb14687f47fecdaee378",
   "src/judge/behaviours.js": "3f118f7743d8bc673f8f802c1cb11b49fc450889b72ee2b74cd0a388c7f33d36",
-  "src/judge/verdict.js": "c041a6722667e082ff29ca20e1b03f12b7d722c5e980e8e0f712cffc8e9d1cd2",
-  "src/probe/fixture_identity.js": "10ff248b1d0579eafa37bf07505a1cf73598155fc73a9d4d28a60714f2eb44b7",
-  "src/probe/observe.js": "4e356b1a32f45aeeec50b014d3acf958508bad85c78e34500433bf50f7dc2410",
+  "src/judge/verdict.js": "0e89277e06111eb64e6a8b6090c33f57ab47b0ca9c870a95130b4a7cd573065c",
+  "src/probe/fixture_identity.js": "a71f43181385dfefa8dfefb3a3f9580322b98c4c57430721bba431eae465d060",
+  "src/probe/observe.js": "cad606e84b76dc14e4b4e7a9574dc5759857b0e4042215ba22edc57b2ff49e76",
   "src/probe/steps.js": "ce12cf53217a323532f258c41ceef0635464769c578092bf624acacd40edc045",
   "src/ui/app.js": "d67f046f92283f4cea99a49a832bef7cbdf2f06a181df18e35d284a3b1ea949c"
  }
