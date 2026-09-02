@@ -264,3 +264,83 @@ test('the fixture tool name the judge scopes D2 to is the one the probe looks fo
   assert.equal(finding.verdict, 'pass',
     `the judge scopes D2 to a different tool name than the probe reads: ${finding.observed}`);
 });
+
+/* -------------------------------------------------- C3, only constraints the schema declares */
+
+/*
+ * C3 COUNTED A CONSTRAINT NOBODY DECLARED.
+ *
+ * The probe derived `required`, `type` and `enumerated` from the captured schema and then wrote
+ * `unknownProperty: true` as a LITERAL. A JSON Schema forbids extra properties only when it says
+ * `additionalProperties: false`, and the form derived schema Chrome synthesises does not say it. So
+ * the row sent an undeclared property to both halves, watched what happened, and reported the
+ * result as a fourth constraint. Measured live after the fix: three declared, not four.
+ *
+ * These pin the derivation, because a literal is exactly the kind of thing that reads as a fact.
+ */
+const c3 = (constraints, extra = {}) => judgeBehaviour('C3', {
+  observations: {
+    C3: {
+      constraints,
+      scriptPathEnforces: false,
+      formPathEnforces: true,
+      ...extra,
+    },
+  },
+});
+
+const declared = (name, script, form) => ({ name, declared: true, script, form, detail: `${name}: ${script}/${form}` });
+const notDeclared = (name) => ({
+  name, declared: false, script: 'not-declared', form: 'not-declared',
+  detail: 'the schema does not express this constraint',
+});
+
+test('C3 counts only the constraints the captured schema actually expresses', () => {
+  const finding = c3([
+    declared('required', 'ignored', 'enforced'),
+    declared('type', 'ignored', 'enforced'),
+    declared('enumerated', 'ignored', 'enforced'),
+    notDeclared('unknownProperty'),
+  ]);
+  assert.match(finding.observed, /of 3\b/,
+    `the row is still counting a constraint nobody declared: ${finding.observed}`);
+  assert.ok(!/of 4\b/.test(finding.observed), finding.observed);
+});
+
+test('C3 counts four when a schema really does forbid extra properties', () => {
+  // The derivation has to work in both directions, or it is just a different hardcoded answer.
+  const finding = c3([
+    declared('required', 'ignored', 'enforced'),
+    declared('type', 'ignored', 'enforced'),
+    declared('enumerated', 'ignored', 'enforced'),
+    declared('unknownProperty', 'ignored', 'enforced'),
+  ]);
+  assert.match(finding.observed, /of 4\b/, finding.observed);
+});
+
+test('C3 still fails when one half enforces and the other does not', () => {
+  const finding = c3([
+    declared('required', 'ignored', 'enforced'),
+    declared('type', 'ignored', 'enforced'),
+    declared('enumerated', 'ignored', 'enforced'),
+    notDeclared('unknownProperty'),
+  ]);
+  assert.equal(finding.verdict, 'fail', finding.observed);
+});
+
+test('the probe derives the fourth constraint rather than asserting it', async () => {
+  // THE SOURCE-LEVEL GUARD. The defect was one word: `unknownProperty: true`. A transcript fixture
+  // cannot catch that, because a fixture is written by hand and would simply repeat the literal.
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const here = path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1');
+  const raw = fs.readFileSync(path.join(here, '../../src/probe/observe.js'), 'utf8');
+  // COMMENTS STRIPPED FIRST. The comment explaining this very fix quotes the old literal, so a
+  // plain substring search matched the explanation and went red against correct code. A gate that
+  // reads prose is a gate that reports on prose.
+  const code = raw.split('\n').filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line)).join('\n');
+  assert.match(code, /unknownProperty:\s*formSchema\.additionalProperties === false/,
+    'unknownProperty must be read off the schema, not asserted');
+  assert.ok(!/unknownProperty:\s*true\b/.test(code),
+    'a literal true is back, so the row counts a constraint nobody declared');
+});

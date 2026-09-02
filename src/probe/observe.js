@@ -584,14 +584,25 @@ export async function observeAll(ctx, options = {}) {
         required: required.length > 0,
         type: Boolean(numeric),
         enumerated: Boolean(enumerated),
-        unknownProperty: true,
+        /*
+         * DERIVED, NOT ASSERTED. This read `unknownProperty: true`, a literal, so the row counted a
+         * fourth constraint whether or not the schema expressed one. A JSON Schema forbids extra
+         * properties only when it says `additionalProperties: false`; the form-derived schema this
+         * browser synthesises does not, so nothing was ever declared here and "both refused it" was
+         * a comparison of a rule neither side had.
+         *
+         * Every other entry in this object is read off the schema. This one now is too.
+         */
+        unknownProperty: formSchema.additionalProperties === false,
       };
 
       const badCalls = {
         required: declares.required ? (() => { const x = { ...valid }; delete x[required[0]]; return x; })() : null,
         type: declares.type ? { ...valid, [numeric]: 'not-a-number' } : null,
         enumerated: declares.enumerated ? { ...valid, [enumerated]: 'NINTHTOOL_NOT_AN_OPTION' } : null,
-        unknownProperty: { ...valid, ninthtool_undeclared_property: 'x' },
+        unknownProperty: declares.unknownProperty
+          ? { ...valid, ninthtool_undeclared_property: 'x' }
+          : null,
       };
 
       const constraints = [];

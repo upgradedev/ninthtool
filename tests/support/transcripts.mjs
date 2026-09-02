@@ -153,7 +153,10 @@ export function measuredChrome152() {
           { name: 'required', declared: true, script: 'ignored', form: 'enforced', detail: 'the script handler received {"age":18,"severity":"dent"}' },
           { name: 'type', declared: true, script: 'ignored', form: 'enforced', detail: 'the script handler received a string where a number was declared' },
           { name: 'enumerated', declared: true, script: 'ignored', form: 'enforced', detail: 'the script handler received a value outside the enum' },
-          { name: 'unknownProperty', declared: true, script: 'ignored', form: 'enforced', detail: 'the script handler received an undeclared property' },
+          // MEASURED declared=false. The form derived schema Chrome synthesises carries no
+          // `additionalProperties: false`, so this constraint was never expressed and the row used
+          // to compare a rule neither side had. It counted as a fourth constraint anyway.
+          { name: 'unknownProperty', declared: false, script: 'not-declared', form: 'not-declared', detail: 'the schema does not express this constraint' },
         ],
         scriptPathEnforces: false,
         formPathEnforces: true,
