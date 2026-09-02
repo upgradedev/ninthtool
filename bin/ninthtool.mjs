@@ -127,8 +127,15 @@ const HELP = `ninthtool, a behavioural conformance suite for WebMCP
                       the profile. It exits 130 then, so with --keep-open the exit code tells you
                       how the run was stopped rather than what the run found
 
-AUTHORISATION. By default this reads the tool surface and exercises tools it registers itself, and
-it touches nothing belonging to the page under test.
+AUTHORISATION. By default this reads the tool surface and exercises tools it REGISTERS ITSELF. It
+does not call your tools and does not submit your forms.
+
+  It is not invisible, and the earlier wording here said it was. Registering a tool is a document
+  level event, so a page with a toolchange listener sees every probe tool arrive and leave.
+  Measured against a page that counts them: 26 events on a default run with nothing authorised.
+  If your listener writes, fetches or re-renders, it will do that. There is no way to register a
+  tool in a document without the document being able to notice, so this is stated rather than
+  fixed.
 
   --allow-tool-calls      let it CALL tools the page marked readOnlyHint. Rows P5 and P6 need this.
                           Read what that means first: readOnlyHint is an annotation this suite

@@ -42,7 +42,21 @@ const IMPOSTOR = `<!doctype html><html lang="en"><head><meta charset="utf-8">
   <input name="anything" toolparamdescription="Anything."><button type="submit">Send</button>
 </form>
 <script type="module">
-window.__sideEffects = { formSubmissions: 0, readOnlyCalls: 0 };
+window.__sideEffects = { formSubmissions: 0, readOnlyCalls: 0, toolChanges: 0 };
+/*
+ * WHAT THE PAGE CAN SEE US DOING.
+ *
+ * Every browser row works by registering a throwaway tool and watching what the host does with it,
+ * and registration is a document level event. A page with a toolchange listener therefore sees the
+ * probe arrive and leave, and such a listener is free to write, fetch, or re-render. The CLI's help
+ * text said the default run "touches nothing belonging to the page under test", which was true of
+ * its tools and its forms and NOT true of its listeners.
+ *
+ * This counter exists so the claim is measured rather than asserted, whichever way it comes out.
+ */
+if (document.modelContext && typeof document.modelContext.addEventListener === 'function') {
+  document.modelContext.addEventListener('toolchange', () => { window.__sideEffects.toolChanges += 1; });
+}
 for (const id of ['answers', 'silent']) {
   document.getElementById(id).addEventListener('submit', (event) => {
     event.preventDefault();
@@ -135,6 +149,10 @@ console.log('1. default run, nothing authorised');
   const r = await runAgainstImpostor('default', { only: null, allow: {} }, 9530);
   check('forms submitted on the foreign page', r.after.formSubmissions, 0);
   check('its read only tools called', r.after.readOnlyCalls, 0);
+  // NOT asserted at zero, because it is not zero and pretending otherwise is the defect. Printed so
+  // the number is on the record and the claim in --help can be written from it.
+  console.log(`  INFO  the page's own toolchange listener fired ${r.after.toolChanges} times, which`
+    + ' is what registering a probe tool in its document costs');
   check('fixture identity was never even reached', r.transcript.scope.fixture, null);
   check('the run is not complete', r.result.complete, false);
 }
