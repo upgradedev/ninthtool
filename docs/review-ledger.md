@@ -803,8 +803,10 @@ Recorded for whoever owns each area. None was changed.
    `style_coverage.test.js` is the pattern that would fix it: walk the tree, fail on an unlisted
    directory holding a matching file.
 
-3. **The readiness rows skip M9.** `grep -n "id: '"` over `scripts/readiness.mjs` returns M1 to M8,
-   then M10, then R1 to R5 and O1 to O4, 18 rows in total. `grep -rn "M9" src scripts bin tests .github index.html` returns no hit. Nothing records whether a row was removed, renamed or reserved. Counts are computed
+3. **The readiness rows skip M9.** `grep -n "^    id: '"` over `scripts/readiness.mjs` returns M1
+   to M8, then M10, then R1 to R5 and O1 to O4, 18 rows in total, and
+   `grep -rn "M9" src scripts bin tests .github index.html` returns no hit across those paths.
+   Nothing records whether a row was removed, renamed or reserved. Counts are computed
    from `ROWS.length` rather than typed, so no number is wrong today, but a reader comparing row
    labels against a count has no way to tell which of the three happened.
 
