@@ -647,9 +647,53 @@ export function decideM8(result) {
         + `showing run ${result.runIdOnPage}, so the tool result is not the rendered one`);
     }
     const served = Array.isArray(parsed.findings) ? parsed.findings : [];
+
+    /*
+     * THE EXACT UNIQUE MULTISET, NOT A COUNT.
+     *
+     * This checked `served.length` and then compared each entry's verdict against the observations.
+     * A payload of twenty entries in which one required id had been replaced by a DUPLICATE of
+     * another therefore passed: the length still read twenty, and every duplicate's verdict matched
+     * the row it was a copy of. Reproduced, along with an UNKNOWN id smuggled into the list, and
+     * both were accepted.
+     *
+     * An agent reading this tool is entitled to one entry per behaviour. Missing, repeated and
+     * invented rows are each named separately, because they are different defects.
+     */
+    const servedIds = served.map((f) => (f && f.id) || 'an unnamed row');
+    const known = new Set(BEHAVIOURS.map((b) => b.id));
+    const seen = new Map();
+    for (const id of servedIds) seen.set(id, (seen.get(id) || 0) + 1);
+
+    const missingIds = BEHAVIOURS.map((b) => b.id).filter((id) => !seen.has(id));
+    const repeatedIds = [...seen.entries()].filter(([, n]) => n > 1).map(([id, n]) => `${id} x${n}`);
+    const unknownIds = [...seen.keys()].filter((id) => !known.has(id));
+
     if (served.length !== EXPECTED_CATALOGUE_ROWS) {
       problems.push(`nt_get_findings returned ${served.length} findings and the catalogue has `
         + `${EXPECTED_CATALOGUE_ROWS}`);
+    }
+    if (missingIds.length) {
+      problems.push(`nt_get_findings never mentions ${missingIds.join(', ')}`);
+    }
+    if (repeatedIds.length) {
+      problems.push(`nt_get_findings repeats ${repeatedIds.join(', ')}, so a row is being counted `
+        + 'more than once and another is missing');
+    }
+    if (unknownIds.length) {
+      problems.push(`nt_get_findings names ${unknownIds.join(', ')}, which is in no catalogue`);
+    }
+
+    // The SHAPE an agent has to be able to read, not only an id and a verdict.
+    const shapeless = served
+      .filter((f) => !f || typeof f !== 'object'
+        || typeof f.title !== 'string' || !f.title
+        || typeof f.expected !== 'string'
+        || typeof f.reproduce !== 'string' || !f.reproduce)
+      .map((f) => (f && f.id) || 'an unnamed row');
+    if (shapeless.length) {
+      problems.push(`${shapeless.length} findings are missing a title, an expectation or a `
+        + `reproduce command: ${shapeless.slice(0, 4).join(', ')}`);
     }
     const toolSwaps = served
       .filter((f) => byId.get(f && f.id) !== (f && f.verdict))
@@ -659,6 +703,40 @@ export function decideM8(result) {
       problems.push(`${toolSwaps.length} findings the tool serves disagree with the observations: `
         + `${toolSwaps.slice(0, 4).join('; ')}`);
     }
+  }
+
+  /*
+   * ---- WHAT THE VISITOR ACTUALLY SEES, compared with what was judged.
+   *
+   * The driver captured these counts from the rendered cards and NOTHING EVER COMPARED THEM.
+   * Reproduced: a page visibly showing 0 broken and 20 kept passed, and so did a page showing
+   * nothing at all, because the transcript underneath still said the right thing. The one row whose
+   * whole job is catching the gap between what was measured and what is displayed was not looking
+   * at the display.
+   */
+  const shown = result.counts || {};
+  const wanted = {
+    fail: independent.counts.fail,
+    pass: independent.counts.pass,
+    notApplicable: independent.counts.notApplicable,
+    byDesign: independent.counts.byDesign,
+    total: independent.counts.catalogue,
+  };
+  const countDrift = Object.keys(wanted)
+    .filter((key) => Number(shown[key]) !== wanted[key])
+    .map((key) => `${key}: the page shows ${shown[key] === undefined ? 'nothing' : shown[key]}`
+      + `, the observations say ${wanted[key]}`);
+  if (countDrift.length) {
+    problems.push(`the visible counts disagree with the judgement: ${countDrift.join('; ')}`);
+  }
+
+  // AND THEY HAVE TO ADD UP. Four outcomes and a total that is not their sum is a report that has
+  // lost a row somewhere between measuring and rendering.
+  const sum = wanted.fail + wanted.pass + wanted.notApplicable + wanted.byDesign;
+  if (sum !== EXPECTED_CATALOGUE_ROWS) {
+    problems.push(`${wanted.fail} broken + ${wanted.pass} kept + ${wanted.byDesign} by design + `
+      + `${wanted.notApplicable} unsettled = ${sum}, and the catalogue has `
+      + `${EXPECTED_CATALOGUE_ROWS}`);
   }
 
   /* ---- the exact tool surface, before, during and after */
@@ -717,8 +795,11 @@ export function decideM8(result) {
   return {
     ok: problems.length === 0,
     evidence: `${result.cards} cards, all judged here from the transcript the page consumed: `
-      + `${independent.counts.fail} broken / ${independent.counts.pass} kept / `
-      + `${independent.counts.notApplicable} unsettled of ${independent.counts.catalogue}`
+      // ALWAYS THE WHOLE ARITHMETIC. by design used to be missing from this line, so the printed
+      // figures did not add up to the catalogue and a reader had to guess where the rest went.
+      + `${independent.counts.fail} broken + ${independent.counts.pass} kept + `
+      + `${independent.counts.byDesign} by design + ${independent.counts.notApplicable} unsettled `
+      + `= ${independent.counts.catalogue}, and the page displays the same`
       + `, and every verdict agrees by behaviour id${swaps.length ? ' EXCEPT the rows named below' : ''}`
       + `. Abstentions: ${allowanceUsed}, against the declared list ${sortedAbstainIds().join(', ')}`
       + `. Run took ${result.elapsedMs} ms after ${result.observeCalls} observation`
@@ -1013,7 +1094,25 @@ export function healthyDrive(transcript) {
   const independent = judge(transcript);
   const verdicts = new Map(independent.findings.map((f) => [f.id, f.verdict]));
   const runId = 'run-1-4096';
-  const served = independent.findings.map((f) => ({ id: f.id, verdict: f.verdict }));
+  /*
+   * THE SHAPE THE PAGE REALLY SERVES, not a two field sketch of it.
+   *
+   * This built `{ id, verdict }` and nothing else, so the healthy input could not satisfy a check on
+   * the finding SHAPE and the row could never grow one. The live tool serves the whole finding:
+   * id, group, subject, title, reproduce, verdict, expected, observed, reason. A fixture thinner
+   * than reality quietly caps what its row is allowed to assert.
+   */
+  const served = independent.findings.map((f) => ({
+    id: f.id,
+    group: f.group,
+    subject: f.subject,
+    title: f.title,
+    reproduce: f.reproduce,
+    verdict: f.verdict,
+    expected: f.expected,
+    observed: f.observed,
+    reason: f.reason,
+  }));
   return {
     hasCtx: true,
     bootFailed: false,
@@ -1024,6 +1123,9 @@ export function healthyDrive(transcript) {
       fail: independent.counts.fail,
       pass: independent.counts.pass,
       notApplicable: independent.counts.notApplicable,
+      // The driver counts v-design cards too. Leaving it out here made the healthy input fail the
+      // moment the row learned to compare visible counts, which is the fixture capping the check.
+      byDesign: independent.counts.byDesign,
       total: independent.counts.total,
     },
     transcript,
@@ -1122,6 +1224,31 @@ export async function selftestCases() {
     }],
     ['M7 with a body that lost the sentence', 'M7', { status: 200, body: '<html>nothing</html>', error: null }],
 
+    /*
+     * THE FOUR M8 USED TO ACCEPT. Each was reproduced against the real decide() before the checks
+     * existed, and each passed: a payload of twenty entries with one id duplicated, an id from no
+     * catalogue, a finding an agent cannot act on, and a page visibly rendering counts that
+     * contradict the transcript underneath it.
+     */
+    ['M8 with a required id replaced by a duplicate', 'M8', (() => {
+      const parsed = JSON.parse(healthy.findings.text);
+      parsed.findings[1] = JSON.parse(JSON.stringify(parsed.findings[0]));
+      return { ...healthy, findings: { ...healthy.findings, text: JSON.stringify(parsed) } };
+    })()],
+    ['M8 with an id from no catalogue', 'M8', (() => {
+      const parsed = JSON.parse(healthy.findings.text);
+      parsed.findings[1] = { ...parsed.findings[1], id: 'ZZ9' };
+      return { ...healthy, findings: { ...healthy.findings, text: JSON.stringify(parsed) } };
+    })()],
+    ['M8 with a finding missing its reproduce command', 'M8', (() => {
+      const parsed = JSON.parse(healthy.findings.text);
+      delete parsed.findings[0].reproduce;
+      return { ...healthy, findings: { ...healthy.findings, text: JSON.stringify(parsed) } };
+    })()],
+    ['M8 with the page visibly showing nothing broken', 'M8',
+      { ...healthy, counts: { ...healthy.counts, fail: 0, pass: 20 } }],
+    ['M8 with the page visibly showing no cards at all', 'M8',
+      { ...healthy, counts: { fail: 0, pass: 0, notApplicable: 0, byDesign: 0, total: 0 } }],
     ['M8 with no WebMCP host object', 'M8', broken(healthy, { hasCtx: false })],
     ['M8 with a page that rendered no cards', 'M8', broken(healthy, { bootFailed: true })],
     ['M8 with no transcript captured from the run the page rendered', 'M8',
