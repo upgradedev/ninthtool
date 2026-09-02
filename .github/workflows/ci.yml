@@ -109,6 +109,22 @@ jobs:
       - name: The whole suite is above the floor, counting each file once
         run: node tests/unit/coverage_gate.mjs coverage.txt --per-file --threshold=85
 
+  # THE STUDY'S NUMBERS ARE GENERATED, AND CI PROVES THE COMMITTED FILE IS WHAT THE RUNS PRODUCE.
+  #
+  # Every number this project has been caught by was typed once and then outlived the thing it
+  # described. A generated results file cannot drift from its inputs, but only if something checks
+  # that the committed copy was actually generated from them.
+  impact:
+    name: The study results match the runs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: results.md is what the run files produce
+        run: node evidence/impact/report.mjs --check
+
   style:
     name: Style gate
     runs-on: ubuntu-latest
