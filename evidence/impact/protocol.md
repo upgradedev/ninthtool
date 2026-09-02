@@ -62,7 +62,8 @@ A repository is eligible when ALL hold:
 
 1. It calls `registerTool` on `document.modelContext` or `navigator.modelContext` in code it
    authored. A repository that only DEPENDS ON a WebMCP library is not eligible.
-2. It is not this repository, and not `ClaimReady`.
+2. It is not this repository, and not the author's other entry in this hackathon, which is
+   named in `README.md` where the rules require the disclosure.
 3. It carries a licence permitting local execution for inspection.
 4. A specific commit can be named.
 5. A page can be served locally from that commit without credentials, without a network, and

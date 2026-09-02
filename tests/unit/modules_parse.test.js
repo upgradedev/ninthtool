@@ -47,7 +47,9 @@ const ROOT = path.resolve(
  * exists to catch. Untracked scratch files in the working tree count too, because they are in the
  * tree; CI checks out clean, so the number there is the number of tracked modules.
  */
-const EXPECTED_MODULES = 60;
+// 62 since the external impact study added evidence/impact/run.mjs and report.mjs. The count is
+// exact rather than a floor, so adding a module without noticing fails here.
+const EXPECTED_MODULES = 62;
 
 /** Every `.js` and `.mjs` under the root, chosen by path, never by searching file contents. */
 function everyModule(dir = '', found = []) {
