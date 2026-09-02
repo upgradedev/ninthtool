@@ -99,7 +99,7 @@ const MUTATIONS = {
 
   D2: { what: 'the browser synthesises nothing beyond bare properties',
     break: (o) => { o.schema = '{"type":"object","properties":{"a":{"type":"string"}}}'; },
-    expect: /missing: numeric bounds/ },
+    expect: /missing: the controls the markup declares/ },
   P1: { what: 'a tool carries no annotations at all',
     break: (o) => { o.withoutAnnotations = ['your_form_tool']; },
     expect: /your_form_tool/ },
@@ -232,7 +232,8 @@ test('D2 fails when only one half of a numeric bound is lost', () => {
   // that dropped the max attribute scored the feature as present.
   const finding = d2((s) => { delete s.properties.age.maximum; });
   assert.equal(finding.verdict, 'fail', finding.observed);
-  assert.match(finding.observed, /numeric bounds/);
+  assert.match(finding.observed, /min 18 and max 120 on age/,
+    'the report must name the control and the values the markup declares, not just "bounds"');
 });
 
 test('D2 fails when descriptions survive on some controls but not all', () => {
@@ -254,13 +255,16 @@ test('D2 fails when every feature is piled onto one property', () => {
     s.required = ['only'];
   });
   assert.equal(finding.verdict, 'fail', finding.observed);
-  assert.match(finding.observed, /different controls/);
+  // The exact contract subsumes the old different-controls rule: piling everything onto one
+  // property means the markup's own controls are absent.
+  assert.match(finding.observed, /the controls the markup declares/);
 });
 
 test('D2 fails when required names something that is not a control', () => {
   const finding = d2((s) => { s.required = ['not_a_control']; });
   assert.equal(finding.verdict, 'fail', finding.observed);
-  assert.match(finding.observed, /none of which is a property/);
+  assert.match(finding.observed, /witness_name in the required list/,
+    'the report must name the control whose input carries the required attribute');
 });
 
 test('D2 abstains on a form this repository did not write', () => {
@@ -635,4 +639,119 @@ test('C3 requires the controls field, so an omitted one cannot read as clean', (
     },
   });
   assert.equal(finding.verdict, 'not-applicable', finding.observed);
+});
+
+/* ------------------------------------- D2, the right shapes on the RIGHT controls */
+
+/*
+ * A WHOLLY UNRELATED SCHEMA USED TO PASS.
+ *
+ * D2 knew which shapes it wanted and never checked they were on the right controls, so this scored
+ * "all four synthesised":
+ *
+ *   { totally_wrong: { minimum: -999, maximum: -1, description: 'nonsense' },
+ *     also_wrong:    { enum: ['banana'], description: 'nonsense' } }, required: ['totally_wrong']
+ *
+ * A bounded property, an enum on a different one, a description on each, a required list naming a
+ * real property: the whole of the old test, and nothing to do with the fixture's markup.
+ *
+ * The row is about what the browser builds from markup KNOWN IN ADVANCE, so it is compared against
+ * that markup. One mutation per field below, plus the unrelated schema.
+ */
+const D2_REAL = () => ({
+  type: 'object',
+  properties: {
+    witness_name: { type: 'string', description: 'Full name of the witness to the incident.' },
+    age: { type: 'number', minimum: 18, maximum: 120, multipleOf: 1, description: 'Age in years.' },
+    severity: { type: 'string', enum: ['dent', 'write_off'], description: 'How bad the damage is.' },
+  },
+  required: ['witness_name'],
+});
+const d2real = (mutate) => {
+  const schema = D2_REAL();
+  if (mutate) mutate(schema);
+  return judgeBehaviour('D2', { observations: { D2: { schema, toolName: 'nt_form_answers' } } });
+};
+
+test('D2 passes the schema the fixture markup actually produces', () => {
+  const finding = d2real(null);
+  assert.equal(finding.verdict, 'pass', finding.observed);
+  assert.match(finding.observed, /each on the control its markup declares/);
+});
+
+test('D2 fails a wholly unrelated schema that happens to carry the right shapes', () => {
+  const finding = judgeBehaviour('D2', {
+    observations: {
+      D2: {
+        toolName: 'nt_form_answers',
+        schema: {
+          type: 'object',
+          properties: {
+            totally_wrong: { type: 'number', minimum: -999, maximum: -1, description: 'nonsense' },
+            also_wrong: { type: 'string', enum: ['banana'], description: 'nonsense' },
+          },
+          required: ['totally_wrong'],
+        },
+      },
+    },
+  });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /witness_name, age, severity absent/);
+  assert.match(finding.observed, /totally_wrong, also_wrong appeared/);
+});
+
+test('D2 fails when a control is renamed', () => {
+  const finding = d2real((s) => {
+    s.properties.witness = s.properties.witness_name;
+    delete s.properties.witness_name;
+    s.required = ['witness'];
+  });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /witness_name absent/);
+});
+
+test('D2 fails on the wrong minimum, and names both the control and the value', () => {
+  const finding = d2real((s) => { s.properties.age.minimum = 0; });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /min 18 and max 120 on age \(read 0 and 120\)/);
+});
+
+test('D2 fails on the wrong option values', () => {
+  const finding = d2real((s) => { s.properties.severity.enum = ['banana']; });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /dent and write_off \(read banana\)/);
+});
+
+test('D2 fails when required names a control the markup did not mark required', () => {
+  const finding = d2real((s) => { s.required = ['age']; });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /witness_name in the required list/);
+});
+
+test('D2 fails when a property the markup never declared appears', () => {
+  // A browser inventing a control is as much a defect as one dropping a constraint.
+  const finding = d2real((s) => { s.properties.sneaky = { type: 'string', description: 'd' }; });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /sneaky appeared/);
+});
+
+test('the contract the judge compares against is the markup the fixture really ships', async () => {
+  /*
+   * THE DRIFT GUARD. The expected values live in the judge so it stays reachable without a browser,
+   * which is only safe while something asserts the fixture still declares them. Edit the form and
+   * this fails at authoring time rather than turning D2 into a test of a page that no longer exists.
+   */
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const here = path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1');
+  const markup = fs.readFileSync(path.join(here, '../../fixtures/subject.html'), 'utf8');
+  const form = markup.slice(markup.indexOf('id="answers"'), markup.indexOf('id="silent"'));
+
+  assert.match(form, /name="witness_name"[^>]*\srequired/, 'witness_name must carry required');
+  assert.match(form, /name="age"[^>]*type="number"[^>]*min="18"[^>]*max="120"/, 'age bounds moved');
+  assert.match(form, /<option value="dent">/, 'the dent option moved');
+  assert.match(form, /<option value="write_off">/, 'the write_off option moved');
+  for (const control of ['witness_name', 'age', 'severity']) {
+    assert.ok(form.includes(`name="${control}"`), `${control} is no longer a control on the form`);
+  }
 });

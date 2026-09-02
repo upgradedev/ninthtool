@@ -30,6 +30,35 @@ import { BEHAVIOURS, behaviourById, MEASURED_AGAINST, MEASURED_ON } from './beha
  */
 const D2_FIXTURE_TOOL = 'nt_form_answers';
 
+/*
+ * WHAT THE BUNDLED FIXTURE'S MARKUP ACTUALLY DECLARES, read off fixtures/subject.html.
+ *
+ * D2 knew the SHAPES it wanted (a bounded property, an enum, descriptions, a required list) and
+ * never checked they were the RIGHT ones. So a wholly unrelated schema passed:
+ *
+ *   { totally_wrong: { minimum: -999, maximum: -1, description: 'nonsense' },
+ *     also_wrong:    { enum: ['banana'], description: 'nonsense' } }, required: ['totally_wrong']
+ *
+ *   -> pass, "all four synthesised"
+ *
+ * It carried a bounded property, an enum on a different property, a description on every property
+ * and a required list naming a real one, which was the whole of the old test. The row is about what
+ * the BROWSER synthesises from markup known in advance, so it now compares against that markup.
+ *
+ *   <input name="witness_name" required>
+ *   <input name="age" type="number" min="18" max="120">
+ *   <select name="severity"> dent | write_off
+ *
+ * Every control carries toolparamdescription. Values live here, beside the rule that reads them,
+ * and a test asserts the fixture still declares them so the two cannot drift apart in silence.
+ */
+const D2_FIXTURE_CONTRACT = Object.freeze({
+  properties: Object.freeze(['witness_name', 'age', 'severity']),
+  bounded: Object.freeze({ property: 'age', minimum: 18, maximum: 120 }),
+  enumerated: Object.freeze({ property: 'severity', values: Object.freeze(['dent', 'write_off']) }),
+  required: 'witness_name',
+});
+
 /** A transcript that carries no observation for a behaviour gets this, and it is never a pass. */
 const NOT_OBSERVED = 'the transcript carries no observation for this behaviour';
 
@@ -383,40 +412,66 @@ const RULES = {
      *   descriptions on EVERY property, because every control carries toolparamdescription
      *   required     naming a property that exists, because "required" on a ghost name is not a list
      */
+    /*
+     * THE RIGHT SHAPES ON THE RIGHT CONTROLS, not just the right shapes somewhere.
+     *
+     * This checked that SOME property carried bounds, that SOME other property carried an enum, that
+     * every property had a description and that required named a real one. A wholly unrelated schema
+     * satisfied all of that:
+     *
+     *   { totally_wrong: { minimum: -999, maximum: -1, description: 'nonsense' },
+     *     also_wrong:    { enum: ['banana'], description: 'nonsense' } }, required: ['totally_wrong']
+     *
+     * and passed as "all four synthesised". The row is about what the browser builds from markup
+     * KNOWN IN ADVANCE, so it is compared against that markup rather than against a silhouette of it.
+     */
     const missing = [];
-    const bounded = names.filter((k) => (props[k] || {}).minimum !== undefined && (props[k] || {}).maximum !== undefined);
-    const enumerated = names.filter((k) => Array.isArray((props[k] || {}).enum) && (props[k] || {}).enum.length);
-    if (!bounded.length) missing.push('numeric bounds on one property (min and max together)');
-    if (!enumerated.length) missing.push('an enum');
-    // AND THEY COME FROM DIFFERENT CONTROLS. The four features are produced by four different
-    // markup constructs, so one property carrying a bound, an enum and a description is not three
-    // features, it is one property. Without this, `{"only":{"minimum":1,"maximum":2,"enum":["x"],
-    // "description":"d"}}` scored four of four while every control the markup declares had failed.
-    if (bounded.length && enumerated.length
-      && bounded.every((k) => enumerated.includes(k)) && enumerated.every((k) => bounded.includes(k))) {
-      missing.push(`bounds and an enum on different controls (both sit on ${bounded.join(', ')})`);
+    const want = D2_FIXTURE_CONTRACT;
+
+    const absent = want.properties.filter((k) => !names.includes(k));
+    const extra = names.filter((k) => !want.properties.includes(k));
+    if (absent.length) missing.push(`the controls the markup declares (${absent.join(', ')} absent)`);
+    if (extra.length) missing.push(`nothing the markup does not declare (${extra.join(', ')} appeared)`);
+
+    const boundProp = props[want.bounded.property] || {};
+    if (boundProp.minimum !== want.bounded.minimum || boundProp.maximum !== want.bounded.maximum) {
+      missing.push(`min ${want.bounded.minimum} and max ${want.bounded.maximum} on `
+        + `${want.bounded.property} (read ${JSON.stringify(boundProp.minimum)} and `
+        + `${JSON.stringify(boundProp.maximum)})`);
     }
+
+    const enumProp = props[want.enumerated.property] || {};
+    const got = Array.isArray(enumProp.enum) ? enumProp.enum.map(String) : [];
+    const wantValues = want.enumerated.values;
+    if (got.length !== wantValues.length || wantValues.some((v) => !got.includes(v))) {
+      missing.push(`the option values on ${want.enumerated.property}, ${wantValues.join(' and ')} `
+        + `(read ${got.length ? got.join(' and ') : 'none'})`);
+    }
+
     const undescribed = names.filter((k) => {
       const d = (props[k] || {}).description;
       return !(typeof d === 'string' && d.trim());
     });
     if (undescribed.length) missing.push(`a description on every control (${undescribed.join(', ')} carry none)`);
+
     const required = Array.isArray(schema.required) ? schema.required : [];
-    const named = required.filter((k) => names.includes(k));
-    if (!named.length) {
-      missing.push(required.length
-        ? `a required list naming a real control (it names ${required.join(', ')}, none of which is a property)`
-        : 'a required list');
+    if (!required.includes(want.required)) {
+      missing.push(`${want.required} in the required list, because its input carries the required `
+        + `attribute (the list reads ${required.length ? required.join(', ') : 'empty'})`);
     }
 
     return {
       held: missing.length === 0,
-      expected: 'markup produces numeric bounds, an enum, a description on every control, and a '
-        + 'required list naming one of them',
+      expected: `markup produces exactly ${want.properties.join(', ')}, with min ${want.bounded.minimum} `
+        + `and max ${want.bounded.maximum} on ${want.bounded.property}, `
+        + `${want.enumerated.values.join(' and ')} on ${want.enumerated.property}, a description on `
+        + `every control, and ${want.required} required`,
       observed: missing.length
         ? `missing: ${missing.join('; ')}`
-        : `all four synthesised: bounds, an enum, descriptions on all ${names.length} controls, and `
-          + `required naming ${named.join(', ')}`,
+        : `all four synthesised, and each on the control its markup declares: min `
+          + `${want.bounded.minimum} and max ${want.bounded.maximum} on ${want.bounded.property}, `
+          + `${want.enumerated.values.join(' and ')} on ${want.enumerated.property}, descriptions on `
+          + `all ${names.length} controls, and ${want.required} required`,
     };
   },
   /* ---------------------------------------------------------------- your page
