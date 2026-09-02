@@ -370,7 +370,7 @@ every check read the repository.
 Three things it will not do:
 
 - **A row that could not be run is not a pass.** It stays in the denominator, so skipping the
-  browser row drops the score to 92 percent and the gate exits 1. A gate that shrinks its own
+  browser row drops the score to 93 percent and the gate exits 1. A gate that shrinks its own
   denominator reports a higher score for doing less.
 - **Owner gated is a third status.** The four rows only a person can close are printed separately
   with their exact manual step and never counted as credit.
@@ -382,7 +382,7 @@ Every row has been watched failing, two ways. `--selftest` feeds each row's judg
 deliberately wrong input and requires it to go red, which proves the judgement rather than the
 plumbing. The plumbing was proved separately, and more strongly, by pointing the config at an origin
 that does not exist: M4 through M7 and R5 went red through their real checks and the run fell to
-54 percent.
+57 percent.
 
 ## The console is not silent during a run, on purpose
 
