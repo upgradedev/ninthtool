@@ -99,6 +99,11 @@ a default run, and that is stated rather than hidden.
 
 Coverage is 76.76 percent of lines, below the 85 the standards ask for, and the gap is the
 measurement layer. Four further oracle weaknesses are reproduced and recorded as open in `STATE.md`
-rather than quietly fixed. No external corpus study exists and none is claimed. The same author has
+rather than quietly fixed. A preregistered study on thirteen independently authored WebMCP pages has now run, and its
+hypothesis failed. Five of twenty rows told those pages apart and every one of them was already
+readable from the tool list, so on that population this tool found nothing that a declaration only
+reading would have missed. The protocol was written and committed before any page ran, the failure
+is published in `evidence/impact/results.md`, and the primary metric was not changed afterwards to
+make it read better. The same author has
 a second entry, ClaimReady; exactly one file is shared, a 200 line DevTools client, and the README
 names it with its source commit.
