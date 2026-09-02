@@ -241,6 +241,9 @@ function verdictCards(host) {
     pass: cards.filter((c) => c.className.includes('v-pass')).length,
     fail: cards.filter((c) => c.className.includes('v-fail')).length,
     notApplicable: cards.filter((c) => c.className.includes('v-na')).length,
+    // A by-design card is rendered and countable like any other. It is not a pass and not a
+    // failure, and a counter that could not see it would let the class go missing unnoticed.
+    byDesign: cards.filter((c) => c.className.includes('v-design')).length,
   };
 }
 
@@ -362,7 +365,7 @@ test('a complete run publishes the findings tool and both surfaces say the same 
   // The fixture first. A degraded transcript would push this into the error branch and the
   // assertions below would pass for the wrong reason.
   assert.deepEqual(parsed.counts, {
-    total: 2, pass: 1, fail: 1, notApplicable: 0, outOfScope: CATALOGUE - 2, catalogue: CATALOGUE,
+    total: 2, pass: 1, fail: 1, notApplicable: 0, byDesign: 0, outOfScope: CATALOGUE - 2, catalogue: CATALOGUE,
   });
   assert.equal(parsed.state, 'complete');
   assert.equal(parsed.partial, false);
@@ -377,7 +380,7 @@ test('a complete run publishes the findings tool and both surfaces say the same 
   assert.match(page.el('tiles').textContent, /promises broken/);
   assert.match(page.el('env').textContent, new RegExp(parsed.run.id));
   assert.deepEqual(verdictCards(page.el('groups')), {
-    total: CATALOGUE, pass: 1, fail: 1, notApplicable: 0,
+    total: CATALOGUE, pass: 1, fail: 1, notApplicable: 0, byDesign: 0,
   });
 
   assert.ok(page.tools.has('nt_get_findings'), 'the ninth tool appears when there are findings');
@@ -414,7 +417,7 @@ test('a partial run publishes the findings tool and never uses success wording',
 
   const parsed = payload(await page.call('nt_run_audit', {}));
   assert.deepEqual(parsed.counts, {
-    total: 3, pass: 1, fail: 1, notApplicable: 1, outOfScope: CATALOGUE - 3, catalogue: CATALOGUE,
+    total: 3, pass: 1, fail: 1, notApplicable: 1, byDesign: 0, outOfScope: CATALOGUE - 3, catalogue: CATALOGUE,
   });
   assert.equal(parsed.state, 'incomplete');
   assert.equal(parsed.partial, true);
@@ -552,7 +555,7 @@ test('a failed second run returns nothing rather than the first run answer', asy
   assert.equal(page.el('summary').hidden, true);
   assert.match(page.el('status').textContent, /no earlier result is being shown/);
   assert.match(page.el('status').textContent, /has not finished loading/);
-  assert.deepEqual(verdictCards(page.el('groups')), { total: CATALOGUE, pass: 0, fail: 0, notApplicable: 0 },
+  assert.deepEqual(verdictCards(page.el('groups')), { total: CATALOGUE, pass: 0, fail: 0, notApplicable: 0, byDesign: 0 },
     'the cards still carried the previous verdicts');
   assert.equal(page.el('run').disabled, false, 'the control must come back after a failure');
 
@@ -592,7 +595,7 @@ test('entering running clears the answer and withdraws the tool before anything 
   assert.ok(atEntry, 'the probe was never entered, so nothing was observed about the ordering');
   assert.equal(atEntry.toolPublished, false,
     'nt_get_findings was still readable while the second run was in flight');
-  assert.deepEqual(atEntry.cards, { total: CATALOGUE, pass: 0, fail: 0, notApplicable: 0 },
+  assert.deepEqual(atEntry.cards, { total: CATALOGUE, pass: 0, fail: 0, notApplicable: 0, byDesign: 0 },
     'the previous verdicts were still on the screen while the second run was in flight');
   assert.equal(atEntry.summaryHidden, true);
   assert.match(atEntry.status, /Previous findings have been cleared/);
@@ -619,7 +622,7 @@ test('the escape key withdraws the tool and only when there is something to clea
   assert.equal(page.el('summary').hidden, true);
   assert.equal(page.el('status').textContent,
     'Cleared. nt_get_findings has been withdrawn from the tool surface.');
-  assert.deepEqual(verdictCards(page.el('groups')), { total: CATALOGUE, pass: 0, fail: 0, notApplicable: 0 });
+  assert.deepEqual(verdictCards(page.el('groups')), { total: CATALOGUE, pass: 0, fail: 0, notApplicable: 0, byDesign: 0 });
 });
 
 /**
@@ -643,7 +646,7 @@ test('a refused findings registration leaves the measurement intact and the tool
   const parsed = payload(await page.call('nt_run_audit', {}));
   assert.equal(parsed.state, 'complete', 'a refused registration does not invalidate the measurement');
   assert.deepEqual(parsed.counts, {
-    total: 2, pass: 1, fail: 1, notApplicable: 0, outOfScope: CATALOGUE - 2, catalogue: CATALOGUE,
+    total: 2, pass: 1, fail: 1, notApplicable: 0, byDesign: 0, outOfScope: CATALOGUE - 2, catalogue: CATALOGUE,
   });
 
   // The registration was attempted and it did not take.

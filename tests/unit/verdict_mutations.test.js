@@ -50,8 +50,10 @@ const MUTATIONS = {
     break: (o) => { o.settled = 'resolved'; },
     expect: /reads success/ },
 
+  // Breaks what B3 READS. It used to shorten sentAnnotationKeys, which the row no longer consults
+  // now that it judges its own three names rather than everything that went out.
   B3: { what: 'annotations are dropped without an error',
-    break: (o) => { o.sentAnnotationKeys = ['readOnlyHint', 'destructiveHint']; },
+    break: (o) => { o.returnedAnnotationKeys = ['readOnlyHint', 'untrustedContentHint']; },
     expect: /destructiveHint/ },
 
   B4: { what: 'a declarative tool carries no annotations',
@@ -83,8 +85,12 @@ const MUTATIONS = {
     break: (o) => { o.constraints.forEach((c) => { c.declared = false; }); },
     expectNotApplicable: /declares none of the constraints/ },
 
+  // C4 leaves `pass` as BY DESIGN, not as a failure. The pause is intended and its own catalogue
+  // entry says so; what the row reports is that nothing on the surface distinguishes a tool which
+  // waits for a person from one that answers.
   C4: { what: 'the tool never settles',
     break: (o) => { o.settled = 'timeout'; o.waitedMs = 2502; },
+    expectByDesign: true,
     expect: /2502 ms/ },
 
   D1: { what: 'no event fires on withdrawal',
@@ -150,6 +156,19 @@ for (const key of Object.keys(MUTATIONS)) {
       assert.equal(finding.verdict, 'not-applicable',
         `${key} should have abstained rather than scoring. Got ${finding.verdict}.`);
       assert.match(finding.reason, mutation.expectNotApplicable);
+      return;
+    }
+    if (mutation.expectByDesign) {
+      /*
+       * A THIRD WAY TO LEAVE `pass`. Some outcomes are observed, deliberate, and nobody's broken
+       * promise: the row still has to STOP passing when the platform does the thing, which is what
+       * this proves, but calling it a failure would count somebody else's design decision as a
+       * defect. It is never a pass, so a rule cannot hide behind this.
+       */
+      assert.equal(finding.verdict, 'by-design',
+        `${key} should have reported by-design rather than ${finding.verdict}.`);
+      assert.match(finding.observed, mutation.expect,
+        `${key} left pass, but not for the reason the mutation introduced`);
       return;
     }
     assert.equal(finding.verdict, 'fail',

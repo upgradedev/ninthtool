@@ -125,6 +125,7 @@ main > section:last-child { border-bottom: 0; }
 .card.v-pass { border-left-color: var(--pass); }
 .card.v-fail { border-left-color: var(--fail); }
 .card.v-na   { border-left-color: var(--na); }
+.card.v-design { border-left-color: var(--ink-faint); }
 
 .card-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
 .chip {
@@ -135,6 +136,8 @@ main > section:last-child { border-bottom: 0; }
 .v-pass .verdict { background: var(--pass-bg); color: var(--pass); }
 .v-fail .verdict { background: var(--fail-bg); color: var(--fail); }
 .v-na   .verdict { background: var(--na-bg);   color: var(--na); }
+/* Observed, deliberate, and not a broken promise. Deliberately not the failure colour. */
+.v-design .verdict { background: var(--bg-sunk); color: var(--ink-faint); }
 .subject-tag { font-size: 11px; color: var(--ink-faint); margin-left: auto; overflow-wrap: anywhere; }
 .card-title { margin: 0; font-size: 16px; font-weight: 620; flex-basis: 100%; overflow-wrap: anywhere; }
 .card-why { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; }

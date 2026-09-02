@@ -55,8 +55,15 @@ const GROUP_COPY = {
   },
 };
 
-const VERDICT_CLASS = { pass: 'v-pass', fail: 'v-fail', 'not-applicable': 'v-na' };
-const VERDICT_WORD = { pass: 'HOLDS', fail: 'BROKEN', 'not-applicable': 'NOT RUN' };
+// BY DESIGN is its own word and its own colour. It is not a pass, because the promise is not kept;
+// it is not BROKEN, because nobody broke it. Rendering it as either was the contradiction between
+// this page's own by-design copy and the number at the top of it.
+const VERDICT_CLASS = {
+  pass: 'v-pass', fail: 'v-fail', 'not-applicable': 'v-na', 'by-design': 'v-design',
+};
+const VERDICT_WORD = {
+  pass: 'HOLDS', fail: 'BROKEN', 'not-applicable': 'NOT RUN', 'by-design': 'BY DESIGN',
+};
 
 
 /**

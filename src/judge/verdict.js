@@ -116,16 +116,24 @@ const RULES = {
 
   /** Held only if every annotation the page sent came back. */
   B3(o) {
-    need(o, ['sentAnnotationKeys', 'returnedAnnotationKeys']);
-    const sent = asArray(o.sentAnnotationKeys);
+    // `subject` is REQUIRED. It used to judge everything that was sent, which included
+    // consequentialHint, and that is A3's whole finding. One measured fact became two broken
+    // promises. An omitted subject would silently restore that, so it fails closed.
+    need(o, ['sentAnnotationKeys', 'returnedAnnotationKeys', 'subject']);
     const back = asArray(o.returnedAnnotationKeys);
-    const dropped = sent.filter((k) => !back.includes(k));
+    const subject = asArray(o.subject);
+    const elsewhere = o.measuredElsewhere && typeof o.measuredElsewhere === 'object'
+      ? Object.entries(o.measuredElsewhere).map(([k, row]) => `${k} is row ${row}`)
+      : [];
+    const dropped = subject.filter((k) => !back.includes(k));
     return {
       held: dropped.length === 0,
-      expected: `all ${sent.length} annotations survive registration`,
-      observed: dropped.length
-        ? `${dropped.length} dropped with no error: ${dropped.join(', ')}`
-        : 'none dropped',
+      expected: `the ${subject.length} backend MCP annotation names survive registration`,
+      observed: (dropped.length
+        ? `${dropped.length} of ${subject.length} dropped with no error and no console warning: `
+          + `${dropped.join(', ')}`
+        : `none of the ${subject.length} dropped`)
+        + (elsewhere.length ? `. Counted by another row and not here: ${elsewhere.join(', ')}` : ''),
     };
   },
 
@@ -243,13 +251,42 @@ const RULES = {
 
   /** Held only if the tool answered. A timeout is a failure, not an inconclusive result. */
   C4(o) {
+    /*
+     * THIS ROW MEASURED THE WRONG THING, AND ITS OWN CATALOGUE ENTRY SAID SO.
+     *
+     * It held on "did the promise settle", and the entry reads: "That pause is the design, not a
+     * defect" and "this row does not call it a defect". So the rule scored the platform down for
+     * exactly the behaviour the row says is intended, and the pending call landed in the broken
+     * promise count.
+     *
+     * What the row actually claims is the sentence after that one: the two kinds of declarative
+     * tool are INDISTINGUISHABLE before you call them. Same shape, same schema, no annotation, no
+     * flag. An agent finds out which it called by waiting, with no deadline to wait against.
+     *
+     * So the pause is reported as by-design, and the gap around it is what is judged.
+     */
     need(o, ['settled']);
+    const pending = o.settled === 'timeout';
+    const waited = Number(o.waitedMs) || 0;
+
+    if (pending) {
+      return {
+        held: false,
+        byDesign: true,
+        expected: 'a form without toolautosubmit waits for a person, and the surface says which '
+          + 'tools do that',
+        observed: `still pending after ${waited} ms, which is the human hold working. Nothing on `
+          + 'the tool surface distinguishes it from a tool that answers: same shape, same schema, '
+          + 'no annotation, no flag, and no deadline to wait against',
+      };
+    }
+    // It answered. Whatever else is true of the surface, the agent that called this one got a
+    // result rather than waiting on a pause with no deadline, so for this tool the promise holds.
     return {
-      held: o.settled === 'resolved' || o.settled === 'rejected',
-      expected: 'a published tool settles, either answering or refusing',
-      observed: o.settled === 'timeout'
-        ? `never settled, still pending after ${Number(o.waitedMs) || 0} ms`
-        : `the promise ${o.settled}`,
+      held: true,
+      expected: 'a form without toolautosubmit waits for a person, and the surface says which '
+        + 'tools do that',
+      observed: `the promise ${o.settled}, so the caller was not left waiting on a human hold`,
     };
   },
 
@@ -597,9 +634,22 @@ export function judgeBehaviour(id, transcript) {
     };
   }
 
+  /*
+   * A FOURTH OUTCOME, AND THE PAGE ALREADY ASSUMED IT EXISTED.
+   *
+   * The `by-design` group's own copy reads: "Counting these as broken promises would inflate the
+   * number with somebody else's design decision." The code counted them anyway, because there were
+   * only two outcomes and anything not held was a failure. So the page said one thing and the
+   * headline said another.
+   *
+   * A rule opts in by returning `byDesign: true`. It is NOT the same as not-applicable: that means
+   * the row could not be observed, this means it was observed and the result is a deliberate
+   * behaviour of the platform rather than a promise anybody broke.
+   */
+  const unheld = outcome.byDesign === true ? 'by-design' : 'fail';
   return {
     ...base,
-    verdict: outcome.held ? 'pass' : 'fail',
+    verdict: outcome.held ? 'pass' : unheld,
     expected: outcome.expected,
     observed: outcome.observed,
     reason: null,
@@ -653,6 +703,9 @@ export function judge(transcript, options = {}) {
     pass: counted.filter((f) => f.verdict === 'pass').length,
     fail: counted.filter((f) => f.verdict === 'fail').length,
     notApplicable: counted.filter((f) => f.verdict === 'not-applicable').length,
+    // Observed, deliberate, and NOT a broken promise. Reported separately so the headline counts
+    // what somebody got wrong rather than what somebody decided.
+    byDesign: counted.filter((f) => f.verdict === 'by-design').length,
     outOfScope: findings.length - counted.length,
     catalogue: findings.length,
   };

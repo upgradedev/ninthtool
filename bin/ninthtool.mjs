@@ -197,7 +197,8 @@ function printReport(result, transcript, only) {
       group = finding.group;
       console.log(`  ${group.toUpperCase()}`);
     }
-    const mark = { pass: 'HOLDS ', fail: 'BROKEN', 'not-applicable': 'NOT RUN' }[finding.verdict];
+    const mark = { pass: 'HOLDS ', fail: 'BROKEN', 'not-applicable': 'NOT RUN',
+      'by-design': 'BY DSGN' }[finding.verdict];
     console.log(`  [${mark}] ${finding.id}  ${finding.title}`);
     console.log(`           subject   ${finding.subject === 'browser' ? 'the browser' : 'the page under test'}`);
     console.log(`           expected  ${finding.expected}`);
@@ -221,7 +222,10 @@ function printReport(result, transcript, only) {
       + ` - ${decision.reason}`);
   }
   console.log(BAR);
+  // by-design is printed separately and NOT folded into "broken". It is observed and deliberate,
+  // and adding it to the headline would count somebody else's design decision as a defect.
   console.log(`${result.counts.fail} broken, ${result.counts.pass} kept`
+    + (result.counts.byDesign ? `, ${result.counts.byDesign} by design` : '')
     + (result.counts.notApplicable ? `, ${result.counts.notApplicable} could not be run` : '')
     + `, ${result.counts.total} tested.`);
   if (!result.complete) {

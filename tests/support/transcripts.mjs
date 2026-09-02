@@ -33,9 +33,17 @@ export function conforming() {
         ],
       },
       B2: { settled: 'rejected' },
+      // A CONFORMING BROWSER KEEPS THEM, it does not decline to be asked. This used to declare that
+      // only two names were ever SENT, so nothing could be dropped and the row passed without
+      // modelling anything. The ideal this fixture stands for is a host that returns what it was
+      // given.
       B3: {
-        sentAnnotationKeys: ['readOnlyHint', 'untrustedContentHint'],
-        returnedAnnotationKeys: ['readOnlyHint', 'untrustedContentHint'],
+        sentAnnotationKeys: ['readOnlyHint', 'untrustedContentHint', 'consequentialHint',
+          'destructiveHint', 'idempotentHint', 'openWorldHint'],
+        returnedAnnotationKeys: ['readOnlyHint', 'untrustedContentHint', 'consequentialHint',
+          'destructiveHint', 'idempotentHint', 'openWorldHint'],
+        subject: ['destructiveHint', 'idempotentHint', 'openWorldHint'],
+        measuredElsewhere: { consequentialHint: 'A3' },
       },
       B4: { annotationsTypeof: 'object' },
       B5: {
@@ -138,6 +146,8 @@ export function measuredChrome152() {
         sentAnnotationKeys: ['readOnlyHint', 'untrustedContentHint', 'consequentialHint',
           'destructiveHint', 'idempotentHint', 'openWorldHint'],
         returnedAnnotationKeys: ['readOnlyHint', 'untrustedContentHint'],
+        subject: ['destructiveHint', 'idempotentHint', 'openWorldHint'],
+        measuredElsewhere: { consequentialHint: 'A3' },
       },
       B4: { annotationsTypeof: 'undefined' },
       B5: {
@@ -226,7 +236,18 @@ export function measuredChrome152() {
  * quietly moves one of them breaks a test instead of rewriting the headline.
  */
 export const CHROME_152_FAILURES = Object.freeze(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'B4', 'B5',
-  'C1', 'C2', 'C3', 'C4', 'P1', 'P4']);
+  'C1', 'C2', 'C3', 'P1', 'P4']);
+
+/*
+ * C4 LEFT THIS LIST, and it did not become a pass.
+ *
+ * Its own catalogue entry always said the pause is intended: "That pause is the design, not a
+ * defect." The rule scored it as a broken promise anyway, because there were only two outcomes.
+ * It is now BY DESIGN: observed, deliberate, and excluded from the broken count. What the row
+ * judges is the gap the entry actually names, that nothing on the surface distinguishes a tool
+ * which waits for a person from one that answers.
+ */
+export const CHROME_152_BY_DESIGN = Object.freeze(['C4']);
 
 /** Rows nothing could be concluded about. Not passes, and the report never counts them as any. */
 export const CHROME_152_INCONCLUSIVE = Object.freeze(['P5']);

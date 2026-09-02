@@ -178,8 +178,10 @@ export const BEHAVIOURS = Object.freeze([
       + 'backend MCP fields, where a result carries "isError": true beside its content.',
     measured: 'A handler returning { content: [...], isError: true } resolves. The flag rides along '
       + 'inside the serialized string and the browser attaches no meaning to it.',
-    why: 'A developer arriving from an MCP server writes the shape they know, and every refusal '
-      + 'their page makes is reported to the agent as a success.',
+    why: 'A developer arriving from an MCP server writes the shape they know. The promise '
+      + 'resolves, so the refusal reaches the caller through the channel a success uses, '
+      + 'and nothing in the platform marks it as a failure. What a particular agent then '
+      + 'does with it was not measured here, and is not claimed.',
     reproduce: 'node bin/ninthtool.mjs --behaviour B2',
   },
   {
@@ -196,8 +198,11 @@ export const BEHAVIOURS = Object.freeze([
     contract: 'None. WebMCP’s ToolAnnotations has readOnlyHint and untrustedContentHint. '
       + 'destructiveHint, idempotentHint and openWorldHint belong to backend MCP and are not part '
       + 'of this standard.',
-    measured: 'Sent all six. Read back two. The four unknown members are dropped with no error and '
-      + 'no console warning.',
+    measured: 'Sent all six. Read back two. Of the four dropped, three are this row: '
+      + 'destructiveHint, idempotentHint and openWorldHint, gone with no error and no '
+      + 'console warning. The fourth, consequentialHint, is row A3, because Chromium '
+      + 'declares it in its own IDL and this build drops it anyway. Counting it in both '
+      + 'rows turned one measured fact into two broken promises.',
     why: 'The page believes it warned the agent. The tool list carries no warning.',
     reproduce: 'node bin/ninthtool.mjs --behaviour B3',
   },
