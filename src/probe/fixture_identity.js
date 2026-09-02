@@ -8,7 +8,9 @@
  * while its own README said it never does.
  *
  * A name a stranger can type is not an identity. What follows is four independent checks, and all
- * four must hold before anything is submitted:
+ * four are read before anything is submitted, and NONE OF THEM IS SUFFICIENT ON ITS OWN. Three
+ * are copyable from a public repository and the fourth cannot be read without writing first,
+ * which is why writing is bound to a fixture the runner owns. See the note below the list:
  *
  *   1. ORIGIN. The tool's `origin` equals the origin the runner was asked to audit. Cross origin
  *      contributes no tools at all, so this is cheap, but it rules out a tool that arrived from
@@ -36,6 +38,19 @@
  * A page failing any of the four is not written to, and the rows that needed it report
  * `not-applicable` with the check that failed. That is the honest answer and it is also the safe
  * one.
+ *
+ * THE ORDERING DEFECT, AND WHY THE PROMISE NEEDED A NARROWER SCOPE.
+ *
+ * Check 4 used to WRITE the nonce and return trusted, with the echo read from the answer to the
+ * first call. On a form tool that call IS the submission, so identity was confirmed one write too
+ * late. Measured against a page served at the expected path that copied the marker and never read
+ * the nonce: trusted true, and one form submitted.
+ *
+ * There is no ordering that repairs this. Checks 1 to 3 are all copyable, and check 4 is
+ * unforgeable precisely because it requires an invocation. WebMCP exposes no challenge a document
+ * must answer BEFORE it is invoked. So the runner no longer tries to prove an arbitrary page: form
+ * writing runs only against a fixture it OWNS, meaning one it served itself from its own bundle, or
+ * the document the probe is executing inside. Everything else is refused and says so.
  *
  * WHAT THIS IS NOT. It is not a security boundary against a hostile same origin page that has read
  * this file and implemented the echo on purpose. Nothing running inside a page can be. It is a

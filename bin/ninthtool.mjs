@@ -367,8 +367,17 @@ try {
   const expectedPath = requested.pathname.endsWith(FIXTURE_PATH)
     ? requested.pathname
     : requested.pathname.replace(/[^/]*$/, '') + FIXTURE_PATH.replace(/^\//, '');
+  /*
+   * ONLY A FIXTURE WE SERVED OURSELVES MAY BE WRITTEN TO.
+   *
+   * Pointed at somebody's URL there is no signal WebMCP exposes that a document must answer BEFORE
+   * it is invoked, so no ordering of checks can prove an arbitrary page is ours without first
+   * writing to it. When this runner served the bundle itself, the bytes under test are the bytes
+   * it shipped, and that is established before a single call.
+   */
   const raw = await session.evaluate(probeExpression({
     only: selected, allow, expectedOrigin, expectedPath,
+    fixtureOwnership: auditingOurOwnBundledPage ? 'served-by-runner' : 'unproven',
   }), 120000);
   const transcript = JSON.parse(raw);
   const result = judge(transcript, { only: selected });
