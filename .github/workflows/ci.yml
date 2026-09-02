@@ -122,11 +122,51 @@ jobs:
 
       - name: It audits the live page, one behaviour, and touches nothing
         run: |
+          # NO `|| true`. It used to be here, and it meant this step asserted the OUTPUT while
+          # ignoring the exit code entirely, so the documented semantics were never tested and a
+          # runner-side failure would have been read as a pass by the greps below.
+          #
+          # A scoped A1 run against the live page is COMPLETE, so the documented code is 0. If it
+          # ever is not, that is the gate doing its job rather than something to route around.
+          set +e
+          npx --yes "${{ steps.form.outputs.spec }}"             https://upgradedev.github.io/ninthtool/ --behaviour A1 > audit.txt 2>&1
+          code=$?
           set -e
-          npx --yes "${{ steps.form.outputs.spec }}"             https://upgradedev.github.io/ninthtool/ --behaviour A1 > audit.txt 2>&1 || true
           cat audit.txt
+          [ "$code" = "0" ] || { echo "a complete scoped run must exit 0, got $code (3 means incomplete)"; exit 1; }
           grep -q "scope   : A1" audit.txt
           grep -q "1 tested" audit.txt
           # Nothing belonging to the page under test may have been called without authorisation.
           grep -q "refused : " audit.txt || echo "note: A1 needs no authorisation, so nothing was refused"
           echo "one behaviour ran, and only one."
+
+  # THE SAFETY PROPERTIES, RUN RATHER THAN ASSERTED FROM THE SOURCE.
+  #
+  # This suite's central claim is that it writes nothing to a page it was not authorised to write
+  # to. Until now that claim was checked by unit tests over fake tools plus a grep of the CLI's own
+  # text, and the end-to-end file that actually drives a browser against a page IMITATING the
+  # bundled fixture was never run in CI. Two reachable defects had already been found in exactly
+  # that boundary, so the file that would have caught them belongs in the pipeline.
+  #
+  # It needs a checkout and a real Chrome, which is why it cannot live in the no-checkout e2e job.
+  integration:
+    name: Side effect isolation, against an imitating page
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Where is Chrome
+        run: |
+          for c in /usr/bin/google-chrome /usr/bin/google-chrome-stable /opt/google/chrome/chrome; do
+            if [ -x "$c" ]; then echo "Chrome at $c"; exit 0; fi
+          done
+          echo "No Chrome on this runner, so the isolation run below cannot prove anything."
+          exit 1
+
+      # The exit code gates the job. The script prints PASS or FAIL per counter and exits non-zero
+      # on any of them, so there is nothing to grep and nothing to swallow.
+      - name: Every counter that must stay at zero stays at zero
+        run: node tests/integration/side_effect_isolation.mjs
