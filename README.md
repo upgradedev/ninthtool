@@ -428,6 +428,13 @@ share no code that expresses it.
 - **On a page that is not ours it calls only tools marked `readOnlyHint`.** Here, where the subject
   page ships with this repository, some rows drive its forms too, because that is the only way to
   measure the declarative half at all. Nothing leaves the browser either way.
+- **It is not invisible, and it no longer claims to be.** Registering a tool is a document level
+  event, so a page with a `toolchange` listener sees every probe tool arrive and leave. Measured
+  against a page that counts them: **26 events on a default run with nothing authorised**. If that
+  listener writes, fetches or re-renders, it will do that. There is no way to register a tool in a
+  document without the document being able to notice, so this is stated rather than fixed. The
+  command line help used to say the default run "touches nothing belonging to the page under test",
+  which was true of its tools and its forms and not true of its listeners.
 - No account, no backend, no database, no crawling.
 - No verdict is published about anybody's named page.
 

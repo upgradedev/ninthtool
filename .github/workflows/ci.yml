@@ -120,7 +120,7 @@ jobs:
           echo "No Chrome on this runner, so the audit step below cannot prove anything."
           exit 1
 
-      - name: It audits the live page, one behaviour, and touches nothing
+      - name: It audits the live page, one behaviour, and calls nothing of its own
         run: |
           # NO `|| true`. It used to be here, and it meant this step asserted the OUTPUT while
           # ignoring the exit code entirely, so the documented semantics were never tested and a
