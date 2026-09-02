@@ -1,0 +1,579 @@
+{
+ "corpusId": "comicsol-web",
+ "repo": "wenn-id/comicsol",
+ "sourceCommit": "c27fd9b53b83f75774c1d3c725f313a44c728bce",
+ "entryPoint": "web/comic_sol_web/static/index.html",
+ "servedAt": "http://127.0.0.1:49849/web/comic_sol_web/static/index.html",
+ "behaviour": "P5",
+ "toolCommit": "a39837db10b162fe2f108b0765b33de7219aed57",
+ "browser": "Opening in existing browser session.",
+ "browserFlags": {
+  "recordedHere": [
+   "--enable-features=WebMCP"
+  ],
+  "complete": false,
+  "builtIn": "src/probe/launch.mjs"
+ },
+ "authorisedTools": [
+  "get_project_state",
+  "get_qa_summary",
+  "list_generation_jobs",
+  "list_generation_options",
+  "recommend_provider"
+ ],
+ "authorisation": "read-only tool calls",
+ "startedAt": "2026-09-02T18:58:41.265Z",
+ "endedAt": "2026-09-02T18:58:53.575Z",
+ "elapsedMs": 5899,
+ "exitCode": 0,
+ "signal": null,
+ "stderr": "",
+ "stdoutBytes": 16060,
+ "parseError": null,
+ "transcript": {
+  "meta": {
+   "url": "http://127.0.0.1:49849/web/comic_sol_web/static/index.html",
+   "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+   "api": "document.modelContext"
+  },
+  "observations": {
+   "P5": {
+    "attempted": [
+     "list_generation_jobs",
+     "recommend_provider"
+    ],
+    "refused": [],
+    "ignored": [
+     "recommend_provider: omitting project_id changed nothing in the answer"
+    ],
+    "inconclusive": [
+     "list_generation_jobs: answered differently, which is consistent with a refusal and also with the tool simply echoing what it was sent"
+    ],
+    "skipped": [
+     "approve_provider_switch: not marked readOnlyHint",
+     "create_project: not marked readOnlyHint",
+     "export_project: not marked readOnlyHint",
+     "import_project: not marked readOnlyHint",
+     "queue_generation: not marked readOnlyHint",
+     "reject_provider_switch: not marked readOnlyHint",
+     "run_qa: not marked readOnlyHint",
+     "submit_generated_asset: not marked readOnlyHint",
+     "update_project_plan: not marked readOnlyHint",
+     "get_project_state: declares no required properties, so there is nothing to break",
+     "get_qa_summary: declares no required properties, so there is nothing to break",
+     "list_generation_options: declares no required properties, so there is nothing to break"
+    ]
+   }
+  },
+  "errors": [],
+  "scope": {
+   "requestedBehaviours": [
+    "P5"
+   ],
+   "steps": [
+    "pageRequired"
+   ],
+   "refusedSteps": [],
+   "selectedBehaviours": [
+    "P5"
+   ],
+   "allow": {
+    "toolCalls": true,
+    "fixtureForms": false
+   },
+   "nonceIssued": true,
+   "fixture": null
+  },
+  "skipped": {},
+  "pageTools": [
+   {
+    "name": "approve_provider_switch",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "create_project",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "export_project",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "get_project_state",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "get_qa_summary",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "import_project",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "list_generation_jobs",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "list_generation_options",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "queue_generation",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "recommend_provider",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "reject_provider_switch",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "run_qa",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "submit_generated_asset",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "update_project_plan",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   }
+  ]
+ },
+ "result": {
+  "findings": [
+   {
+    "id": "A1",
+    "group": "spec-divergence",
+    "subject": "browser",
+    "title": "The execute callback receives one argument, not two",
+    "reproduce": "node bin/ninthtool.mjs --behaviour A1",
+    "verdict": "out-of-scope",
+    "expected": "A tool handler is handed a cancellation signal it can pass to fetch.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "A2",
+    "group": "spec-divergence",
+    "subject": "browser",
+    "title": "inputSchema is written as an object and read back as a string",
+    "reproduce": "node bin/ninthtool.mjs --behaviour A2",
+    "verdict": "out-of-scope",
+    "expected": "The schema you registered is the schema you can inspect.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "A3",
+    "group": "spec-divergence",
+    "subject": "browser",
+    "title": "consequentialHint is in the IDL and not in this build",
+    "reproduce": "node bin/ninthtool.mjs --behaviour A3",
+    "verdict": "out-of-scope",
+    "expected": "A tool can be marked as having a consequence.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "B1",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "No route makes a refusal both a failure and readable",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B1",
+    "verdict": "out-of-scope",
+    "expected": "A page that refuses a write signals a failure AND says what was wrong.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "B2",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "isError is payload, not a signal",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B2",
+    "verdict": "out-of-scope",
+    "expected": "A result can be marked as a failure in band, the way backend MCP does it.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "B3",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "The MCP annotation names do not exist in WebMCP",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B3",
+    "verdict": "out-of-scope",
+    "expected": "A tool that changes something is marked destructive so an agent can be careful.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "B4",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "A declarative tool carries no annotations at all",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B4",
+    "verdict": "out-of-scope",
+    "expected": "A form promoted to a tool says whether it only reads.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "B5",
+    "group": "standard-gap",
+    "subject": "browser",
+    "title": "The caller cannot tell whether to parse the result",
+    "reproduce": "node bin/ninthtool.mjs --behaviour B5",
+    "verdict": "out-of-scope",
+    "expected": "A consumer knows whether it was handed text or data.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "C1",
+    "group": "silent-trap",
+    "subject": "browser",
+    "title": "A missing required property is filled from the control’s stale value",
+    "reproduce": "node bin/ninthtool.mjs --behaviour C1",
+    "verdict": "out-of-scope",
+    "expected": "A call that omits a required property is refused.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "C2",
+    "group": "silent-trap",
+    "subject": "browser",
+    "title": "A tool withdraws only when the signal is in the options bag",
+    "reproduce": "node bin/ninthtool.mjs --behaviour C2",
+    "verdict": "out-of-scope",
+    "expected": "A conditional tool disappears when the state that justified it goes away.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "C3",
+    "group": "silent-trap",
+    "subject": "browser",
+    "title": "The two halves of the standard enforce different parts of one schema",
+    "reproduce": "node bin/ninthtool.mjs --behaviour C3",
+    "verdict": "out-of-scope",
+    "expected": "Every constraint the declared schema expresses is enforced.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "C4",
+    "group": "by-design",
+    "subject": "browser",
+    "title": "Nothing says which declarative tools wait for a human",
+    "reproduce": "node bin/ninthtool.mjs --behaviour C4",
+    "verdict": "out-of-scope",
+    "expected": "An agent can tell, before calling, whether a tool will answer it.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "D1",
+    "group": "holds",
+    "subject": "browser",
+    "title": "toolchange fires on both registration and withdrawal",
+    "reproduce": "node bin/ninthtool.mjs --behaviour D1",
+    "verdict": "out-of-scope",
+    "expected": "The tool surface can be observed without polling.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "D2",
+    "group": "holds",
+    "subject": "browser",
+    "title": "A form derived schema is built richly and correctly from markup",
+    "reproduce": "node bin/ninthtool.mjs --behaviour D2",
+    "verdict": "out-of-scope",
+    "expected": "Four HTML attributes produce a real JSON Schema.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "P1",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Every tool you publish says whether it writes",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P1",
+    "verdict": "out-of-scope",
+    "expected": "An agent can tell a tool that reads from a tool that changes something.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "P2",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Every tool you publish declares a schema an agent can read",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P2",
+    "verdict": "out-of-scope",
+    "expected": "A model knows what arguments a tool takes before it calls it.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "P3",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Every tool you publish describes itself, and every parameter is described",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P3",
+    "verdict": "out-of-scope",
+    "expected": "A model can choose the right tool and fill it in without guessing.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "P4",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Your tool surface carries nothing registered by a frame you may not control",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P4",
+    "verdict": "out-of-scope",
+    "expected": "The tools on your page are the tools you registered.",
+    "observed": "",
+    "reason": "not selected for this run"
+   },
+   {
+    "id": "P5",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Your read only tools demonstrably refuse a call that breaks their own required list",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P5",
+    "verdict": "fail",
+    "expected": "all 2 read only tools demonstrably refuse a call that omits a required property",
+    "observed": "1 of 2 ignored it: recommend_provider: omitting project_id changed nothing in the answer",
+    "reason": null
+   },
+   {
+    "id": "P6",
+    "group": "your-page",
+    "subject": "page",
+    "title": "Calling one read only tool does not change what another one answers",
+    "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P6",
+    "verdict": "out-of-scope",
+    "expected": "A tool marked read only leaves the state your other read tools report alone.",
+    "observed": "",
+    "reason": "not selected for this run"
+   }
+  ],
+  "counts": {
+   "total": 1,
+   "pass": 0,
+   "fail": 1,
+   "notApplicable": 0,
+   "byDesign": 0,
+   "outOfScope": 19,
+   "catalogue": 20
+  },
+  "scope": {
+   "requested": [
+    "P5"
+   ],
+   "steps": [
+    "pageRequired"
+   ],
+   "refusedSteps": [],
+   "allow": {
+    "toolCalls": true,
+    "fixtureForms": false
+   },
+   "fixture": null
+  },
+  "completeness": {
+   "everySelectedObserved": true,
+   "environmentIdentified": true,
+   "noFatalErrors": true,
+   "anythingMeasured": true
+  },
+  "errors": [],
+  "pageTools": [
+   {
+    "name": "approve_provider_switch",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "create_project",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "export_project",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "get_project_state",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "get_qa_summary",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "import_project",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "list_generation_jobs",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "list_generation_options",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "queue_generation",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "recommend_provider",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": true,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "reject_provider_switch",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "run_qa",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "submit_generated_asset",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   },
+   {
+    "name": "update_project_plan",
+    "origin": "http://127.0.0.1:49849",
+    "readOnlyHint": false,
+    "annotations": "object",
+    "declarative": false,
+    "fromThisDocument": true
+   }
+  ],
+  "environment": {
+   "url": "http://127.0.0.1:49849/web/comic_sol_web/static/index.html",
+   "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+   "api": "document.modelContext",
+   "catalogueMeasuredAgainst": "Chrome 152.0.7977.65",
+   "catalogueMeasuredOn": "2026-09-01"
+  },
+  "complete": true
+ }
+}

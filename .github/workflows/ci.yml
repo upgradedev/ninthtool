@@ -124,6 +124,8 @@ jobs:
           node-version: '20'
       - name: results.md is what the run files produce
         run: node evidence/impact/report.mjs --check
+      - name: results-wave2.md is what the wave 2 run files produce
+        run: node evidence/impact/report.mjs --wave=2 --check
 
   style:
     name: Style gate

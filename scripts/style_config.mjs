@@ -13,7 +13,8 @@
 /** Directories the gate walks, by path. Not by searching file contents, ever. */
 export const SCANNED_DIRS = ['', '.github/workflows', 'assets', 'bin', 'docs', 'fixtures', 'scripts',
   'src', 'src/judge', 'src/probe', 'src/ui', 'tests', 'tests/integration', 'tests/support',
-  'tests/unit', 'video', 'evidence/impact', 'evidence/impact/runs'];
+  'tests/unit', 'video', 'evidence/impact', 'evidence/impact/runs',
+  'evidence/impact/runs-wave2'];
 
 /** Extensions the gate reads. A new kind of judge facing file means adding it here. */
 export const SCANNED_EXTENSIONS = ['.md', '.js', '.mjs', '.html', '.css', '.json', '.yml'];

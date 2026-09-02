@@ -1,0 +1,50 @@
+{
+  "why": "Two wave 2 observations were checked against the pages' own source at their pinned commits. Both turned out to be defects in THIS instrument, not in the pages. The findings were published before this check and are retracted here rather than deleted. The generator reads this file so the retraction appears in results-wave2.md as data with citations, instead of being typed into a generated document.",
+  "checkedOn": "2026-09-02",
+  "method": "The handler for each named tool was read at the corpus commit and traced against what the probe sent and what it compared.",
+  "clears": [
+    {
+      "page": "comicsol-web",
+      "tool": "recommend_provider",
+      "ninthToolSaid": "omitting project_id changed nothing in the answer",
+      "verdict": "instrument defect, and the finding was inverted",
+      "whatTheHandlerDoes": "It rejects the omission before anything else. assertObject enforces exact key set equality against [project_id, expected_revision, job_id], so a call missing project_id throws WebMcpInputError and the handler body is never reached.",
+      "whyTheProbeMissedIt": "The page redacts every input error to one message, and its safeExecute RESOLVES with an ok:false envelope rather than rejecting. P5's control asks whether the good calls SETTLED, not whether they succeeded, so both legs looked like answers and their identical redacted text compared equal. The good call was itself invalid: synthesiseArguments sent the string 'ninthtool' for job_id, whose schema pattern is 64 hex characters.",
+      "citations": [
+        "wenn-id/comicsol@c27fd9b53b83 web/comic_sol_web/static/webmcp.js:483 assertObject(input, ['project_id','expected_revision','job_id'])",
+        "wenn-id/comicsol@c27fd9b53b83 web/comic_sol_web/static/webmcp.js:271-280 exact key set equality, throws WebMcpInputError",
+        "wenn-id/comicsol@c27fd9b53b83 web/comic_sol_web/static/webmcp.js:777-779 safeError flattens both rejections to one message",
+        "wenn-id/comicsol@c27fd9b53b83 web/comic_sol_web/static/webmcp.js:796 safeExecute resolves rather than rejects",
+        "src/probe/observe.js:963 the control tests settlement, not success",
+        "src/probe/observe.js:166-186 synthesiseArguments honours type, enum, minimum and maximum, and ignores pattern, format and minLength"
+      ]
+    },
+    {
+      "page": "sdras-webmcp-demo",
+      "tool": "getAvailability",
+      "ninthToolSaid": "omitting startDate changed nothing in the answer",
+      "verdict": "instrument defect, because the control call was never well formed",
+      "whatTheHandlerDoes": "It reads startDate and uses it in a range comparison. With startDate absent the comparison is against undefined and matches no date, so the tool resolves with an empty object instead of refusing. That much the probe reported correctly.",
+      "whyTheProbeMissedIt": "The comparison leg was worthless. synthesiseArguments sent the literal string 'ninthtool' for a property whose schema declares format date, so the WELL FORMED call also matched no date and also returned an empty object. Two empty objects compared equal, and the row read that as the page ignoring its own required property. A probe whose good call is as broken as its bad call cannot tell them apart.",
+      "citations": [
+        "sdras/webmcp-demo app.js:394 startDate is read and used in the range comparison",
+        "src/probe/observe.js:166-186 synthesiseArguments ignores format, so a date property receives the string 'ninthtool'",
+        "src/probe/observe.js:992 the two legs are compared as text"
+      ]
+    }
+  ],
+  "instrumentWeaknesses": [
+    {
+      "id": "P5 control",
+      "open": true,
+      "what": "synthesiseArguments honours type, enum, minimum and maximum only. A property declaring format, pattern or minLength receives a value that violates it, so P5's well formed control leg can be rejected for the same reason as its deliberately broken leg. Both pages above were misread this way.",
+      "consequence": "P5 can report a page as ignoring a required property when the page enforced it, which is a false finding about somebody else's code."
+    },
+    {
+      "id": "P6 control",
+      "open": true,
+      "what": "controlAnswered counts a call as answered when its promise RESOLVES. A page that resolves an error envelope rather than rejecting is recorded as having answered. comicsol-web does exactly that, and it is the only page where P6 settled.",
+      "consequence": "P6's single pass in wave 2 rests on a control that cannot distinguish an answer from a resolved refusal."
+    }
+  ]
+}
