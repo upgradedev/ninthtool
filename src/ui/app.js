@@ -9,9 +9,17 @@
  * so the conditional tool appearing and disappearing is visible rather than described.
  *
  * NOTHING IS GATED TO NULL. If there is no WebMCP host object the run control is disabled and the
- * reason is rendered beside it, in words, with what to do about it. The catalogue renders either
- * way, so the page is never blank and a judge who arrives on a browser without the flag still sees
- * what this is.
+ * reason is rendered beside it, in words, with what to do about it, and that "what to do" is now a
+ * command the reader can run in the terminal they already have open rather than an instruction to
+ * change browser. The catalogue renders either way, so the page is never blank and a judge who
+ * arrives on a browser without the flag still sees what this is.
+ *
+ * THE READING SURFACE IS A PRODUCT, NOT A DOCUMENT, AND THAT COSTS THE RUN LIFECYCLE NOTHING.
+ * Twenty rows in six groups are reachable by anchor from an index built out of the catalogue, and
+ * every row folds shut to its own headline. Both are deliberately stateless as far as the state
+ * machine is concerned: the index is rendered ONCE at boot from BEHAVIOURS, never from the DOM, so
+ * a run clearing the cards cannot invalidate it, and the fold is a native <details>, so what is
+ * open is the browser's business and nothing here has to remember it.
  */
 import { BEHAVIOURS, GROUPS, headlineCounts, MEASURED_AGAINST, MEASURED_ON } from '../judge/behaviours.js';
 import { judge } from '../judge/verdict.js';
@@ -156,6 +164,19 @@ function refuse(said) {
  */
 const RUN_STATES = ['idle', 'running', 'complete', 'incomplete', 'error'];
 
+/**
+ * The <details> node behind every card, keyed by behaviour id, plus the same nodes in render order.
+ *
+ * WHY THESE EXIST AT ALL. `document.querySelectorAll` would be the obvious way to find them, and
+ * this module deliberately queries nothing but `[data-el="..."]`, because that is the whole surface
+ * the unit doubles implement and a page that quietly grows a second query is a page whose tests
+ * stop covering it. Both are rebuilt by renderGroups, so a run that clears the cards leaves no
+ * stale node behind, and every reader of them reads at the moment of the click rather than closing
+ * over a node that may already have been replaced.
+ */
+const foldById = new Map();
+const folds = [];
+
 let runState = 'idle';
 let lastResult = null;
 let lastRun = null;
@@ -183,12 +204,35 @@ function text(tag, className, value) {
   return node;
 }
 
-/** One card. Before a run it shows the catalogue entry; after one it shows the verdict. */
+/**
+ * One card. Before a run it shows the catalogue entry; after one it shows the verdict.
+ *
+ * THE BODY IS FOLDED AND THE HEADLINE IS NOT. Twenty cards were rendered fully open at all times,
+ * before any run and whether or not the reader cared about that row, which is what made this page
+ * fifteen screens of prose rather than something you can look things up in. Nothing is deleted:
+ * the promise, the measurement and the reproduce command are all still here, one click away.
+ *
+ * IT IS A NATIVE <details>. It is in the tab order without help, it opens on Enter and on Space,
+ * screen readers announce its state, and the browser owns that state rather than this module. The
+ * <article> stays the outer element and keeps the verdict class, because that is what the readiness
+ * gate counts and what the unit doubles look for.
+ *
+ * AFTER A RUN THE BROKEN ROWS OPEN THEMSELVES. A reader who has just pressed the button came for
+ * the failures, so those are the rows that do not need a click. Everything else stays folded.
+ */
 function renderCard(behaviour, finding) {
   const verdict = finding ? finding.verdict : null;
   const card = text('article', `card ${verdict ? VERDICT_CLASS[verdict] : ''}`);
+  // The anchor target for the index above. Prefixed, so a behaviour id can never collide with a
+  // heading id the page already carries.
+  card.id = `row-${behaviour.id}`;
 
-  const top = text('div', 'card-top');
+  const fold = text('details', 'fold');
+  fold.open = verdict === 'fail';
+  foldById.set(behaviour.id, fold);
+  folds.push(fold);
+
+  const top = text('summary', 'card-top');
   top.append(text('span', 'chip', behaviour.id));
   if (verdict) top.append(text('span', 'verdict', VERDICT_WORD[verdict]));
   // NOT "a defect in the page". Three of the six your-page rows hold, so that wording rendered a
@@ -197,9 +241,11 @@ function renderCard(behaviour, finding) {
   top.append(text('span', 'subject-tag',
     behaviour.subject === 'browser' ? 'measured on the browser' : 'measured on the page under test'));
   top.append(text('h3', 'card-title', behaviour.title));
-  card.append(top);
+  top.append(text('span', 'fold-hint', 'the promise, the measurement, the command'));
+  fold.append(top);
 
-  card.append(text('p', 'card-why', behaviour.why));
+  const body = text('div', 'card-body');
+  body.append(text('p', 'card-why', behaviour.why));
 
   const kv = text('div', 'kv');
   const row = (key, value, extraClass) => {
@@ -219,21 +265,93 @@ function renderCard(behaviour, finding) {
     row('Promise', behaviour.promise);
     row(`On ${MEASURED_AGAINST}`, behaviour.measured);
   }
-  card.append(kv);
+  body.append(kv);
 
   const repro = text('div', 'repro');
   const pre = text('pre', 'cmd');
   pre.append(text('code', null, behaviour.reproduce));
   repro.append(pre);
-  card.append(repro);
+  body.append(repro);
+
+  fold.append(body);
+  card.append(fold);
 
   return card;
+}
+
+/** The anchor a group heading answers to. One function, so the index and the render cannot drift. */
+function groupAnchor(group) {
+  return `group-${group}`;
+}
+
+/**
+ * The index of every group and every behaviour id, rendered once, from the catalogue.
+ *
+ * WHAT IT IS FOR. Twenty rows in six groups had no way in but the scroll bar, so a reader who
+ * wanted C1 read everything above C1 to find it. These are plain anchors to ids the render puts on
+ * the cards: they work with no script at all, they are already in the tab order, and because they
+ * are built from BEHAVIOURS rather than from the DOM, a run that blanks and re-renders the cards
+ * cannot leave them pointing at nothing.
+ *
+ * The click handler is an addition to the anchor and never a replacement for it. It opens the row
+ * it lands on, because arriving at a folded row is arriving at a headline, and the reader who
+ * clicked C1 wanted C1. If it never fires, the jump still happens.
+ */
+function renderIndex() {
+  const host = el('index');
+  host.textContent = '';
+
+  for (const group of GROUPS) {
+    const members = BEHAVIOURS.filter((b) => b.group === group);
+    if (!members.length) continue;
+    const copy = GROUP_COPY[group] || { heading: group };
+
+    const block = text('div', 'index-group');
+    const jump = text('a', 'index-jump', copy.heading);
+    jump.href = `#${groupAnchor(group)}`;
+    block.append(jump);
+    block.append(text('span', 'index-count', `${members.length} row${members.length === 1 ? '' : 's'}`));
+
+    const ids = text('div', 'index-ids');
+    for (const behaviour of members) {
+      const link = text('a', 'index-id', behaviour.id);
+      link.href = `#row-${behaviour.id}`;
+      link.title = behaviour.title;
+      link.addEventListener('click', () => {
+        const fold = foldById.get(behaviour.id);
+        if (fold) fold.open = true;
+      });
+      ids.append(link);
+    }
+    block.append(ids);
+    host.append(block);
+  }
+}
+
+/**
+ * Open or close every row at once, over the folds the current render actually produced.
+ *
+ * IT SAYS WHAT IT DID, AND NOT IN THE RUN STATUS. `[data-el="status"]` is the run state machine's
+ * live region, and writing fold chatter into it would announce "every row is open" to a screen
+ * reader in the middle of an audit and overwrite the only line that says what the audit found. So
+ * the fold has a live region of its own.
+ */
+function setEveryFold(open) {
+  for (const fold of folds) fold.open = open;
+  el('fold-said').textContent = open
+    ? `All ${folds.length} rows are open.`
+    : `All ${folds.length} rows are closed. Nothing was removed.`;
 }
 
 /** The whole catalogue, grouped, with findings folded in when there are any. */
 function renderGroups(result) {
   const host = el('groups');
   host.textContent = '';
+  // The cards about to be discarded take their folds with them. Leaving these populated would hand
+  // "open every row" a list of nodes that are no longer on the page, which is the stale-answer
+  // shape this module already had once and is not having again.
+  foldById.clear();
+  folds.length = 0;
   const byId = new Map((result ? result.findings : []).map((f) => [f.id, f]));
 
   for (const group of GROUPS) {
@@ -245,6 +363,7 @@ function renderGroups(result) {
     // this fallback means even that mistake renders the group rather than nothing.
     const copy = GROUP_COPY[group] || { heading: group, note: '' };
     const section = text('section', 'group');
+    section.id = groupAnchor(group);
     section.append(text('h3', 'group-h', copy.heading));
     if (copy.note) section.append(text('p', 'group-note', copy.note));
     const cards = text('div', 'cards');
@@ -376,11 +495,19 @@ async function runAudit() {
   }
 }
 
-/** Render a reason beside the disabled control, or anywhere the page must explain itself. */
+/**
+ * Render a reason beside the disabled control, or anywhere the page must explain itself.
+ *
+ * AND THE ACTION THAT GOES WITH IT. A reason with no action is a dead end, and this was the dead
+ * end most visitors hit: the flag is off, the button is disabled, and the only advice was to change
+ * browser. The command panel next to this element carries the line that audits a page of their own
+ * from the terminal, so it is revealed on every path that reveals a reason.
+ */
 function showBlocker(said) {
   const blocker = el('blocker');
   blocker.textContent = said;
   blocker.hidden = false;
+  el('blocker-do').hidden = false;
 }
 
 function clearFindings() {
@@ -391,6 +518,43 @@ function clearFindings() {
   el('summary').hidden = true;
   withdrawFindingsTool();
   el('status').textContent = 'Cleared. nt_get_findings has been withdrawn from the tool surface.';
+}
+
+/**
+ * Copy the command the blocker offers, and say what happened either way.
+ *
+ * NOT GATED TO NULL, AND MEASURED RATHER THAN ASSUMED. A clipboard write needs a secure context and
+ * a permission the browser may refuse, so the control cannot promise. It reads the command out of
+ * the page rather than holding a second copy of it, which is the same reason the reproduce commands
+ * on every card are rendered from the catalogue: two copies of a command line drift, and the one
+ * that drifts is always the one nobody runs.
+ *
+ * When there is no clipboard to write to, the control is disabled and the reason is rendered beside
+ * it, and the command is still sitting above in selectable text, which is how a reader copies
+ * anything else on this page.
+ */
+function wireCopyControl() {
+  const button = el('copy-command');
+  const said = el('copy-said');
+  const command = el('npx-command');
+  const clipboard = typeof navigator === 'undefined' ? null : navigator.clipboard;
+
+  if (!clipboard || typeof clipboard.writeText !== 'function') {
+    button.disabled = true;
+    said.textContent = 'This browser exposes no clipboard to write to, so select the line above and '
+      + 'copy it the usual way.';
+    return;
+  }
+
+  button.addEventListener('click', async () => {
+    try {
+      await clipboard.writeText(command.textContent.trim());
+      said.textContent = 'Copied. Paste it into a terminal and point it at a page of your own.';
+    } catch (error) {
+      said.textContent = `The browser refused the clipboard write (${String((error && error.message)
+        || error)}), so select the line above and copy it the usual way.`;
+    }
+  });
 }
 
 /* ------------------------------------------------------------------ this page's own tools */
@@ -606,18 +770,34 @@ async function boot() {
     + 'replace the stored measurement with what your own browser does.';
 
   renderGroups(null);
+  renderIndex();
+
+  /*
+   * WIRED BEFORE THE HOST OBJECT IS LOOKED FOR, DELIBERATELY.
+   *
+   * The branch below returns, and it is the branch most visitors take. Every listener attached
+   * after it would be dead on exactly the browser it exists for, which is how a control ends up
+   * rendered, enabled, and doing nothing. Reading the catalogue, jumping to a row and copying the
+   * command need no WebMCP at all, so none of them waits on it.
+   */
+  el('expand-all').addEventListener('click', () => setEveryFold(true));
+  el('collapse-all').addEventListener('click', () => setEveryFold(false));
+  wireCopyControl();
 
   const found = findModelContext(document, navigator);
   if (!found.ctx) {
-    // H2 and H3. The control is disabled and the reason is beside it, in words, with the fix.
+    // H2 and H3. The control is disabled and the reason is beside it, in words, with the fix, and
+    // the fix is now a command rather than an instruction to go and find a different browser.
     el('run').disabled = true;
     el('status').textContent = 'The audit cannot run here.';
-    const blocker = el('blocker');
-    blocker.textContent = `${found.reason} The catalogue below still shows every behaviour and what `
-      + `was measured on ${MEASURED_AGAINST}, so nothing on this page is hidden from you.`;
-    blocker.hidden = false;
+    showBlocker(`${found.reason} The catalogue below still shows every behaviour and what `
+      + `was measured on ${MEASURED_AGAINST}, so nothing on this page is hidden from you.`);
     return;
   }
+
+  // This browser can run the audit here, so the terminal route is not what this reader needs. It
+  // comes back the moment anything blocks, through showBlocker.
+  el('blocker-do').hidden = true;
 
   el('run').addEventListener('click', runAudit);
   window.addEventListener('keydown', (event) => {

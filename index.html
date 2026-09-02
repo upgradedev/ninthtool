@@ -26,9 +26,26 @@
   </div>
 </header>
 
+<!-- NAVIGATION, AND WHY IT IS HERE.
+     This page is fifteen screens long and used to carry one button and two links, so a reader who
+     wanted one row had no way to reach it but the scroll bar. These are ordinary anchors: they
+     work with JavaScript switched off, they are in the tab order already, and they hold no state
+     the run lifecycle can invalidate. -->
+<nav class="pagenav" aria-label="Sections of this page">
+  <div class="wrap pagenav-row">
+    <a href="#run">Run it</a>
+    <a href="#behaviours">The 20 behaviours</a>
+    <a href="#tools">Its own tools</a>
+    <a href="#subject">The subject page</a>
+    <a href="#limits">What it will not do</a>
+    <a href="#honesty">Its own rows</a>
+    <a href="#numbers">Where the numbers come from</a>
+  </div>
+</nav>
+
 <main class="wrap">
 
-  <section class="run" aria-labelledby="run-h">
+  <section class="run" id="run" aria-labelledby="run-h">
     <h2 id="run-h" class="section-h">Run it</h2>
     <p class="lede">This drives the subject page below through your browser's own WebMCP and judges
       what happened. Nothing is sent anywhere and nothing is stored. On any page but this one it
@@ -40,8 +57,28 @@
       <p class="status" data-el="status" role="status" aria-live="polite">Loading the catalogue.</p>
     </div>
 
-    <!-- H2. When the control is disabled the reason is rendered right here, never left blank. -->
-    <p class="blocker" data-el="blocker" hidden></p>
+    <!-- H2. When the control is disabled the reason is rendered right here, never left blank.
+         AND THE READER IS GIVEN SOMETHING TO DO. Most visitors arrive without the flag, so this
+         used to be a screen whose only advice was "change browser". The command below is the one
+         the README ships and the one the end to end job runs on a clean machine, and it audits a
+         page of the reader's own from a terminal they already have open. It is a sibling of the
+         reason rather than a child of it, because [data-el="blocker"] is a text element the page
+         writes with textContent and anything nested inside would be erased on the next write. -->
+    <div class="blocked">
+      <p class="blocker" data-el="blocker" hidden></p>
+      <div class="blocker-do" data-el="blocker-do">
+        <p class="blocker-do-h">You do not have to change browser to use this. Run the same suite
+          against a page of your own, from a terminal, with no checkout and nothing to install:</p>
+        <pre class="cmd"><code data-el="npx-command">npx --yes https://github.com/upgradedev/ninthtool/tarball/main https://your-page.example</code></pre>
+        <div class="blocker-do-row">
+          <button type="button" class="secondary" data-el="copy-command">Copy the command</button>
+          <span class="copy-said" data-el="copy-said" role="status" aria-live="polite"></span>
+        </div>
+        <p class="blocker-do-note">Node 20 or later. It has no dependencies, so there is nothing to
+          resolve before it runs, and it needs the same flagged Chromium to drive the page it is
+          pointed at. Every row below is still readable here without either.</p>
+      </div>
+    </div>
   </section>
 
   <section class="summary" data-el="summary" hidden aria-labelledby="sum-h">
@@ -50,13 +87,28 @@
     <p class="env" data-el="env"></p>
   </section>
 
-  <section class="findings" aria-labelledby="find-h">
+  <section class="findings" id="behaviours" aria-labelledby="find-h">
     <h2 id="find-h" class="section-h">The behaviours</h2>
     <p class="lede" data-el="catalogue-lede"></p>
+
+    <!-- THE INDEX, BUILT FROM THE CATALOGUE AND NOT FROM THE PAGE.
+         Twenty rows in six groups with no way to reach one meant a reader who wanted C1 scrolled
+         for it. Every link here is an anchor to a card id, so the jump works before any script has
+         run and cannot be invalidated by a run clearing the cards. -->
+    <nav class="rowindex" aria-label="Jump to a behaviour" data-el="index"></nav>
+
+    <div class="foldbar">
+      <button type="button" class="secondary" data-el="expand-all">Open every row</button>
+      <button type="button" class="secondary" data-el="collapse-all">Close every row</button>
+      <span class="foldbar-note">Each row opens to the promise, the measurement and the command
+        that reproduces it. Nothing is removed by closing one.</span>
+      <span class="foldbar-said" data-el="fold-said" role="status" aria-live="polite"></span>
+    </div>
+
     <div data-el="groups" class="groups"></div>
   </section>
 
-  <section class="tools" aria-labelledby="tools-h">
+  <section class="tools" id="tools" aria-labelledby="tools-h">
     <h2 id="tools-h" class="section-h">This page is a WebMCP page too</h2>
     <p class="lede">Both halves of the standard on one surface. This page publishes tools of its
       own, so your agent can run the whole audit without touching the screen, and the subject page
@@ -101,7 +153,7 @@
       message.</p>
   </section>
 
-  <section class="subject" aria-labelledby="subj-h">
+  <section class="subject" id="subject" aria-labelledby="subj-h">
     <h2 id="subj-h" class="section-h">The subject page</h2>
     <p class="lede">A real page on this origin with two forms promoted to tools by HTML attributes.
       It is loaded in a frame and driven live. You can fill either form in yourself: they are
@@ -110,7 +162,7 @@
             title="The subject page Ninth Tool drives"></iframe>
   </section>
 
-  <section class="limits" aria-labelledby="lim-h">
+  <section class="limits" id="limits" aria-labelledby="lim-h">
     <h2 id="lim-h" class="section-h">What this does not do, and why</h2>
     <p><strong>It does not scan other people's sites.</strong> A page cannot reach another origin's
       tool surface. The <code>tools</code> Permissions Policy defaults to <code>self</code>, and a
@@ -128,7 +180,7 @@
       page.</p>
   </section>
 
-  <section class="honesty" aria-labelledby="own-h">
+  <section class="honesty" id="honesty" aria-labelledby="own-h">
     <h2 id="own-h" class="section-h">What this page scores on its own rows, and why</h2>
     <p><strong>P1</strong> fails because two of the tools on this surface come from HTML forms, and
       the standard has no way to annotate a form derived tool at all. That is behaviour B4 above. It
@@ -153,7 +205,7 @@
       all. Three outcomes now, and only a rejection is a pass.</p>
   </section>
 
-  <section class="honesty" aria-labelledby="hon-h">
+  <section class="honesty" id="numbers" aria-labelledby="hon-h">
     <h2 id="hon-h" class="section-h">Where the numbers come from</h2>
     <p>Every stored measurement in the catalogue was taken on <strong>2026-09-01</strong> against
       <strong>Chrome 152.0.7977.65</strong> launched with <code>--enable-features=WebMCP</code>.
