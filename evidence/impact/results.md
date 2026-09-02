@@ -119,6 +119,12 @@ as one finding reproduced twelve times, never as twelve findings.
 | `watch-dog-reference` | `4cc191cc2d23` | `c4104380e7a3` | Opening in existing browser session. |
 | `worldmonitor-pro-test` | `f0d7c2429652` | `c4104380e7a3` | Opening in existing browser session. |
 
+## There is a second wave, and it is reported separately
+
+`results-wave2.md` re-runs the two rows that read a page’s own tools, on the pages that
+published a `readOnlyHint` tool, with those calls authorised. It is post hoc, it does not
+change anything above, and it could not: the threshold was three and only two rows qualify.
+
 ## Artifact hashes
 
 | file | sha256 |

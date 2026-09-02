@@ -1,1 +1,2 @@
 evidence/impact/runs/*.json text eol=lf
+evidence/impact/runs-wave2/*.json text eol=lf

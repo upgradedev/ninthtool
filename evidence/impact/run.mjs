@@ -102,8 +102,9 @@ function serve(root) {
  * `--json` is used so the transcript and the judged result both come back, which is what makes a
  * finding checkable later without rerunning a browser against somebody's page.
  */
-async function runEntry(entry) {
+async function runEntry(entry, options = {}) {
   const startedAt = new Date().toISOString();
+  const behaviour = options.behaviour || null;
 
   const checkout = fetchCommit(entry);
   if (!checkout.ok) {
@@ -127,10 +128,22 @@ async function runEntry(entry) {
 
   const args = [path.join(ROOT, 'bin/ninthtool.mjs'), url, '--json'];
 
+  /*
+   * ONE ROW PER RUN IN WAVE 2, AND THE REASON IS ARITHMETIC RATHER THAN TIDINESS.
+   *
+   * P6 makes N squared plus 3N calls to the page's own tools and each call may take
+   * SETTLE_TIMEOUT_MS, which is 2500. At N=5 that is 40 calls, and adding P5's 4 per testable tool
+   * puts the worst case at 150 seconds against the 120 second budget the CLI gives the whole
+   * evaluation. Splitting the rows gives each its own budget and, more usefully, it shrinks what a
+   * single run can touch.
+   */
+  if (behaviour) args.push('--behaviour', behaviour);
+
   // AUTHORISATION IS RECORDED, NOT ASSUMED. Calling a page's own tools happens only where the entry
   // declares them readOnlyHint, and fixture forms are never authorised off our own fixture.
-  const authorisation = entry.allowToolCalls === true ? 'read-only tool calls' : 'no tool calls';
-  if (entry.allowToolCalls === true) args.push('--allow-tool-calls');
+  const allowCalls = options.allowToolCalls === true || entry.allowToolCalls === true;
+  const authorisation = allowCalls ? 'read-only tool calls' : 'no tool calls';
+  if (allowCalls) args.push('--allow-tool-calls');
 
   /*
    * ASYNC, BECAUSE spawnSync BLOCKS THE EVENT LOOP AND THIS PROCESS IS THE WEB SERVER.
@@ -175,9 +188,21 @@ async function runEntry(entry) {
     sourceCommit: entry.commit,
     entryPoint: entry.entryPoint,
     servedAt: url,
+    behaviour,
     toolCommit: toolCommit(),
     browser: browserVersion(),
-    flags: ['--enable-features=WebMCP'],
+    /*
+     * NAMED FOR WHAT IT IS. This used to read `flags: ['--enable-features=WebMCP']`, which reads as
+     * the browser's full command line and is not: launchWithWebMCP builds seven. Recording an
+     * incomplete list under a complete-sounding name is the shape of defect this study already
+     * published twice, so the field now says what it holds and where the rest lives.
+     */
+    browserFlags: {
+      recordedHere: ['--enable-features=WebMCP'],
+      complete: false,
+      builtIn: 'src/probe/launch.mjs',
+    },
+    authorisedTools: options.authorisedTools || null,
     authorisation,
     startedAt,
     endedAt: new Date().toISOString(),
@@ -200,6 +225,61 @@ if (!fs.existsSync(corpusPath)) {
 }
 const corpus = JSON.parse(fs.readFileSync(corpusPath, 'utf8'));
 const entries = (corpus.entries || []).filter((e) => e.included === true);
+
+/*
+ * WAVE 2. THE FOUR PAGES ARE NOT A LIST SOMEBODY TYPED.
+ *
+ * They are every page in wave 1 that published at least one tool it annotated readOnlyHint, read
+ * out of the wave-1 run files by the rule below. Protocol section 10 authorises --allow-tool-calls
+ * on exactly those and nowhere else, so the selection rule IS the authorisation rule, and a reader
+ * can re-derive the set instead of trusting it.
+ *
+ * The instrument does not verify readOnlyHint and says so: `steps.js` calls it "an annotation this
+ * suite exists to doubt". So the guarantee here is not that these tools are harmless, it is that
+ * nothing outside the page's own declared read-only set is ever called, enforced at
+ * src/probe/observe.js:903 and :1010 by a strict === true, not by this file.
+ */
+if (args.includes('--wave2')) {
+  const WAVE1 = path.join(HERE, 'runs');
+  const RUNS2 = path.join(HERE, 'runs-wave2');
+  if (!fs.existsSync(WAVE1)) {
+    console.error('wave 2 is derived from the wave 1 runs, and evidence/impact/runs/ does not exist.');
+    process.exit(2);
+  }
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const selected = [];
+  for (const file of fs.readdirSync(WAVE1).filter((f) => f.endsWith('.json')).sort()) {
+    const record = JSON.parse(fs.readFileSync(path.join(WAVE1, file), 'utf8'));
+    const tools = (record.transcript && record.transcript.pageTools) || [];
+    const readOnly = tools.filter((t) => t.readOnlyHint === true).map((t) => t.name).sort();
+    if (!readOnly.length) continue;
+    const entry = byId.get(record.corpusId);
+    if (!entry) continue;
+    selected.push({ entry, readOnly });
+  }
+  if (!selected.length) {
+    console.error('no wave 1 page published a readOnlyHint tool, so wave 2 has nothing to authorise.');
+    process.exit(2);
+  }
+  fs.mkdirSync(RUNS2, { recursive: true });
+  console.log(`wave 2: ${selected.length} page(s) published a readOnlyHint tool.
+`);
+  for (const { entry, readOnly } of selected) {
+    for (const row of ['P5', 'P6']) {
+      process.stdout.write(`running ${entry.id} ${row} (${readOnly.length} read only tool(s)) ... `);
+      const record = await runEntry(entry, {
+        behaviour: row, allowToolCalls: true, authorisedTools: readOnly,
+      });
+      fs.writeFileSync(path.join(RUNS2, `${entry.id}-${row}.json`), `${JSON.stringify(record, null, 1)}
+`);
+      const finding = record.result && (record.result.findings || []).find((f) => f.id === row);
+      console.log(finding ? `${finding.verdict}` : `no verdict (exit ${record.exitCode})`);
+    }
+  }
+  console.log(`
+wrote ${selected.length * 2} run file(s) to evidence/impact/runs-wave2/`);
+  process.exit(0);
+}
 
 const wanted = args.includes('--all')
   ? entries
