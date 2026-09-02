@@ -457,26 +457,53 @@ const RULES = {
    * rather than blaming whichever tool was called next.
    */
   P6(o) {
-    need(o, ['oracleCount', 'oracles', 'moved', 'stable']);
+    need(o, ['oracleCount', 'oracles', 'moved', 'stable', 'controlAnswered']);
     const moved = asArray(o.moved);
     const selfChanged = asArray(o.selfChanged);
     const unstable = asArray(o.unstable);
-    if (Number(o.oracleCount) < 2) {
-      throw new Error('a differential needs at least two read only tools, one to call and one to '
-        + 'read the state with');
+    const answered = asArray(o.controlAnswered);
+    const unanswered = asArray(o.controlUnanswered);
+
+    /*
+     * A CONTROL THAT NOTHING ANSWERED IS NOT A CONTROL.
+     *
+     * This row used to require only that two reads AGREE. But the probe normalises every
+     * non-resolved outcome to a constant, so two tools that reject every call produce two identical
+     * reads, an empty `moved`, and a confident pass. Reproduced against a fake host: all-reject and
+     * all-timeout both gave verdict=pass with "none changed what another answers", on a run where
+     * nothing was ever read. Stability of an error string is not evidence that nothing moved, it is
+     * evidence that nothing was read.
+     *
+     * TWO, not one. The observable set is the pairs (caller, oracle) with caller != oracle where
+     * BOTH answered. With one answered oracle that set is empty, so `moved` could not be non-empty
+     * whatever the page did, and the row would pass by construction. That is the row's own arity
+     * precondition, so it is applied to the answered set rather than to the published count.
+     */
+    if (answered.length < 2) {
+      throw new Error('a differential needs at least two read only tools that actually answered a '
+        + `schema valid call in both control reads, and ${answered.length} did`
+        + `${unanswered.length ? `. The rest: ${unanswered.join('; ')}` : ''}`);
     }
     if (o.stable !== true) {
       throw new Error('these read only tools do not answer the same way twice with nothing called '
         + `in between, so no change can be attributed to any of them: ${unstable.join(', ')}`);
     }
+
+    /*
+     * AND THE CLAIM IS QUANTIFIED OVER WHAT WAS MEASURED. It used to read "calling any of the N read
+     * only tools", where N was every tool the page PUBLISHED, including ones that never answered.
+     * A resolution is also not a state read: WebMCP's refusal channel resolves, and this page's own
+     * refuse() resolves, so "answered" means "returned something", not "reported state".
+     */
     return {
       held: moved.length === 0,
-      expected: `calling any of the ${o.oracleCount} read only tools leaves what the others answer `
-        + 'unchanged',
+      expected: `calling any read only tool that answers leaves what the other answering ones `
+        + 'report unchanged',
       observed: moved.length
         ? `${moved.length} changed another tool's answer: ${moved.join('; ')}`
-        : `${o.oracleCount} read only tools, stable across a control read, and none changed what `
-          + `another answers`
+        : `${answered.length} of ${o.oracleCount} read only tools answered a schema valid call in `
+          + `both control reads, and calling any of them did not change what the others answered`
+          + (unanswered.length ? `. Not counted: ${unanswered.join('; ')}` : '')
           + (selfChanged.length ? `. ${selfChanged.length} changed their own answer: ${selfChanged.join('; ')}` : ''),
     };
   },

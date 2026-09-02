@@ -832,35 +832,73 @@ export async function observeAll(ctx, options = {}) {
        * disagree, this surface is not stable enough for a differential and the row abstains rather
        * than blaming whichever tool happened to be called next.
        */
+      /*
+       * EACH READ RECORDS TWO THINGS: THE ANSWER, AND WHETHER THE CALL RESOLVED AT ALL.
+       *
+       * The answer alone was a fail open. `[rejected]` is a constant, so a page whose read only
+       * tools reject every invocation produced two identical control reads, an empty `moved`, and a
+       * confident PASS on a run in which nothing was ever read. Reproduced against a fake host:
+       * all-reject and all-timeout both gave verdict=pass, complete=true.
+       *
+       * Resolution is RECORDED here rather than sniffed back out of the text by the judge, because
+       * a tool is free to resolve with the literal string "[rejected]" and nothing downstream could
+       * then tell that answer from a rejection. The probe knows. The judge would have to guess.
+       */
       const readOracles = async () => {
-        const seen = {};
+        const answers = {};
+        const settledAs = {};
+        const resolved = [];
         for (const record of readOnly) {
           const tool = await toolNamed(ctx, record.name);
-          if (!tool) { seen[record.name] = '[gone from the surface]'; continue; }
+          if (!tool) {
+            answers[record.name] = '[gone from the surface]';
+            settledAs[record.name] = 'gone from the surface';
+            continue;
+          }
           // Schema valid arguments, not {}. A tool that requires an argument answers an empty
           // object with an error, and an error that varies is not a state change.
           const outcome = await settle(call(ctx, tool, synthesiseArguments(record.schema)), SETTLE_TIMEOUT_MS);
-          seen[record.name] = outcome.settled === 'resolved' ? String(outcome.value ?? '') : `[${outcome.settled}]`;
+          answers[record.name] = outcome.settled === 'resolved' ? String(outcome.value ?? '') : `[${outcome.settled}]`;
+          settledAs[record.name] = outcome.settled;
+          if (outcome.settled === 'resolved') resolved.push(record.name);
         }
-        return seen;
+        return { answers, settledAs, resolved };
       };
 
       const controlA = await readOracles();
       const controlB = await readOracles();
-      const unstable = Object.keys(controlA).filter((k) => controlA[k] !== controlB[k]);
+      const unstable = Object.keys(controlA.answers).filter((k) => controlA.answers[k] !== controlB.answers[k]);
+
+      // THE CONTROL MEASUREMENT, NAMED PER ORACLE. An oracle counts as having answered only if it
+      // resolved in BOTH control reads. One resolution and one rejection is not a reading; that
+      // case is instability, which the check below already reports.
+      const names = readOnly.map((t) => t.name);
+      const controlAnswered = names.filter(
+        (name) => controlA.resolved.includes(name) && controlB.resolved.includes(name),
+      );
+      // The ones that did not answer, WITH how each read ended, so all-reject, all-timeout and a
+      // mixture stay distinguishable instead of collapsing into one empty list.
+      const controlUnanswered = names
+        .filter((name) => !controlAnswered.includes(name))
+        .map((name) => `${name}: ${controlA.settledAs[name]} then ${controlB.settledAs[name]}`);
+
       if (unstable.length) {
         return {
           oracleCount: readOnly.length,
-          oracles: readOnly.map((t) => t.name),
+          oracles: names,
           stable: false,
           unstable,
           moved: [],
           selfChanged: [],
+          controlAnswered,
+          controlUnanswered,
         };
       }
 
       // The baseline is controlB, established and confirmed before any attributed call.
-      const baseline = controlB;
+      // COPIED rather than aliased: the loop below overwrites entries as it attributes them, and
+      // controlB is still the record of what the control actually measured.
+      const baseline = { ...controlB.answers };
       const moved = [];
       const selfChanged = [];
       for (const record of readOnly) {
@@ -869,23 +907,25 @@ export async function observeAll(ctx, options = {}) {
         await settle(call(ctx, tool, synthesiseArguments(record.schema)), SETTLE_TIMEOUT_MS);
         const after = await readOracles();
         for (const oracle of Object.keys(baseline)) {
-          if (after[oracle] === baseline[oracle]) continue;
+          if (after.answers[oracle] === baseline[oracle]) continue;
           // Self observation is REPORTED, not excluded. A tool whose own answer drifts is the one
           // thing the previous version structurally could not name, because it skipped itself and
           // then blamed the next tool called.
           if (oracle === record.name) selfChanged.push(`${record.name}: its own answer changed between reads`);
           else moved.push(`${record.name} changed what ${oracle} answers`);
-          baseline[oracle] = after[oracle];
+          baseline[oracle] = after.answers[oracle];
         }
       }
 
       return {
         oracleCount: readOnly.length,
-        oracles: readOnly.map((t) => t.name),
+        oracles: names,
         stable: true,
         unstable: [],
         moved,
         selfChanged,
+        controlAnswered,
+        controlUnanswered,
       };
     });
 
