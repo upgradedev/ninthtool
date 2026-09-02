@@ -46,6 +46,18 @@ function measure(run) {
   const withReproduce = findings.filter((f) => typeof f.reproduce === 'string' && f.reproduce);
   return {
     ran: Boolean(run.result),
+    /*
+     * What the PAGE exposed, before this tool registered anything of its own.
+     *
+     * THE FIELD IS `pageTools`. Read as `transcript.tools` it is undefined on every run, and the
+     * generated report stated "13 of 13 pages exposed zero tools of their own" as a measured fact.
+     * Seven of them had published between 2 and 14. A misspelt field does not throw, it reports
+     * zero, and zero is a number a reader will believe.
+     */
+    pageTools: ((run.transcript && run.transcript.pageTools) || []).length,
+    // The exact set of execution rows and their verdicts. If this string is the same on every page,
+    // the metric is not reading the pages.
+    executionSignature: executionSettled.map((f) => `${f.id}:${f.verdict}`).sort().join(','),
     settled: settled.length,
     executionSettled: executionSettled.length,
     metadataSettled: settled.length - executionSettled.length,
@@ -69,7 +81,43 @@ const rows = runs.map((r) => ({ ...r, m: measure(r.data) }));
 const ran = rows.filter((r) => r.m.ran);
 const medianExecution = median(ran.map((r) => r.m.executionSettled));
 const THRESHOLD = 3;
-const holds = ran.length > 0 && medianExecution >= THRESHOLD;
+
+/*
+ * VALIDITY IS CHECKED BEFORE THE THRESHOLD, AND IT OVERRIDES IT.
+ *
+ * The first generated version of this file said "the hypothesis holds" on a median of 8 against a
+ * threshold of 3. It was wrong, and nothing in the metric could have said so: all twelve pages had
+ * produced the SAME eight execution verdicts, because none of them exposed a single tool. The rows
+ * settled against this tool's own registrations, so the number measured one browser twelve times.
+ *
+ * A metric that cannot vary across the population cannot support a claim about the population. That
+ * is a property of the data, so it is computed here rather than remembered, and it decides the
+ * headline. The primary metric itself is UNCHANGED and still reported: the protocol forbids swapping
+ * it once results exist, and this is not a swap, it is the precondition it always had.
+ */
+const distinctPatterns = new Set(ran.map((r) => r.m.executionSignature)).size;
+const pagesExposingTools = rows.filter((r) => r.m.pageTools > 0).length;
+
+/*
+ * WHICH ROWS ACTUALLY TELL TWO PAGES APART.
+ *
+ * A row that returns the same verdict on every page in the population is not reading the pages. It
+ * may still be reading something real, and here it is: the execution rows are reading the browser's
+ * WebMCP implementation through tools this instrument registers itself, and one browser gives one
+ * answer. That is what those rows are FOR. It is not what the primary metric assumed they were.
+ */
+const verdictsById = new Map();
+for (const r of ran) {
+  for (const f of (r.data.result.findings || [])) {
+    if (!verdictsById.has(f.id)) verdictsById.set(f.id, new Set());
+    verdictsById.get(f.id).add(f.verdict);
+  }
+}
+const varying = [...verdictsById.entries()].filter(([, v]) => v.size > 1).map(([id]) => id).sort();
+const varyingExecution = varying.filter((id) => EXECUTION.has(id));
+const discriminates = varyingExecution.length > 0;
+const valid = discriminates;
+const holds = valid && ran.length > 0 && medianExecution >= THRESHOLD;
 
 const lines = [];
 lines.push('# Results: what Ninth Tool reported on independently authored WebMCP pages');
@@ -85,6 +133,28 @@ if (!runs.length) {
   lines.push('that its absence cannot be mistaken for a result, and so the generator is checked in');
   lines.push('CI before any page has been run.');
 } else {
+  if (!valid) {
+    lines.push('## The hypothesis is not supported, and the reason is worth more than the result');
+    lines.push('');
+    lines.push(`Across ${ran.length} pages that produced a judged result, **not one \`execution\` row `
+      + 'returned a different verdict on a different page.** There is exactly '
+      + `**${distinctPatterns} distinct pattern** of execution verdicts in the whole population.`);
+    lines.push('');
+    lines.push(`**${varying.length} of ${verdictsById.size} rows vary between pages: `
+      + `${varying.map((id) => `\`${id}\``).join(', ')}. Every one of them is a \`metadata\` row**, `
+      + 'which is precisely the half a declaration-only reading can already reach.');
+    lines.push('');
+    lines.push('So the preregistered claim fails on its own terms. The rows that need a tool to be');
+    lines.push('called are not telling these pages apart, and the rows that tell these pages apart did');
+    lines.push('not need a tool to be called.');
+    lines.push('');
+    lines.push('The execution rows were not measuring nothing. They were measuring the **browser**,');
+    lines.push('through tools this instrument registers itself, and one browser returns one answer.');
+    lines.push('That is a real reading and it is reported below as a post-hoc secondary result. It is');
+    lines.push('not the reading the primary metric was written to support, and the metric is not');
+    lines.push('changed to fit it.');
+    lines.push('');
+  }
   lines.push('## The preregistered answer, first');
   lines.push('');
   lines.push(`The protocol fixed the primary metric as **catalogue rows that reached a verdict and`);
@@ -96,16 +166,19 @@ if (!runs.length) {
   lines.push('');
   lines.push(holds
     ? `**The hypothesis holds on this population.**`
-    : `**The hypothesis FAILS on this population, and that is the result.** The median page yielded`
-      + ` ${medianExecution} execution rows against a preregistered threshold of ${THRESHOLD}.`);
+    : valid
+      ? `**The hypothesis FAILS on this population, and that is the result.** The median page yielded`
+        + ` ${medianExecution} execution rows against a preregistered threshold of ${THRESHOLD}.`
+      : `**That number clears the threshold and still means nothing**, for the reason given above.`
+        + ` It is recorded, not claimed.`);
   lines.push('');
   lines.push('## Every page, including the ones that produced nothing');
   lines.push('');
-  lines.push('| page | ran | settled | of those, execution | abstained | broken | ms |');
-  lines.push('|---|---|---|---|---|---|---|');
+  lines.push('| page | tools the page exposed | ran | settled | of those, execution | abstained | broken | ms |');
+  lines.push('|---|---|---|---|---|---|---|---|');
   for (const r of rows) {
     const m = r.m;
-    lines.push(`| \`${r.data.corpusId}\` | ${m.ran ? 'yes' : 'NO'} | ${m.settled} | `
+    lines.push(`| \`${r.data.corpusId}\` | ${m.pageTools} | ${m.ran ? 'yes' : 'NO'} | ${m.settled} | `
       + `${m.executionSettled} | ${m.abstained} | ${m.broken} | ${m.elapsedMs} |`);
   }
   lines.push('');
@@ -130,6 +203,30 @@ if (!runs.length) {
       + 'the claim that every row carries one. Named: '
       + noRepro.map((r) => `\`${r.data.corpusId}\``).join(', ')
     : 'Every finding on every page carried a one-command reproduction.');
+  lines.push('');
+  lines.push('## Post hoc, and labelled as such');
+  lines.push('');
+  lines.push('**This was not preregistered. It is reported because the data shows it, and it is');
+  lines.push('marked so that no reader mistakes it for the tested hypothesis.**');
+  lines.push('');
+  const constantFails = [...verdictsById.entries()]
+    .filter(([id, v]) => v.size === 1 && [...v][0] === 'fail' && EXECUTION.has(id))
+    .map(([id]) => id).sort();
+  lines.push(`${constantFails.length} execution rows returned \`fail\` on **every one of the `
+    + `${ran.length} pages**: ${constantFails.map((id) => `\`${id}\``).join(', ')}.`);
+  lines.push('');
+  lines.push('Identical results across twelve independently authored pages is what reproducibility');
+  lines.push('looks like when the subject is the runtime rather than the page. These are findings');
+  lines.push('about one browser build, named in the provenance table below, and they should be read');
+  lines.push('as one finding reproduced twelve times, never as twelve findings.');
+  lines.push('');
+  lines.push('## What a reader should not take from this');
+  lines.push('');
+  lines.push('- Not that these pages are defective. No page here is named as broken.');
+  lines.push('- Not that the tool finds page-specific defects that a declaration-only reading misses,');
+  lines.push('  because on this population it did not.');
+  lines.push('- Not that the browser is defective. A conformance row failing is a difference from a');
+  lines.push('  draft specification, measured on one build, and the draft is still moving.');
   lines.push('');
   lines.push('## Provenance');
   lines.push('');

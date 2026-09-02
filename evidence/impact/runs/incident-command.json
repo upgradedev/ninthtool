@@ -1,0 +1,23 @@
+{
+ "corpusId": "incident-command",
+ "repo": "zekariasasaminew/incident-command",
+ "sourceCommit": "e18cbb7c9aae6c37f30726a7c4c13ba1305179f0",
+ "entryPoint": "index.html",
+ "servedAt": "http://127.0.0.1:50226/index.html",
+ "toolCommit": "c4104380e7a342e8987814af17d951c0101dc88e",
+ "browser": "Opening in existing browser session.",
+ "flags": [
+  "--enable-features=WebMCP"
+ ],
+ "authorisation": "no tool calls",
+ "startedAt": "2026-09-02T15:34:44.591Z",
+ "endedAt": "2026-09-02T15:35:20.338Z",
+ "elapsedMs": 34356,
+ "exitCode": 2,
+ "signal": null,
+ "stderr": "ninthtool: the run did not complete. http://127.0.0.1:50226/index.html never finished loading. The attached document is \"http://127.0.0.1:50226/index.html?scenario=s1\" in state \"complete\" after 30108 ms.\n",
+ "stdoutBytes": 0,
+ "parseError": null,
+ "transcript": null,
+ "result": null
+}
