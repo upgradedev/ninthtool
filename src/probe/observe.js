@@ -536,7 +536,7 @@ export async function observeAll(ctx, options = {}) {
       return { stringReturn: await read(stringTool), objectReturn: await read(objectTool) };
     });
 
-    // ---------------------------------------------------------------- C2, the ninth tool
+    // ------------------------------------------------- C2, the conditional tool that must withdraw
     await step('C2', async () => {
       const listHas = async (name) => (await ctx.getTools()).some((t) => String(t.name) === name);
       const descriptorOf = (name) => ({
