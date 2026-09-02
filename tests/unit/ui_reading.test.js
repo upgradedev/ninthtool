@@ -396,6 +396,68 @@ test('a jump to a row opens the row it lands on', async (t) => {
     'jumping to one row opened rows the reader did not ask for');
 });
 
+test('a run replaces every fold, and opens only the rows it found broken', async (t) => {
+  /*
+   * THE ONE CROSSING NEITHER SUITE COVERED.
+   *
+   * tests/unit/ui_state.test.js drives runs and never touches a fold. Everything above drives folds
+   * and never runs. The interaction between them is a real ordering: `renderGroups` blanks the
+   * cards at the top of a run and rebuilds them, so the fold registry has to be emptied and refilled
+   * or "open every row" is left holding twenty nodes that are no longer on the page. That is the
+   * stale-answer shape this module has already had once, in `lastResult`, and arguing it from the
+   * code is what let it happen the first time.
+   */
+  const page = await mount();
+  t.after(() => page.dispose());
+
+  page.el('subject').contentWindow = {
+    async __ninthtool_observe() {
+      return {
+        meta: {
+          api: 'document.modelContext',
+          url: 'https://ninthtool.invalid/fixtures/subject.html',
+          userAgent: 'NodeDouble/1.0',
+        },
+        scope: { requestedBehaviours: ['A1', 'A2'] },
+        observations: {
+          A1: { argCount: 2, optionsTypeof: 'object', hasSignal: true },
+          A2: { inputSchemaTypeof: 'undefined' },
+        },
+        errors: [],
+      };
+    },
+  };
+
+  await page.el('expand-all').click();
+  assert.equal(page.folds().filter((f) => f.open).length, BEHAVIOURS.length,
+    'the fixture did not manage to open the rows, so the run below replaces nothing');
+
+  const audit = page.tools.get('nt_run_audit');
+  assert.ok(audit, 'the standing tools are not published, so this fixture is not booted');
+  await audit.execute({});
+
+  const cards = page.cards();
+  assert.equal(cards.length, BEHAVIOURS.length, 'the run did not render the catalogue back');
+  const broken = cards.filter((c) => c.className.includes('v-fail'));
+  assert.equal(broken.length, 1, 'this fixture is meant to produce exactly one broken row');
+
+  const folds = page.folds();
+  assert.equal(folds.length, BEHAVIOURS.length, 'the fold registry did not follow the re-render');
+  assert.equal(folds.filter((f) => f.open).length, 1,
+    'either the run left the reader with rows they did not ask for, or the broken row is shut');
+
+  // And the registry is the NEW nodes, not the ones the run discarded. Closing every row has to
+  // close the rows that are on the page.
+  await page.el('collapse-all').click();
+  assert.equal(page.folds().filter((f) => f.open).length, 0,
+    'the fold controls are holding nodes the run replaced');
+  // The count the control reports is the registry's own length, so this is the assertion that
+  // actually sees a registry the run failed to empty: it would say forty.
+  assert.match(page.el('fold-said').textContent,
+    new RegExp(`All ${BEHAVIOURS.length} rows are closed`),
+    'the fold controls are counting rows that are no longer on the page');
+});
+
 test('the index is built from the catalogue and not from the page it points at', async (t) => {
   const page = await mount({ host: false });
   t.after(() => page.dispose());
