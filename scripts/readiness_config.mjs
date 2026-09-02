@@ -43,6 +43,52 @@ export const MANIFEST_PATH = 'runtime-manifest.json';
  */
 export const CLAIMED_TOOLS = ['nt_list_behaviours', 'nt_explain_behaviour', 'nt_run_audit', 'nt_get_findings'];
 
+/**
+ * The tools the page publishes at all times, as an EXACT set rather than a floor.
+ *
+ * The browser row compares the tool surface before, during and after the run against this list and
+ * the conditional tool below, as a multiset. A count comparison would pass while a stray probe tool
+ * sat on the surface and a standing tool had quietly gone; comparing the sorted names cannot.
+ */
+export const STANDING_TOOLS = ['nt_list_behaviours', 'nt_explain_behaviour', 'nt_run_audit'];
+
+/** The one tool that exists only while a run has findings to serve. */
+export const FINDINGS_TOOL = 'nt_get_findings';
+
+/**
+ * How many rows the catalogue has, pinned here so a row that vanishes from the page is a failure
+ * rather than a smaller denominator.
+ *
+ * The browser row requires exactly this many cards, exactly this many judged findings and exactly
+ * this many entries in the answer nt_get_findings returns. tests/unit/readiness_thresholds.test.js
+ * asserts it equals BEHAVIOURS.length, so the number cannot drift away from the catalogue either.
+ */
+export const EXPECTED_CATALOGUE_ROWS = 20;
+
+/**
+ * The behaviours allowed to reach no verdict, named one by one with the reason each is allowed.
+ *
+ * WHY THIS IS A LIST OF IDS AND NEVER A NUMBER. The browser row used to accept any run where at
+ * least `BEHAVIOURS.length - 2` rows were settled. That floor is slack with no owner: any two rows
+ * could go quiet, for any reason, including the probe silently ceasing to cover them, and the gate
+ * would still read green. A named list cannot do that. A row that abstains and is not named below
+ * fails the gate, and adding a name is a visible edit in three files with a reason attached.
+ *
+ * P5 is here because its rule is written to report three outcomes and to score only one. A tool
+ * that answers a call missing a required property with something other than a rejection is
+ * consistent both with a refusal and with echoing the arguments back, so the rule returns
+ * inconclusive rather than counting it. That is the rule declining to claim what it did not
+ * measure, which is the behaviour we want, and it means a conforming page can legitimately leave
+ * this row unsettled.
+ *
+ * Nothing here excuses the other three halves of completeness. An unidentified environment, a fatal
+ * error in the transcript or a run that measured nothing is a failure whatever this list says.
+ */
+export const MAY_ABSTAIN = Object.freeze({
+  P5: 'the rule scores only a demonstrable rejection and reports any other answer as inconclusive, '
+    + 'so a conforming page can leave it unsettled',
+});
+
 /** The sentence that must appear, word for word, on the live page and in the README. */
 export const FLAGSHIP = "Ninth Tool executes your page's WebMCP tools in the browser and shows which "
   + 'promises the standard silently drops, with the command that reproduces each one.';
@@ -71,7 +117,17 @@ export const THRESHOLD_FIXTURE = Object.freeze({
   REPO: 'upgradedev/ninthtool',
   CLAIMED_TOOL_COUNT: 4,
   LIVE_PATH_COUNT: 2,
+  STANDING_TOOL_NAMES: 'nt_explain_behaviour,nt_list_behaviours,nt_run_audit',
+  FINDINGS_TOOL: 'nt_get_findings',
+  EXPECTED_CATALOGUE_ROWS: 20,
+  MAY_ABSTAIN_IDS: 'P5',
 });
+
+/** The sorted names, which is the form both the fixture and the browser row compare. */
+export const sortedStandingTools = () => [...STANDING_TOOLS].sort();
+
+/** The ids allowed to abstain, sorted, so the comparison has one shape everywhere. */
+export const sortedAbstainIds = () => Object.keys(MAY_ABSTAIN).sort();
 
 /**
  * Refuse to run when the two copies disagree.
@@ -89,5 +145,13 @@ export function thresholdDrift() {
   check('REPO', REPO, THRESHOLD_FIXTURE.REPO);
   check('CLAIMED_TOOL_COUNT', CLAIMED_TOOLS.length, THRESHOLD_FIXTURE.CLAIMED_TOOL_COUNT);
   check('LIVE_PATH_COUNT', LIVE_PATHS.length, THRESHOLD_FIXTURE.LIVE_PATH_COUNT);
+  check('STANDING_TOOL_NAMES', sortedStandingTools().join(','), THRESHOLD_FIXTURE.STANDING_TOOL_NAMES);
+  check('FINDINGS_TOOL', FINDINGS_TOOL, THRESHOLD_FIXTURE.FINDINGS_TOOL);
+  check('EXPECTED_CATALOGUE_ROWS', EXPECTED_CATALOGUE_ROWS, THRESHOLD_FIXTURE.EXPECTED_CATALOGUE_ROWS);
+  check('MAY_ABSTAIN_IDS', sortedAbstainIds().join(','), THRESHOLD_FIXTURE.MAY_ABSTAIN_IDS);
+  // The standing tools plus the conditional one ARE the claimed tools. Two lists that describe the
+  // same surface may not drift apart in silence, so the gate refuses to run when they have.
+  check('CLAIMED_TOOLS covers the standing tools and the conditional one',
+    [...CLAIMED_TOOLS].sort().join(','), [...STANDING_TOOLS, FINDINGS_TOOL].sort().join(','));
   return drift;
 }
