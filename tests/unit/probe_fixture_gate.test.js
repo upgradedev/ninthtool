@@ -252,7 +252,40 @@ test('C3 reports a constraint neither side declares as not comparable, never as 
     assert.equal(constraint.form, 'not-declared', constraint.name);
     assert.equal(constraint.detail, 'the schema does not express this constraint');
   }
-  assert.equal(page.counts.submissions, 0, 'bad calls were sent for constraints nobody declared');
+  // ONE CALL, AND IT IS THE CONTROL. The row sends a valid call to each half before judging any
+  // refusal, so that a half which refuses everything cannot be scored as enforcing everything.
+  // With nothing declared there is no bad call to follow it.
+  assert.equal(page.counts.submissions, 1,
+    'either the control was skipped, or a bad call was sent for a constraint nobody declared');
+  assert.equal(c3.controls.form.answered, true);
+  assert.equal(c3.controls.script.answered, true);
+});
+
+test('C3 attributes nothing to a half that refuses its own valid control', async () => {
+  /*
+   * THE FAIL OPEN FIXED ON main IN #43, HELD IN PLACE FROM THE MEASUREMENT SIDE.
+   *
+   * Every outcome used to be read from one bit: rejected meant enforced. So a fixture whose host
+   * refuses every call, for a reason having nothing to do with any schema, scored as enforcing the
+   * whole of it and was indistinguishable from one that really checks.
+   *
+   * Here the form refuses everything, including the valid control. Nothing it refuses afterwards
+   * can be attributed to a constraint, and the row has to say so rather than score it.
+   */
+  const page = fixtureLikePage({ host: { refuseEveryCall: 'SERVICE_UNAVAILABLE' } });
+  const transcript = await runOwned(page, ['C3']);
+  const c3 = transcript.observations.C3;
+  assert.ok(c3, `C3 was not observed: ${transcript.errors.join(' | ')}`);
+  assert.equal(c3.controls.form.answered, false,
+    'the form answered its control, so this test is not measuring what it claims');
+  const declared = c3.constraints.filter((constraint) => constraint.declared);
+  assert.ok(declared.length >= 3, `only ${declared.length} constraints were declared`);
+  for (const constraint of declared) {
+    assert.equal(constraint.form, 'unattributable',
+      `${constraint.name}: a refusal from a half that refuses everything was scored`);
+  }
+  assert.equal(c3.formPathEnforces, false,
+    'a fixture that answered nothing at all was recorded as enforcing its schema');
 });
 
 test('C3 reports both paths enforcing when the host really checks the declared schema', async () => {

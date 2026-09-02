@@ -168,6 +168,12 @@ export function makeHost(config = {}) {
         withdraw(entry);
       }
 
+      // A HALF THAT REFUSES EVERYTHING, for a reason having nothing to do with any schema. It is
+      // the shape behaviour C3 used to score as full enforcement, because rejected meant enforced.
+      if (config.refuseEveryCall) {
+        throw translateRefusal(new Error(String(config.refuseEveryCall)), options.refusals);
+      }
+
       let input = {};
       try { input = JSON.parse(argsJson || '{}'); } catch { input = {}; }
 
