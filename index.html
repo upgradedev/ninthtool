@@ -136,9 +136,11 @@
       dishonesty this whole suite exists to catch.</p>
     <p><strong>P4</strong> fails because this page and its subject frame share one origin, so they
       share one tool surface. Whichever of the two documents you measure from, the other one's tools
-      are sitting on it, and nothing on the surface says where they came from. That is the finding,
-      not an accident, and it is worth seeing on a page that admits it before you meet it on one
-      that does not.</p>
+      are sitting on it. The provenance is there if you look: every tool carries a
+      <code>window</code> pointing at the document that registered it, and the row reads that field
+      to decide. What the surface does not do is separate them for you. They arrive in one list, in
+      the same shape, and nothing prompts a caller to check. That is the finding, not an accident,
+      and it is worth seeing on a page that admits it before you meet it on one that does not.</p>
     <p><strong>P5 abstains here, and that is the most interesting row on the page.</strong> It
       passes only on a demonstrated refusal, and the only refusal signal WebMCP has is rejecting the
       promise, which behaviour B1 measured erases the page's own reason. The tools on this page

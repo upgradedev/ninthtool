@@ -396,10 +396,25 @@ const RULES = {
     return {
       held: silent.length === 0 && hintless.length === 0,
       expected: `all ${o.toolCount} tools carry a readOnlyHint`,
+      /*
+       * SAYS WHICH HALF THE AUTHOR CAN ACTUALLY FIX.
+       *
+       * A tool carrying no annotations at all is either a form derived tool, which the standard
+       * gives no way to annotate (row B4), or a script registered tool whose author left them off.
+       * Those are the same observation: the ONLY discriminator this surface offers is the absent
+       * annotations object, so the probe genuinely cannot tell them apart, and the report must not
+       * pretend it can.
+       *
+       * The row still fails, because an agent reading this page really cannot tell which tools
+       * write. What it no longer does is imply the whole of it is the author's to fix.
+       */
       observed: silent.length || hintless.length
         ? [
-          silent.length ? `${silent.length} carry no annotations at all: ${silent.join(', ')}` : '',
-          hintless.length ? `${hintless.length} carry annotations without readOnlyHint: ${hintless.join(', ')}` : '',
+          silent.length ? `${silent.length} carry no annotations at all: ${silent.join(', ')}`
+            + '. If any of those came from an HTML form, the standard offers no way to annotate it '
+            + 'and that part is row B4 rather than anything this page can change' : '',
+          hintless.length ? `${hintless.length} carry annotations without readOnlyHint, which is `
+            + `this page's to fix: ${hintless.join(', ')}` : '',
         ].filter(Boolean).join('; ')
         : `all ${o.toolCount} tools say whether they write, ${o.readOnlyCount} are read only`,
     };
@@ -443,8 +458,11 @@ const RULES = {
     return {
       held: elsewhere.length === 0,
       expected: 'every tool on the surface was registered by this document',
+      // NAMES THE PROVENANCE IT USED. The row reads `tool.window` to decide this, so saying
+      // nothing reveals where a tool came from would contradict the very field it read.
       observed: elsewhere.length
-        ? `${elsewhere.length} came from another document: ${elsewhere.join(', ')}`
+        ? `${elsewhere.length} of ${o.toolCount} came from another document, which their own `
+          + `tool.window reveals and nothing on the surface points out: ${elsewhere.join(', ')}`
         : `all ${o.toolCount} tools were registered by this document`,
     };
   },

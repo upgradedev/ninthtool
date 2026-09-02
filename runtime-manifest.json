@@ -7,9 +7,9 @@
  "files": {
   "assets/styles.css": "5f1ccabc510f0b6c813b165b1b85258b6dfccb1c56e70f29cb4fac35d3376548",
   "fixtures/subject.html": "42305e787c13a3bec354a18e558e3fda5c176066b11ac7d37877d6deb4b8f89e",
-  "index.html": "351f0d0309a396edcae8585210b68d13112949196bccbb14687f47fecdaee378",
-  "src/judge/behaviours.js": "93f521ce1d94d18b323e3eb3fc2383ad769a0a36613a08541a3e46aa6ee95212",
-  "src/judge/verdict.js": "f05865c6ebf97816ddf2e6ad266a4d24420dee35f8eec6f213a2c2fb45f5a563",
+  "index.html": "b86eb42ee02492b50419ffdc11bfd54f0e27caf4c0fe4cecaa1672f50548318c",
+  "src/judge/behaviours.js": "f581b4ad8f848ed915cd7f66092cca221bb3ebc4f25b8c632cbe20bc6108af18",
+  "src/judge/verdict.js": "d154dbd11dfc9f77fd7baf43d828a1fee7332e6435a8d535a4f77e99882b398b",
   "src/probe/fixture_identity.js": "a71f43181385dfefa8dfefb3a3f9580322b98c4c57430721bba431eae465d060",
   "src/probe/observe.js": "7548f71451f4fefd7fdfe28e71edcad7e7c0824a1edc0e5cabdd798cc4ddbee0",
   "src/probe/steps.js": "ce12cf53217a323532f258c41ceef0635464769c578092bf624acacd40edc045",
