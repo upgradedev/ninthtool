@@ -59,59 +59,96 @@ function walk() {
   return files.sort();
 }
 
+/**
+ * Every rule this gate owns, for one line, as a pure function.
+ *
+ * EXTRACTED SO THE SELF TEST CAN CALL IT. This lived inline in the loop below, which meant
+ * `--selftest` had nothing to call and re-implemented the same regexes beside it. A copy of a rule
+ * cannot prove the rule: mutating the real scanner so it could never flag anything left the self
+ * test printing PASS. That is the defect readiness `--selftest` had, in the second gate.
+ *
+ * @param {string} relative the file, used for the location and the sibling exemption
+ * @param {string} line
+ * @param {number} index zero based
+ * @returns {string[]} one string per finding, empty when the line is clean
+ */
+export function findingsForLine(relative, line, index) {
+  const out = [];
+  const where = `${relative}:${index + 1}`;
+
+  if (line.includes(EM_DASH)) out.push(`${where} em dash`);
+  if (line.includes(EN_DASH)) out.push(`${where} en dash`);
+
+  const lower = line.toLowerCase();
+  for (const word of BANNED_WORDS) {
+    if (new RegExp(`(^|[^a-z-])${word}([^a-z-]|$)`, 'i').test(line)) {
+      out.push(`${where} banned word "${word}"`);
+    }
+  }
+  for (const phrase of BANNED_PHRASES) {
+    if (lower.includes(phrase)) out.push(`${where} banned phrase "${phrase}"`);
+  }
+  if (!MAY_NAME_SIBLINGS.has(relative)) {
+    for (const name of OTHER_COMPETITIONS) {
+      if (new RegExp(`(^|[^a-z])${name}([^a-z]|$)`, 'i').test(line)) {
+        out.push(`${where} names another project or competition: "${name}"`);
+      }
+    }
+  }
+  return out;
+}
+
 const findings = [];
 const files = walk();
 
 for (const relative of files) {
   const text = fs.readFileSync(path.join(ROOT, relative), 'utf8');
-  const lines = text.split(/\r?\n/);
-
-  lines.forEach((line, index) => {
-    const where = `${relative}:${index + 1}`;
-
-    if (line.includes(EM_DASH)) findings.push(`${where} em dash`);
-    if (line.includes(EN_DASH)) findings.push(`${where} en dash`);
-
-    const lower = line.toLowerCase();
-    for (const word of BANNED_WORDS) {
-      if (new RegExp(`(^|[^a-z-])${word}([^a-z-]|$)`, 'i').test(line)) {
-        findings.push(`${where} banned word "${word}"`);
-      }
-    }
-    for (const phrase of BANNED_PHRASES) {
-      if (lower.includes(phrase)) findings.push(`${where} banned phrase "${phrase}"`);
-    }
-    if (!MAY_NAME_SIBLINGS.has(relative)) {
-      for (const name of OTHER_COMPETITIONS) {
-        if (new RegExp(`(^|[^a-z])${name}([^a-z]|$)`, 'i').test(line)) {
-          findings.push(`${where} names another project or competition: "${name}"`);
-        }
-      }
-    }
+  text.split(/\r?\n/).forEach((line, index) => {
+    findings.push(...findingsForLine(relative, line, index));
   });
 }
 
 const selfTest = process.argv.includes('--selftest');
 if (selfTest) {
-  // PROVE THE GATE CAN FAIL, on every rule it owns, without touching a tracked file.
+  /*
+   * PROVE THE GATE CAN FAIL, on every rule it owns, by calling the rule.
+   *
+   * This used to re-implement the regexes inline, so it proved a COPY of the scanner and never the
+   * scanner. Mutating findingsForLine so it could return nothing left this printing PASS. A gate
+   * that checks a duplicate of itself is the defect this repository keeps finding, and this was the
+   * second instance of it.
+   *
+   * Each sample names the rule it is meant to trip, and the finding has to mention it, so a sample
+   * caught by the WRONG rule is not counted as proof.
+   */
   const cases = [
-    ['em dash', `a sentence with an ${EM_DASH} in it`],
-    ['en dash', `a range 1 ${EN_DASH} 2`],
-    ['banned word', 'we leverage the platform'],
-    ['banned word compliant', 'the system is compliant'],
-    ['banned phrase', 'in today\'s world, agents matter'],
-    ['other competition', 'as we did for the Nebius entry'],
+    ['em dash', `a sentence with an ${EM_DASH} in it`, /em dash/],
+    ['en dash', `a range 1 ${EN_DASH} 2`, /en dash/],
+    ['banned word', 'we leverage the platform', /banned word/],
+    ['banned word compliant', 'the system is compliant', /banned word/],
+    ['banned phrase', 'in today\'s world, agents matter', /banned phrase/],
+    ['other competition', 'as we did for the Nebius entry', /names another project/],
   ];
   let broken = 0;
-  for (const [label, sample] of cases) {
-    const hit = sample.includes(EM_DASH) || sample.includes(EN_DASH)
-      || BANNED_WORDS.some((w) => new RegExp(`(^|[^a-z-])${w}([^a-z-]|$)`, 'i').test(sample))
-      || BANNED_PHRASES.some((p) => sample.toLowerCase().includes(p))
-      || OTHER_COMPETITIONS.some((n) => new RegExp(`(^|[^a-z])${n}([^a-z]|$)`, 'i').test(sample));
-    if (!hit) { console.error(`selftest: "${label}" was NOT caught. The gate cannot fail on it.`); broken++; }
+  for (const [label, sample, expect] of cases) {
+    const hits = findingsForLine('selftest.md', sample, 0);
+    if (!hits.length) {
+      console.error(`selftest: "${label}" was NOT caught. The gate cannot fail on it.`);
+      broken++;
+    } else if (!hits.some((h) => expect.test(h))) {
+      console.error(`selftest: "${label}" was caught by the wrong rule: ${hits.join('; ')}`);
+      broken++;
+    }
+  }
+  // A clean line must produce nothing, or every case above passes for a reason that is not the rule.
+  const clean = findingsForLine('selftest.md', 'an ordinary sentence about agents and pages', 0);
+  if (clean.length) {
+    console.error(`selftest: a clean line was flagged, so the rules fire on anything: ${clean.join('; ')}`);
+    broken++;
   }
   if (broken) { console.error(`style selftest: FAIL, ${broken} rules could not be made to fail.`); process.exit(1); }
-  console.log(`style selftest: PASS, all ${cases.length} rules were seen to fail on a deliberate sample.`);
+  console.log(`style selftest: PASS, all ${cases.length} rules were handed a deliberate sample and `
+    + 'the real scanner flagged each one, while a clean line produced nothing.');
 }
 
 console.log(`style gate: scanned ${files.length} files across ${SCANNED_DIRS.length} declared directories.`);
