@@ -29,7 +29,7 @@ import { launchWithWebMCP, waitForPageTarget, targetFor, waitForDocument } from 
 import { judge } from '../src/judge/verdict.js';
 import { BEHAVIOURS, behaviourById, MEASURED_AGAINST } from '../src/judge/behaviours.js';
 import { stepsFor, permittedSteps, refusedModes, modesFor } from '../src/probe/steps.js';
-import { serveRuntime } from '../src/probe/serve.mjs';
+import { serveRuntime, keepAlive } from '../src/probe/serve.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -121,7 +121,10 @@ const HELP = `ninthtool, a behavioural conformance suite for WebMCP
   --json              print the verdict as JSON instead of a report
   --port N            the remote debugging port to use, default 9411
   --chrome PATH       the Chrome or Edge binary. Found automatically if not given
-  --keep-open         leave the browser running afterwards
+  --keep-open         leave the browser, its profile and the local server running after the
+                      report, and do not exit. Stop this process to close the browser and remove
+                      the profile. It exits 130 then, so with --keep-open the exit code tells you
+                      how the run was stopped rather than what the run found
 
 AUTHORISATION. By default this reads the tool surface and exercises tools it registers itself, and
 it touches nothing belonging to the page under test.
@@ -287,6 +290,15 @@ let url = args.url;
 if (!url) {
   served = await serveRuntime(ROOT);
   url = `${served.origin}/${DEFAULT_SUBJECT}`;
+  /*
+   * SAID OUT LOUD, ON STDERR, BEFORE THE BROWSER OPENS.
+   *
+   * The port is chosen by the operating system, so until now the only place it appeared was the
+   * `subject` line of the report, which is printed at the end and not printed at all under --json.
+   * With --keep-open that origin outlives the run, and a reader cannot open a URL nobody told
+   * them. It goes to stderr so that --json still writes nothing but JSON to stdout.
+   */
+  console.error(`ninthtool: serving this repository's own page at ${url}`);
 }
 
 let launched;
@@ -350,8 +362,35 @@ try {
   exitCode = 2;
 } finally {
   if (socket) socket.destroy();
-  if (served) served.server.close();
-  if (!args.keepOpen) launched.close();
+
+  /*
+   * --keep-open USED TO CLOSE EVERYTHING IT PROMISED TO LEAVE OPEN.
+   *
+   * Three lines did it. The loopback server was closed unconditionally, so the page the kept open
+   * browser was reading stopped being served. And process.exit() below ran unconditionally, which
+   * emits `exit`, which runs the launcher's own cleanup: the browser was killed and its profile
+   * deleted a moment after the report said they had been left alone. Reproduced by calling the
+   * real launcher, not calling close(), and calling process.exit(0): the profile directory was
+   * gone afterwards.
+   *
+   * So --keep-open now tears down nothing and does not exit. The launcher's cleanup stays
+   * registered and does the right thing when the reader finally stops this process, which is the
+   * explicit termination the flag is asking to wait for.
+   */
+  if (args.keepOpen) {
+    console.error('');
+    console.error(`ninthtool: --keep-open, so the browser is still on port ${args.port}`);
+    console.error(`ninthtool: --keep-open, its throwaway profile is ${launched.profile}`);
+    if (served) console.error(`ninthtool: --keep-open, the page is still served from ${served.origin}`);
+    console.error('ninthtool: --keep-open, stop this process to close the browser and remove the profile.');
+    keepAlive();
+  } else {
+    if (served) served.server.close();
+    launched.close();
+  }
 }
 
-process.exit(exitCode);
+// NOT REACHED UNDER --keep-open, AND THAT IS THE FIX. process.exit() emits `exit`, and the
+// launcher's cleanup is registered there, so exiting here is the same thing as closing the
+// browser. The run's exit code is given up in exchange, which is why --help says so.
+if (!args.keepOpen) process.exit(exitCode);

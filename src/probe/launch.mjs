@@ -70,6 +70,95 @@ export async function waitForDebugger(port, timeoutMs = 30000) {
   return { ok: false, waitedMs: Date.now() - started, browser: null };
 }
 
+/** Sleep without yielding the event loop, so a cleanup running from an exit hook can wait. */
+function sleepBlocking(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Remove a throwaway profile directory, retrying while it is busy, and REPORT a failure.
+ *
+ * WHY IT RETRIES. `child.kill()` returns as soon as the signal is sent, not when the browser has
+ * finished dying, and until then the browser still holds handles inside its own profile. Measured
+ * on Windows against a directory holding one open handle, `fs.rmSync(dir, {recursive: true,
+ * force: true, maxRetries: 3})` throws ENOTEMPTY. The old code ran exactly that call inside a bare
+ * `catch {}`, so the directory stayed on disk and nothing said so.
+ *
+ * WHY IT BLOCKS RATHER THAN AWAITS. The one path that most needs this is the process exit hook,
+ * and an exit hook cannot await. So the wait between attempts is a blocking one. The operating
+ * system releases the handles whether or not this process is running its event loop, which is why
+ * blocking here still converges.
+ *
+ * IT NEVER THROWS. A cleanup that throws from an exit hook replaces the exit code the run earned.
+ * The outcome is returned instead, and the caller is expected to say something when it is false.
+ *
+ * @param {string} profile
+ * @param {{deadlineMs?: number, retryMs?: number}} [options]
+ * @returns {{removed: boolean, attempts: number, waitedMs: number, lastError: (string|null)}}
+ */
+export function removeProfile(profile, { deadlineMs = 2000, retryMs = 100 } = {}) {
+  const started = Date.now();
+  let attempts = 0;
+  let lastError = null;
+  for (;;) {
+    attempts += 1;
+    try {
+      // force:true makes an already removed directory a success, so this is safe to call twice.
+      fs.rmSync(profile, { recursive: true, force: true });
+      return { removed: true, attempts, waitedMs: Date.now() - started, lastError: null };
+    } catch (error) {
+      lastError = (error && error.code) || String((error && error.message) || error);
+    }
+    if (Date.now() - started >= deadlineMs) {
+      return { removed: false, attempts, waitedMs: Date.now() - started, lastError };
+    }
+    sleepBlocking(retryMs);
+  }
+}
+
+/**
+ * The ways a run ends that would otherwise skip the exit hook, and the code each one exits with.
+ *
+ * SIGINT WAS THE ONLY ONE HANDLED, AND THAT LEAKED. A process ended with an ordinary SIGTERM,
+ * which is what a timeout, a job runner or `kill <pid>` sends, never emits `exit`, so the profile
+ * stayed on disk. The numbers are the usual 128 plus the signal number, so a caller can still tell
+ * what stopped the run.
+ *
+ * SIGBREAK IS WINDOWS ONLY AND SO IS ITS ABSENCE ELSEWHERE. It is what Ctrl+Break sends, and it is
+ * the second of the two interruptions a Windows console can produce. Registering it on a platform
+ * that has no such signal throws ERR_UNKNOWN_SIGNAL, so the table is built for the platform it is
+ * running on rather than filtered afterwards.
+ *
+ * WHAT THIS STILL CANNOT COVER, STATED RATHER THAN IMPLIED. Windows has no signal delivery: a
+ * programmatic kill there is TerminateProcess, which runs nothing in the target. Measured, on the
+ * fixed code: a child ended with `child.kill('SIGTERM')` on Windows still leaves its profile.
+ * That is an operating system property and no in process cleanup can change it. The handlers below
+ * cover Ctrl+C and Ctrl+Break on Windows, and every one of these signals on Linux and macOS.
+ */
+export const TERMINATION_SIGNALS = process.platform === 'win32'
+  ? { SIGINT: 130, SIGTERM: 143, SIGHUP: 129, SIGBREAK: 149 }
+  : { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
+
+/**
+ * Run `close` when this process ends, however it ends.
+ *
+ * @param {function(): void} close
+ * @returns {function(): void} unregister, which removes every listener this added and no others
+ */
+export function registerTeardown(close) {
+  const handlers = new Map();
+  for (const [signal, code] of Object.entries(TERMINATION_SIGNALS)) {
+    const handler = () => { close(); process.exit(code); };
+    handlers.set(signal, handler);
+    process.on(signal, handler);
+  }
+  process.on('exit', close);
+  return () => {
+    process.off('exit', close);
+    for (const [signal, handler] of handlers) process.off(signal, handler);
+  };
+}
+
 /**
  * Launch a browser with WebMCP enabled, in a throwaway profile, and wait for it to answer.
  *
@@ -124,22 +213,31 @@ export async function launchWithWebMCP({ url, port = 9411, chrome, timeoutMs = 3
    *
    * Each run made a throwaway profile directory and never deleted it. Measured on this machine
    * after one afternoon: 79 of them in TEMP, each holding a browser profile. close() removes it
-   * now, and the same cleanup is registered against process exit and against SIGINT, because the
-   * run that most needs cleaning up is the one somebody interrupted.
+   * now, and the same cleanup is registered against process exit and against every signal that
+   * would otherwise end the run without it, because the run that most needs cleaning up is the one
+   * somebody interrupted.
+   *
+   * TWO WAYS IT STILL LEAKED, BOTH MEASURED AND BOTH FIXED HERE. Only SIGINT was handled, so an
+   * ordinary kill skipped the cleanup entirely. And the removal itself was one attempt inside a
+   * bare `catch {}`, so a profile the dying browser still held stayed on disk in silence.
+   * registerTeardown covers the first and removeProfile covers the second, and a removal that
+   * still fails is now printed with the path rather than swallowed.
    */
   let cleaned = false;
-  const onSignal = () => { close(); process.exit(130); };
+  let unregister = () => {};
   const close = () => {
     if (cleaned) return;
     cleaned = true;
     try { child.kill(); } catch { /* already gone */ }
-    try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 3 }); }
-    catch { /* the browser may still hold a handle, and TEMP is swept eventually */ }
-    process.off('exit', close);
-    process.off('SIGINT', onSignal);
+    const removal = removeProfile(profile);
+    if (!removal.removed) {
+      console.error(`ninthtool: the throwaway profile ${profile} is still on disk after `
+        + `${removal.attempts} attempts over ${removal.waitedMs} ms (${removal.lastError}). `
+        + 'Nothing else is in it, so it is safe to delete by hand.');
+    }
+    unregister();
   };
-  process.on('exit', close);
-  process.on('SIGINT', onSignal);
+  unregister = registerTeardown(close);
 
   const up = await waitForDebugger(port, timeoutMs);
   if (!up.ok) {
