@@ -104,8 +104,11 @@ average, and `bin/ninthtool.mjs` at 63.34 and `scripts/readiness.mjs` at 70.26 a
 matter. Four oracle weaknesses that would each have let a false pass through were reproduced against
 the real code and are now closed, and the adversarial inputs that found them are kept as tests. A preregistered study on thirteen independently authored WebMCP pages has now run, and its
 hypothesis failed. Five of twenty rows told those pages apart and every one of them was already
-readable from the tool list, so on that population this tool found nothing that a declaration only
-reading would have missed. The protocol was written and committed before any page ran, the failure
+readable from the tool list. Taking the other half apart afterwards showed why: at most two rows
+could ever have told one of those pages from another, against a threshold of three fixed before
+anyone looked, and both of those two were switched off by the run's own read only default. The bar
+could not be cleared by any result, which is a defect in the protocol rather than a measurement of
+what this tool reaches. The protocol was written and committed before any page ran, the failure
 is published in `evidence/impact/results.md`, and the primary metric was not changed afterwards to
 make it read better. The same author has
 a second entry, ClaimReady; exactly one file is shared, a 200 line DevTools client, and the README

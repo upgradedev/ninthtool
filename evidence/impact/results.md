@@ -13,11 +13,20 @@ So the preregistered claim fails on its own terms. The rows that need a tool to 
 called are not telling these pages apart, and the rows that tell these pages apart did
 not need a tool to be called.
 
-The execution rows were not measuring nothing. They were measuring the **browser**,
-through tools this instrument registers itself, and one browser returns one answer.
-That is a real reading and it is reported below as a post-hoc secondary result. It is
-not the reading the primary metric was written to support, and the metric is not
-changed to fit it.
+### The threshold was unreachable on the day it was written
+
+The 13 `execution` rows are not one kind of row, and taking them apart says more than the verdict does.
+
+- **8 rows** settled the same way on all 12 pages: `A1`, `A3`, `B1`, `B2`, `B3`, `B5`, `C2`, `D1`. They register this tool's own probe tools and read what the browser does with them, so one browser gives one answer.
+- **3 rows** abstained everywhere because submitting a form was not authorised: `C1`, `C3`, `C4`. The runner refuses to write to a fixture it does not own, so on somebody else’s page these can never settle at all.
+- **2 rows** abstained everywhere because calling the page’s own tools was not authorised: `P5`, `P6`. These are the only execution rows that read the tools the page itself published.
+
+So at most **2** execution rows could ever have told one page from another, against a preregistered threshold of **3**. The bar was set on a partition that could not clear it, and it was set before anyone looked.
+
+**That is a defect in the preregistration, not a measurement of the tool’s reach.**
+The two rows that read a page’s own tools were switched off by this study’s own read
+only default, which is a safety setting working exactly as written. Reporting that as
+"the tool found nothing" would be false in the modest direction, and modest is not true.
 
 ## The preregistered answer, first
 
