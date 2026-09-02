@@ -16,9 +16,11 @@
     "uniqueRepositoriesReturned": 1076,
     "uniqueRepositoryAndPathPairsReturned": 2884,
     "repositoriesScreenedByLicenceAndPath": 1076,
-    "repositoriesInspectedFileByFile": 52,
+    "repositoriesWithAFileFetchedAndRead": 23,
+    "repositoriesScreenedOnPathAndRecordOnly": 29,
     "repositoriesRecordedInThisFile": 52,
-    "screeningRule": "Every one of the 1076 returned repositories had its licence, default branch, homepage and Pages flag read from its repository record, which is the licence census below. Repositories were then ordered for file by file inspection by how likely the returned path was to be a page rather than a library: an .html file first, then a .js or .mjs file outside node_modules, dist, build and minified bundles. For each of those the blob was fetched at the pinned commit and read for the receiver of the registerTool call, for bare package imports, and for script tags pointing off origin. File by file inspection stopped once the included set had passed the protocol's target of ten, which is why 52 repositories carry an entry and the remaining 1024 are counted in the population only. Nothing was rejected during that pass for anything other than a numbered criterion."
+    "screeningRule": "Every one of the 1076 returned repositories had its licence, default branch, homepage and Pages flag read from its repository record, which is the licence census below. Repositories were then ordered for closer work by how likely the returned path was to be a page rather than a library: an .html file first, then a .js or .mjs file outside node_modules, dist, build and minified bundles. For 23 of them at least one blob was fetched at the pinned commit and read for three things: the receiver of the registerTool call, bare package imports, and script or stylesheet tags pointing off origin. That reading stopped once the included set had passed the protocol's target of ten. The other 29 recorded entries were screened on the returned path and the repository record alone, and for some of them a directory tree or a blob hash as well; that is enough to settle a section 7 exclusion or a criterion 1 exclusion, and it is not enough to admit anything, which is why every one of the 13 included entries is in the group whose file was read.",
+    "readingCaveat": "The distinction above matters and is not decorative. An entry excluded on path and record has not had its code read, so it is a statement about what the repository is rather than about what any line of it does. Where an entry says so, its notes say so."
   },
   "licenceCensus": {
     "note": "Read from .license.spdx_id on the repository record of every repository the five queries returned. NULL means GitHub found no licence file at all. NOASSERTION means it found one it could not identify, which is why the two entries in this file carrying NOASSERTION had their LICENSE blob read directly instead. One repository record could not be fetched, so the rows below total 1075 rather than 1076. Read against section 6 criterion 3, the 371 NULL and the 61 NOASSERTION repositories are the largest single obstacle in the field: four in ten of the repositories that write WebMCP tool registrations carry no licence that permits running them for inspection.",
@@ -72,7 +74,7 @@
       "webmcpEvidence": "index.html:715",
       "runnable": "local-static",
       "entryPoint": "index.html",
-      "notes": "The tool receiver is a local variable activeContext, assigned at index.html:710 from document.modelContext or window.modelContext, so the receiver resolves to the standard object. Six tools are registered. The only off origin references are two Google Fonts stylesheet links, which do not affect registration when the network is absent."
+      "notes": "The tool receiver is a local variable activeContext, assigned at index.html:710 from document.modelContext or window.modelContext, so the receiver resolves to the standard object. Six tools are registered. Worth knowing before a run: line 708 assigns document.modelContext = shim when the property is absent, so on a browser without the feature this page installs its own object and registers into that. It checks for the real one first, so criterion 1 still holds, but under --enable-features=WebMCP the shim branch should not be taken and a result that looks like a shim is a signal something is wrong with the flag. The only off origin references are two Google Fonts stylesheet links, which do not affect registration when the network is absent."
     },
     {
       "id": "school-of-freelancing",
@@ -85,7 +87,7 @@
       "webmcpEvidence": "index.html:635",
       "runnable": "local-static",
       "entryPoint": "index.html",
-      "notes": "Default branch is prod, not main, and the commit above is the head of prod. The page deliberately registers the same tools twice, once on navigator.modelContext and once on document.modelContext, and installs its own fallback object on whichever is absent. See index.html:671 and index.html:674. A reader should expect the two surfaces to hold the same tool set. The page loads /assets/js/main.js with a root absolute path, so the static server must be rooted at the repository root rather than at a subdirectory."
+      "notes": "Default branch is prod, not main, and the commit above is the head of prod. The page deliberately registers the same tools twice, once on navigator.modelContext and once on document.modelContext, and installs its own fallback object on whichever is absent, at line 671 for the navigator side. Under --enable-features=WebMCP the native object should be present and that fallback branch should not be taken, so a run that reports a page installed object is a signal to check the flag rather than the page. See index.html:671 and index.html:674. A reader should expect the two surfaces to hold the same tool set. The page loads /assets/js/main.js with a root absolute path, so the static server must be rooted at the repository root rather than at a subdirectory."
     },
     {
       "id": "a2ui-catalog",
@@ -98,7 +100,7 @@
       "webmcpEvidence": "public/atoms/data_grid/index.html:289",
       "runnable": "local-static",
       "entryPoint": "public/atoms/data_grid/index.html",
-      "notes": "This repository holds many separate catalogue pages under public/atoms/, each with its own registration. Protocol section 8 forbids counting several pages from one repository as several entries, so it is one entry and the entry point above is the page to run. The receiver is a local variable mc. The repository homepage field gives https://a2uicatalog.ai, which was not fetched."
+      "notes": "This repository holds many separate catalogue pages under public/atoms/, each with its own registration. Protocol section 8 forbids counting several pages from one repository as several entries, so it is one entry and the entry point above is the page to run. The receiver is a local variable mc, assigned at line 284 from document.modelContext with a navigator.modelContext fallback, so it resolves to the standard property and criterion 1 holds on the assignment rather than on the method name. The repository homepage field gives https://a2uicatalog.ai, which was not fetched."
     },
     {
       "id": "sosumi-ai",
@@ -137,7 +139,7 @@
       "webmcpEvidence": "pro-test/welcome.html:99",
       "runnable": "local-static",
       "entryPoint": "pro-test/welcome.html",
-      "notes": "This is the one entry in the included set that loads a script from another origin, abacus.worldmonitor.app, so the page will report that failure with no network. The registration itself is inline and does not depend on it. The identical page blob, d95d3d94d74f963e0f6545c8ecaacd4dac342401, also appears in three other repositories that are recorded below as excluded under section 7 bullet 4; this repository is the earliest created of the four, at 2026-08-23."
+      "notes": "The receiver is a local variable provider, assigned at line 90 from document.modelContext, so criterion 1 holds on the assignment. The only document.modelContext.registerTool text at line 7 is a comment and is not the call. Two things the runner should know. First, this is the one entry in the included set that loads a script from another origin, abacus.worldmonitor.app at line 128; it is an async deferred analytics beacon, the registration is a separate inline head script at line 22 that calls register() at parse time, and the two are independent, so registration is not gated on that load. Second, line 421 loads /src/welcome-main.tsx as a module, which a plain static server cannot compile, so the page body will not render while the head registration still runs. The identical page blob, d95d3d94d74f963e0f6545c8ecaacd4dac342401, also appears in three other repositories that are recorded below as excluded under section 7 bullet 4; this repository is the earliest created of the four, at 2026-08-23."
     },
     {
       "id": "patchbridge-agent-demo",
@@ -189,7 +191,7 @@
       "webmcpEvidence": "web/comic_sol_web/static/webmcp.js:822",
       "runnable": "local-static",
       "entryPoint": "web/comic_sol_web/static/index.html",
-      "notes": "index.html loads ./app.js as a module and app.js imports ./webmcp.js at its line 2, so the chain from the entry point to the registration is inside the checkout. Every import specifier is relative, so nothing resolves to a package. The tools call a backend API through ./api.js that a static serve does not provide, so tool execution should be expected to fail while registration stays visible."
+      "notes": "The receiver is a local variable context, assigned at line 819 from a modelContext() helper that returns navigator.modelContext at line 807 or document.modelContext at line 811, so criterion 1 holds on that helper. index.html loads ./app.js as a module and app.js imports ./webmcp.js at its line 2, so the chain from the entry point to the registration is inside the checkout. Every import specifier is relative, so nothing resolves to a package. The tools call a backend API through ./api.js that a static serve does not provide, so tool execution should be expected to fail while registration stays visible."
     },
     {
       "id": "sieve-webmcp",

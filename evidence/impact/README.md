@@ -53,17 +53,25 @@ single most useful thing the screen produced:
 | Apache-2.0 | 107 |
 | present but unidentified | 61 |
 | AGPL-3.0 | 26 |
-| everything else | 30 |
-| record could not be fetched | 1 |
+| GPL-3.0 | 8 |
+| MPL-2.0 | 7 |
+| BSD-3-Clause | 4 |
+| ISC | 3 |
+| CC-BY-4.0 | 3 |
+| GPL-2.0 | 2 |
+| LGPL-3.0, EUPL-1.2, CC0-1.0, 0BSD | 1 each |
+| **total** | **1,075** |
+
+One repository record could not be fetched, which is why the column sums to 1,075 and not 1,076.
 
 Four in ten of the repositories that write a WebMCP tool registration carry no licence that permits
 running them for inspection. Under section 6 criterion 3 that removes them, and it removes them
 before anything about the code matters.
 
-**52 repositories were then read file by file.** They were ordered by how likely the returned path
-was to be a page rather than a library: an `.html` file first, then a `.js` or `.mjs` file outside
-`node_modules`, `dist`, `build` and minified bundles. For each one the blob was fetched at the
-pinned commit and read for three things:
+Repositories were then ordered for closer work by how likely the returned path was to be a page
+rather than a library: an `.html` file first, then a `.js` or `.mjs` file outside `node_modules`,
+`dist`, `build` and minified bundles. **For 23 of them at least one blob was fetched at the pinned
+commit and read** for three things:
 
 1. the receiver of the `registerTool` call, because a grep for the method name alone is satisfied by
    a `.d.ts` file, a README code block, or a call on some unrelated object;
@@ -71,8 +79,16 @@ pinned commit and read for three things:
 3. `<script src>` and `<link rel=stylesheet href>` pointing off origin, which mean the page cannot
    be served without a network.
 
-File by file inspection stopped once the included set passed the protocol's target of ten. So the
-52 recorded entries are a screened subset of the 1,076 and not a random sample of it, and the
+That reading stopped once the included set passed the protocol's target of ten.
+
+**The other 29 recorded entries were screened on the returned path and the repository record
+alone**, and for some of them a directory tree or a blob hash as well. That is enough to settle a
+section 7 exclusion or a criterion 1 exclusion, since both turn on what a repository is rather than
+on what a line of it does. It is not enough to admit anything, which is why **all 13 included
+entries are in the group whose file was read**. Where an entry rests on the path alone its notes say
+so, and one of them says outright that no registration site is cited because none was read.
+
+So the 52 recorded entries are a screened subset of the 1,076 and not a random sample of it, and the
 1,024 repositories with no entry were screened by licence and path only. That is the whole
 procedure, stated so a reader can judge it rather than guess at it.
 
