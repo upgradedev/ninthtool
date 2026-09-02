@@ -30,6 +30,7 @@ import { judge } from '../src/judge/verdict.js';
 import { BEHAVIOURS, behaviourById, MEASURED_AGAINST } from '../src/judge/behaviours.js';
 import { stepsFor, permittedSteps, refusedModes, modesFor } from '../src/probe/steps.js';
 import { serveRuntime, keepAlive } from '../src/probe/serve.mjs';
+import { FIXTURE_PATH } from '../src/probe/fixture_identity.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -341,8 +342,22 @@ try {
   // somewhere else is refused instead of silently audited.
   const requested = new URL(url);
   const expectedOrigin = requested.origin;
+  /*
+   * WHERE THE FIXTURE IS EXPECTED TO BE, DERIVED FROM WHAT WE ASKED FOR.
+   *
+   * The fixture is not always the document we navigate to. Pointed at the subject page it is that
+   * document; pointed at a page that EMBEDS it, including this runner's own bundled index.html, it
+   * is a frame at `<that directory>/fixtures/subject.html`.
+   *
+   * Deriving it from the LOADED document instead would compare a value with itself and trust
+   * anything; taking it from the requested URL means a redirect, or a page that puts our fixture
+   * path somewhere else, is refused.
+   */
+  const expectedPath = requested.pathname.endsWith(FIXTURE_PATH)
+    ? requested.pathname
+    : requested.pathname.replace(/[^/]*$/, '') + FIXTURE_PATH.replace(/^\//, '');
   const raw = await session.evaluate(probeExpression({
-    only: selected, allow, expectedOrigin, expectedPath: requested.pathname,
+    only: selected, allow, expectedOrigin, expectedPath,
   }), 120000);
   const transcript = JSON.parse(raw);
   const result = judge(transcript, { only: selected });

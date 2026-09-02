@@ -42,7 +42,8 @@ export function conforming() {
         stringReturn: { typeofValue: 'string', parsesAsJson: false },
         objectReturn: { typeofValue: 'object', parsesAsJson: true },
       },
-      C1: { settled: 'rejected', handlerSawStaleValue: false, staleValue: null },
+      // handlerTelemetry is how we know. Without it the row abstains rather than assuming clean.
+      C1: { settled: 'rejected', handlerSawStaleValue: false, staleValue: null, handlerTelemetry: 'read', handlerCallsObserved: 1 },
       C2: {
         optionsBag: { presentBefore: true, presentAfter: false },
         onDescriptor: { presentBefore: true, presentAfter: false },
@@ -143,7 +144,7 @@ export function measuredChrome152() {
         stringReturn: { typeofValue: 'string', parsesAsJson: false },
         objectReturn: { typeofValue: 'string', parsesAsJson: true },
       },
-      C1: { settled: 'resolved', handlerSawStaleValue: true, staleValue: 'M. Okafor' },
+      C1: { settled: 'resolved', handlerSawStaleValue: true, staleValue: 'M. Okafor', handlerTelemetry: 'read', handlerCallsObserved: 1 },
       C2: {
         optionsBag: { presentBefore: true, presentAfter: false },
         onDescriptor: { presentBefore: true, presentAfter: true },

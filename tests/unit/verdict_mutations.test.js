@@ -433,3 +433,64 @@ test('the probe derives the fourth constraint rather than asserting it', async (
   assert.ok(!/unknownProperty:\s*true\b/.test(code),
     'a literal true is back, so the row counts a constraint nobody declared');
 });
+
+/* ------------------------------------------- C1, the read the answer could not show us */
+
+/*
+ * REJECT-AFTER-READ WAS A PASS.
+ *
+ * C1 held on `settled === 'rejected'` alone, and the leak only ever reached the judge through the
+ * ECHOED ANSWER. A rejected call has no answer, so a handler that was handed the stale value and
+ * then rejected arrived as `handlerSawStaleValue: false` and scored a clean pass.
+ *
+ * That is the worst shape of this defect and it was the one shape the row could not see. The data
+ * reached the handler, which is where it can be logged, forwarded or acted on, and refusing
+ * afterwards does not take it back.
+ *
+ * The fixture now records what it was handed the moment it was handed it, before anything resolves.
+ */
+const c1 = (over) => judgeBehaviour('C1', {
+  observations: {
+    C1: {
+      settled: 'rejected',
+      handlerSawStaleValue: false,
+      staleValue: null,
+      handlerTelemetry: 'read',
+      handlerCallsObserved: 1,
+      ...over,
+    },
+  },
+});
+
+test('C1 passes only when the call was refused AND the handler saw nothing stale', () => {
+  const finding = c1({});
+  assert.equal(finding.verdict, 'pass', finding.observed);
+});
+
+test('C1 fails when the handler read the stale value and rejected afterwards', () => {
+  // THE FALSE PASS. Under the old rule this was indistinguishable from a clean refusal.
+  const finding = c1({ handlerSawStaleValue: true, staleValue: 'M. Okafor' });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+  assert.match(finding.observed, /Refusing afterwards does not unread it/,
+    'the report must say why a rejection did not save it');
+});
+
+test('C1 fails when the call succeeded and carried the stale value back', () => {
+  const finding = c1({ settled: 'resolved', handlerSawStaleValue: true, staleValue: 'M. Okafor' });
+  assert.equal(finding.verdict, 'fail', finding.observed);
+});
+
+test('C1 abstains when the page cannot report what its handler was handed', () => {
+  // FAIL CLOSED. A rejection alone does not settle it, because a handler can read and refuse.
+  const finding = c1({ handlerTelemetry: 'unavailable' });
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+  assert.match(finding.reason, /read a value and refuse afterwards/);
+});
+
+test('C1 abstains when the telemetry field is missing entirely', () => {
+  // The same fail-open in a new field: an omitted key must not read as "nothing leaked".
+  const finding = judgeBehaviour('C1', {
+    observations: { C1: { settled: 'rejected', handlerSawStaleValue: false, staleValue: null } },
+  });
+  assert.equal(finding.verdict, 'not-applicable', finding.observed);
+});

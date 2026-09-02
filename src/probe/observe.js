@@ -24,7 +24,7 @@
 
 import { STEPS, STEP_ORDER, stepsFor, behavioursFrom, permittedSteps, refusalReason }
   from './steps.js';
-import { checkFixtureIdentity, answerCarriesNonce, makeNonce } from './fixture_identity.js';
+import { checkFixtureIdentity, answerCarriesNonce, makeNonce, HANDLER_LOG_KEY } from './fixture_identity.js';
 
 /** The two form tool names a fixture must publish for the declarative rows to be observable. */
 export const FIXTURE_FORM_ANSWERS = 'nt_form_answers';
@@ -305,8 +305,22 @@ export async function observeAll(ctx, options = {}) {
     const decision = checkFixtureIdentity(tool, {
       expectedOrigin: options.expectedOrigin
         || (typeof location === 'undefined' ? '' : location.origin),
-      // The probe runs inside the fixture in both transports, so its own document IS the identity.
-      expectedWindow: typeof window === 'undefined' ? null : window,
+      /*
+       * SUPPLIED ONLY WHEN THE PROBE IS THE FIXTURE.
+       *
+       * It is, in the page transport: index.html calls observeAll INSIDE the subject iframe, so its
+       * own document is the identity and nothing stronger exists.
+       *
+       * It is NOT, on the command line's own bundled run: that navigates to index.html and
+       * evaluates here, in the TOP document, while the form tools are registered by the iframe.
+       * Requiring same-document there refused the fixture the runner had just served itself, which
+       * is how `node bin/ninthtool.mjs --behaviour C1` started reporting NOT RUN. Caught by running
+       * the command, not by a test.
+       *
+       * Where it cannot apply, identity rests on the exact path the run INTENDED, the build marker
+       * and the nonce echo, which is what closes the `/attacker/fixtures/subject.html` hole.
+       */
+      expectedWindow: options.expectedWindow || null,
       expectedPath: options.expectedPath
         || (typeof location === 'undefined' ? '' : location.pathname),
       nonce,
@@ -672,13 +686,51 @@ export async function observeAll(ctx, options = {}) {
         throw new Error('the form answered without echoing this run\'s nonce, so it is not the '
           + 'bundled fixture handler. One call was made and no further call was sent');
       }
+      /*
+       * WHAT THE HANDLER SAW, READ FROM THE HANDLER RATHER THAN FROM ITS ANSWER.
+       *
+       * The leak used to be detectable only by finding the seeded value inside the RESOLVED answer.
+       * A rejected call has no answer, so a handler that read the stale value and then rejected was
+       * recorded as `handlerSawStaleValue: false` and the row passed. Reject-after-read was the one
+       * shape this row could not see, and it is the worst one.
+       *
+       * The fixture now records what it was handed the moment it was handed it, before anything is
+       * resolved. This reads that channel, and reads only the entries this call added.
+       */
+      /*
+       * READ FROM THE FIXTURE'S WINDOW, NOT THE PROBE'S.
+       *
+       * The handler writes into the document that owns the form. On the command line's bundled run
+       * that document is a FRAME and the probe is the top document, so reading `window[...]` here
+       * found nothing and the row abstained on a page that reports perfectly well. The tool carries
+       * a reference to the document that registered it, and that is the one to ask.
+       */
+      const readHandlerLog = () => {
+        try {
+          const log = form.window[HANDLER_LOG_KEY];
+          return Array.isArray(log) ? log.slice() : null;
+        } catch { return null; }
+      };
+      const before = readHandlerLog();
+
       // Only now, with the handler proved, the call that omits the required property.
       const second = await settle(call(ctx, form, { age: 41 }), SETTLE_TIMEOUT_MS);
       const text = second.settled === 'resolved' ? String(second.value ?? '') : '';
+
+      const after = readHandlerLog();
+      const telemetry = after === null ? 'unavailable' : 'read';
+      const added = after === null ? [] : after.slice(before === null ? 0 : before.length);
+      const sawStale = added.filter((entry) => entry && entry.saw
+        && Object.values(entry.saw).some((v) => String(v) === seeded));
+
       return {
         settled: second.settled,
-        handlerSawStaleValue: text.includes(seeded),
-        staleValue: text.includes(seeded) ? seeded : null,
+        // EITHER route counts as a leak: the handler telling us, or the answer carrying it back.
+        handlerSawStaleValue: sawStale.length > 0 || text.includes(seeded),
+        staleValue: (sawStale.length > 0 || text.includes(seeded)) ? seeded : null,
+        // How we know, so a reader can tell a proven-clean run from one that could not look.
+        handlerTelemetry: telemetry,
+        handlerCallsObserved: added.length,
         callerSaw: text.slice(0, 200),
         nonceEchoed: true,
       };
