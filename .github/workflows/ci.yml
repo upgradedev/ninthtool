@@ -76,9 +76,16 @@ jobs:
       - name: The gate proves it can fail, then runs
         run: node tests/unit/coverage_gate.mjs --selftest
 
-      # `tee` rather than a redirect, so a failing suite still fails this job. The default shell
-      # here is bash with pipefail, so node's exit code survives the pipe.
+      # `tee` rather than a redirect, so a failing suite still fails this job rather than being
+      # swallowed by a redirect that always succeeds.
+      #
+      # `shell: bash` IS LOAD BEARING AND IS NOT DECORATION. The default shell on a linux runner is
+      # `bash -e`, which has no pipefail, so the exit code of a pipeline is the exit code of `tee`
+      # and `tee` always succeeds. Without this line a failing suite would pass this step while the
+      # comment above claimed it could not, which is a gate that is fail open and says otherwise.
+      # Naming the shell turns it into `bash --noprofile --norc -eo pipefail`.
       - name: Measure
+        shell: bash
         run: node --experimental-test-coverage --test tests/unit | tee coverage.txt
 
       - name: The measurement layer is above the floor
