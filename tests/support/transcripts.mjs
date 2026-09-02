@@ -63,6 +63,12 @@ export function conforming() {
           { name: 'enumerated', declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' },
           { name: 'unknownProperty', declared: true, script: 'enforced', form: 'enforced', detail: 'both refused it' },
         ],
+        // Both halves ANSWERED a schema valid call, which is what makes the refusals below mean
+        // enforcement rather than a service that refuses everything.
+        controls: {
+          script: { answered: true, settled: 'resolved', errName: null, waitedMs: 3 },
+          form: { answered: true, settled: 'resolved', errName: null, waitedMs: 5 },
+        },
         scriptPathEnforces: true,
         formPathEnforces: true,
       },
@@ -174,6 +180,10 @@ export function measuredChrome152() {
           // to compare a rule neither side had. It counted as a fourth constraint anyway.
           { name: 'unknownProperty', declared: false, script: 'not-declared', form: 'not-declared', detail: 'the schema does not express this constraint' },
         ],
+        controls: {
+          script: { answered: true, settled: 'resolved', errName: null, waitedMs: 2 },
+          form: { answered: true, settled: 'resolved', errName: null, waitedMs: 5 },
+        },
         scriptPathEnforces: false,
         formPathEnforces: true,
       },
