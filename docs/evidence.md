@@ -71,13 +71,13 @@ registered anything of its own.
 | A3 | broken | annotations read back: `readOnlyHint`, `untrustedContentHint` |
 | B1 | broken | `isError` envelope resolved; throw and `DOMException` both rejected as `UnknownError` with the page's reason gone |
 | B2 | broken | the promise resolved, so the caller reads success |
-| B3 | broken | 4 of 6 annotations dropped with no error |
+| B3 | broken | 3 of 3 dropped with no error and no console warning: `destructiveHint`, `idempotentHint`, `openWorldHint` |
 | B4 | broken | `typeof tool.annotations === "undefined"` on a form derived tool |
 | B5 | broken | a string handler and an object handler both returned `typeof "string"` |
 | C1 | broken | the call resolved, and the handler was handed `M. Okafor` from the previous call |
 | C2 | broken | signal in the options bag withdraws; signal on the descriptor does not, and nothing is thrown |
 | C3 | broken | script registered tools do not enforce, form derived tools do |
-| C4 | broken | never settled, still pending after 2502 ms |
+| C4 | **by design** | still pending after 2502 ms, which is the human hold working, and nothing on the tool surface distinguishes it from a tool that answers |
 | D1 | **holds** | 1 event on register, 1 on withdraw |
 | D2 | **holds** | all four synthesised: bounds on `age` (min and max together), an enum on `severity`, a description on every control, and `required` naming a real one. The row now demands all four rather than any three, and demands each on the control its markup declares |
 | P1 | broken | 2 of 5 tools carry no annotations at all: `nt_form_answers`, `nt_form_silent` |
