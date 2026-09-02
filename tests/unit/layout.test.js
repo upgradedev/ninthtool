@@ -25,13 +25,48 @@ const ROOT = path.resolve(
 );
 const css = fs.readFileSync(path.join(ROOT, 'assets/styles.css'), 'utf8');
 
-/** The declaration block for one selector, so a rule elsewhere cannot satisfy the assertion. */
+/**
+ * The declaration block for one selector, so a rule elsewhere cannot satisfy the assertion.
+ *
+ * IT MATCHES THE WHOLE SELECTOR AT A LINE START, NOT A SUBSTRING ANYWHERE.
+ *
+ * This used to be `css.indexOf(selector + ' {')`, which finds the first place those characters
+ * occur and does not care what is in front of them. Measured, not imagined: adding
+ * `.blocker-do .cmd { margin: 8px 0; min-width: 0; }` above the real `.cmd` rule made
+ * `ruleFor('.cmd')` return the descendant rule, and the assertion that command blocks scroll went
+ * red against a stylesheet where they still do. The same shape would equally have hidden a REAL
+ * regression behind a narrower rule that happened to sit higher in the file, which is the failure
+ * this repository has already been caught by twice with gates that select by content.
+ *
+ * So the selector is anchored to the start of a line and matched in full.
+ */
+function openingOf(text, selector) {
+  const opening = `${selector} {`;
+  let offset = 0;
+  for (const line of text.split('\n')) {
+    if (line.startsWith(opening)) return offset;
+    offset += line.length + 1;
+  }
+  return -1;
+}
+
 function ruleFor(selector) {
-  const at = css.indexOf(`${selector} {`);
-  assert.notEqual(at, -1, `${selector} has no rule at all`);
+  const at = openingOf(css, selector);
+  assert.notEqual(at, -1, `${selector} has no rule of its own at the start of a line`);
   const close = css.indexOf('}', at);
   return css.slice(at, close);
 }
+
+test('a rule is found by its whole selector and not by a substring of a longer one', () => {
+  // The hardening above, proved rather than described, on a sample rather than on the real
+  // stylesheet, so it goes on proving it after the stylesheet has changed again.
+  const sample = ['.blocker-do .cmd { margin: 8px 0; }', '.cmd { overflow-x: auto; }', ''].join('\n');
+  const bySubstring = sample.slice(sample.indexOf('.cmd {'), sample.indexOf('}'));
+  assert.ok(!/overflow-x/.test(bySubstring),
+    'the sample no longer reproduces the defect, so this test proves nothing');
+  assert.match(sample.slice(openingOf(sample, '.cmd')), /overflow-x:\s*auto/,
+    'the anchored match must find the rule that owns the selector');
+});
 
 test('the blocker breaks a long unbreakable string instead of widening the page', () => {
   const rule = ruleFor('.blocker');

@@ -64,6 +64,34 @@ body {
 .flagship { margin: 0 0 14px; font-size: clamp(21px, 3.6vw, 30px); line-height: 1.28; font-weight: 650; letter-spacing: -.01em; }
 .sub { margin: 0; color: var(--ink-soft); max-width: 68ch; font-size: 15px; }
 
+/* ---------------------------------------------------------------- the section nav
+   ONE ROW THAT SCROLLS INSIDE ITSELF, NEVER A ROW THAT WRAPS. Seven links wrapped to three lines
+   at 375 px, which is a sticky bar eating a quarter of a phone screen for the whole visit. The
+   row scrolls sideways inside its own box instead, and min-width: 0 is what stops it dragging the
+   document with it, which is the exact defect this page has already been measured with twice. */
+.pagenav {
+  position: sticky; top: 0; z-index: 3;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.pagenav-row {
+  display: flex; gap: 6px; align-items: center;
+  overflow-x: auto; overflow-y: hidden; min-width: 0;
+  padding-top: 7px; padding-bottom: 7px;
+  scrollbar-width: thin;
+}
+.pagenav-row a {
+  flex: 0 0 auto; white-space: nowrap; text-decoration: none;
+  font-size: 13px; color: var(--ink-soft);
+  padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line);
+}
+.pagenav-row a:hover { color: var(--ink); border-color: var(--line-strong); }
+.pagenav-row a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* An anchored row must not land under the sticky bar. */
+:target { scroll-margin-top: 64px; }
+main > section, .group, .card { scroll-margin-top: 64px; }
+
 /* ---------------------------------------------------------------- sections */
 main > section { padding: 30px 0; border-bottom: 1px solid var(--line); }
 main > section:last-child { border-bottom: 0; }
@@ -95,6 +123,31 @@ main > section:last-child { border-bottom: 0; }
   overflow-wrap: anywhere; min-width: 0;
 }
 
+/* THE THING TO DO ABOUT IT, WHICH THE REASON ON ITS OWN NEVER WAS.
+   Same red panel, two boxes, because [data-el="blocker"] is written with textContent and anything
+   nested inside it would be erased on the next write. min-width: 0 on both, and the command box
+   scrolls inside itself: the tarball URL is one unbreakable token and it is the shape that already
+   produced 459 px of document inside a 375 px viewport on this exact screen. */
+.blocked { min-width: 0; }
+.blocker-do {
+  margin: 10px 0 0; padding: 12px 14px; border-radius: 8px;
+  background: var(--bg-sunk); border: 1px solid var(--line); max-width: 72ch; min-width: 0;
+}
+.blocker-do p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+.blocker-do-h { margin-bottom: 8px !important; color: var(--ink) !important; }
+.blocker-do .cmd { margin: 8px 0; min-width: 0; }
+.blocker-do-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.blocker-do-note { margin-top: 8px !important; font-size: 13px !important; }
+.copy-said { font-size: 13px; color: var(--ink-faint); min-width: 0; overflow-wrap: anywhere; }
+
+.secondary {
+  font: 600 13px/1 inherit; padding: 8px 12px; border-radius: 7px; cursor: pointer;
+  background: var(--bg-raised); color: var(--ink); border: 1px solid var(--line-strong);
+}
+.secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.secondary:disabled { opacity: .5; cursor: not-allowed; }
+.secondary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
 /* ---------------------------------------------------------------- summary tiles */
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .tile { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
@@ -104,6 +157,32 @@ main > section:last-child { border-bottom: 0; }
 .tile.is-pass b { color: var(--pass); }
 .tile.is-na b { color: var(--na); }
 .env { margin: 0; font: 12px/1.5 var(--mono); color: var(--ink-faint); word-break: break-word; min-width: 0; }
+
+/* ---------------------------------------------------------------- the row index
+   Twenty ids and six group names, so a reader reaches any row in one click instead of scrolling
+   for it. Grid rather than one long line, and every child carries min-width: 0. */
+.rowindex {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;
+  margin: 0 0 18px; padding: 14px; min-width: 0;
+  background: var(--bg-sunk); border: 1px solid var(--line); border-radius: 10px;
+}
+.rowindex > *, .index-group > * { min-width: 0; }
+.index-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.index-jump { font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.index-count { font: 11px/1 var(--mono); color: var(--ink-faint); letter-spacing: .06em; }
+.index-ids { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.index-id {
+  font: 700 11px/1 var(--mono); letter-spacing: .06em; text-decoration: none;
+  padding: 5px 8px; border-radius: 5px;
+  background: var(--bg-raised); border: 1px solid var(--line); color: var(--ink-soft);
+}
+.index-id:hover { border-color: var(--accent); color: var(--accent); }
+.index-id:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.foldbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; min-width: 0; }
+.foldbar > * { min-width: 0; }
+.foldbar-note { font-size: 13px; color: var(--ink-faint); max-width: 46ch; }
+.foldbar-said { font-size: 13px; color: var(--ink-soft); }
 
 /* ---------------------------------------------------------------- findings */
 /* min-width: 0 on every grid and flex child, deliberately.
@@ -127,7 +206,23 @@ main > section:last-child { border-bottom: 0; }
 .card.v-na   { border-left-color: var(--na); }
 .card.v-design { border-left-color: var(--ink-faint); }
 
+/* THE FOLD. Native <details>, so the open state belongs to the browser, the keyboard already
+   reaches it, and a screen reader already announces it. The card keeps its own padding, so the
+   summary is given a negative inset nowhere and simply fills the card. */
+.fold { min-width: 0; }
+.fold > * { min-width: 0; }
 .card-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+summary.card-top { cursor: pointer; list-style: none; }
+summary.card-top::-webkit-details-marker { display: none; }
+summary.card-top::marker { content: ""; }
+summary.card-top:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.fold-hint {
+  flex-basis: 100%; font-size: 12px; color: var(--ink-faint);
+}
+.fold-hint::before { content: "+ "; font-weight: 700; }
+.fold[open] .fold-hint { display: none; }
+.card-body { min-width: 0; }
+.card-body > * { min-width: 0; }
 .chip {
   font: 700 11px/1 var(--mono); letter-spacing: .06em; padding: 5px 8px; border-radius: 5px;
   background: var(--bg-sunk); color: var(--ink-faint);
