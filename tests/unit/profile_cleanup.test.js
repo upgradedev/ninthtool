@@ -177,9 +177,11 @@ test('SIGTERM is covered, because an ordinary kill is not SIGINT', () => {
  * @param {string} mode `normal`, `hold` or `self-interrupt`
  */
 function launcherRun(mode) {
-  return spawn(process.execPath, ['--input-type=module', '-e', `
+  const child = spawn(process.execPath, ['--input-type=module', '-e', `
+import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
+import path from 'node:path';
 import { launchWithWebMCP } from ${JSON.stringify(LAUNCH_URL)};
 
 function freePort() {
@@ -204,6 +206,23 @@ const launched = await launchWithWebMCP({
 });
 process.stdout.write('PROFILE ' + launched.profile + '\\n');
 
+// Wedge the profile so the removal cannot succeed, each platform in the way that platform wedges.
+// Windows refuses to remove a directory holding an open handle. POSIX removes it happily, so what
+// is taken away there is permission to unlink, which stops a normal user and does not stop root.
+if (${JSON.stringify(mode)} === 'wedged') {
+  if (process.platform === 'win32') {
+    const held = path.join(launched.profile, 'Local State');
+    fs.writeFileSync(held, '{}');
+    fs.openSync(held, 'r+');
+  } else {
+    const locked = path.join(launched.profile, 'Default');
+    fs.mkdirSync(locked, { recursive: true });
+    fs.writeFileSync(path.join(locked, 'Preferences'), '{}');
+    fs.chmodSync(locked, 0o500);
+  }
+  process.exit(0);
+}
+
 // The shipped runner's own last line. Nothing calls close(): the exit hook is the thing on trial.
 if (${JSON.stringify(mode)} === 'normal') process.exit(0);
 
@@ -212,7 +231,13 @@ if (${JSON.stringify(mode)} === 'normal') process.exit(0);
 setInterval(() => {}, 1 << 30);
 setTimeout(() => { process.stdout.write('WATCHDOG\\n'); process.exit(70); }, 8000);
 if (${JSON.stringify(mode)} === 'self-interrupt') setTimeout(() => process.emit('SIGINT'), 300);
-  `], { stdio: ['ignore', 'pipe', 'inherit'] });
+  `], { stdio: ['ignore', 'pipe', 'pipe'] });
+  // Kept as a string rather than inherited, because one test below asserts what the run said on
+  // its way out. stderr is a PIPE here on purpose: that is the case where a console.error from an
+  // exit hook is asynchronous and process.exit() drops it.
+  child.said = '';
+  child.stderr.on('data', (chunk) => { child.said += chunk; });
+  return child;
 }
 
 /** Resolve with the profile path the child printed, once it has printed it. */
@@ -239,6 +264,51 @@ test('a run that ends normally takes its profile with it', async (t) => {
   assert.equal(code, 0);
   assert.equal(fs.existsSync(profile), false,
     `${profile} is still on disk after an ordinary run, which is the 79-directories-in-TEMP defect`);
+});
+
+test('a profile that could not be removed is NAMED on the way out, not swallowed', async (t) => {
+  /*
+   * THE MESSAGE THAT REPLACED THE SWALLOW, HELD BY A TEST OF ITS OWN.
+   *
+   * Every other test here takes the path where removal succeeds, so deleting the report would have
+   * broken nothing. Two things are on trial. That anything is said at all, which is the whole
+   * difference from the bare `catch {}` this replaces. And that what is said arrives WHOLE over a
+   * pipe, which is the stream a parent process gets and the one an exit hook is least sure of.
+   *
+   * WHAT THIS TEST DOES NOT HOLD, MEASURED RATHER THAN ASSUMED. launch.mjs writes that message
+   * with fs.writeSync rather than console.error, because a write from an exit hook must not depend
+   * on the platform finishing it in time. Reverting that one call to console.error was mutated in
+   * and THIS TEST SURVIVED IT: a pipe write completes anyway here. So the synchronous write is a
+   * belt this suite cannot feel. It is recorded here instead of being claimed as covered.
+   *
+   * WHICH BRANCH RUNS IS DECIDED BY THE FILESYSTEM, NOT BY THE MESSAGE. If the profile is still
+   * there, the wedge held and the message is required. If it is not, this environment removed it
+   * anyway, which is what happens for root on POSIX, and requiring a message would be requiring a
+   * report of something that did not happen. Reading the message to decide whether to demand the
+   * message is the shape that cannot fail, and it is not the shape below.
+   */
+  const child = launcherRun('wedged');
+  t.after(() => { try { child.kill(); } catch { /* already gone */ } });
+
+  const profile = await profileOf(child);
+  await new Promise((resolve) => child.on('exit', resolve));
+  t.after(() => {
+    try { fs.chmodSync(path.join(profile, 'Default'), 0o700); } catch { /* windows, or gone */ }
+    fs.rmSync(profile, { recursive: true, force: true });
+  });
+
+  if (fs.existsSync(profile)) {
+    assert.match(child.said, /is still on disk after \d+ attempts over \d+ ms \([A-Za-z]+\)/,
+      `the profile was left behind and the run said nothing about it. It said: ${child.said}`);
+    assert.ok(child.said.includes(profile), 'the message has to name the directory to be actionable');
+    assert.match(child.said, /safe to delete by hand\.\s*$/,
+      'the message was cut short on its way through the pipe, which is the whole point of writeSync');
+  } else {
+    console.log('  [note] this environment removed the wedged profile anyway, most likely running '
+      + 'as root, so the report could not be provoked here');
+    assert.doesNotMatch(child.said, /is still on disk/,
+      'it reported a failure to remove a directory that is not there');
+  }
 });
 
 test('a run that is interrupted takes its profile with it', async (t) => {

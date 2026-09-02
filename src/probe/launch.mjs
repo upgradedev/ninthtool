@@ -231,9 +231,23 @@ export async function launchWithWebMCP({ url, port = 9411, chrome, timeoutMs = 3
     try { child.kill(); } catch { /* already gone */ }
     const removal = removeProfile(profile);
     if (!removal.removed) {
-      console.error(`ninthtool: the throwaway profile ${profile} is still on disk after `
+      /*
+       * fs.writeSync AND NOT console.error, FOR THE SAME REASON THE REPORT EXISTS AT ALL.
+       *
+       * This runs from a process exit hook, and process.exit() drops writes that have not gone
+       * yet. Whether a console.error has gone yet is not a property of this code: it depends on
+       * the platform and on whether stderr is a file, a terminal or a pipe. So the message that
+       * replaces a silent leak could itself be silently lost, which is the same defect one layer
+       * up. writeSync does not depend on any of that.
+       *
+       * AND THE TEST DOES NOT HOLD THIS PARTICULAR LINE, WHICH IS WORTH SAYING. Reverting it to
+       * console.error was mutated in and the test survived, because on this platform a pipe write
+       * happens to complete anyway. The change is kept because the guarantee should not come from
+       * which stream a reader happened to attach.
+       */
+      fs.writeSync(2, `ninthtool: the throwaway profile ${profile} is still on disk after `
         + `${removal.attempts} attempts over ${removal.waitedMs} ms (${removal.lastError}). `
-        + 'Nothing else is in it, so it is safe to delete by hand.');
+        + `Nothing else is in it, so it is safe to delete by hand.\n`);
     }
     unregister();
   };
