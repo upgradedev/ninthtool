@@ -41,6 +41,74 @@ jobs:
       - name: The runtime manifest is current
         run: node scripts/build_manifest.mjs --check
 
+  # COVERAGE, ENFORCED RATHER THAN REPORTED.
+  #
+  # WHY THE SUMMARY IS PARSED INSTEAD OF A FLAG BEING PASSED. Node 22 has --test-coverage-lines,
+  # --test-coverage-branches and --test-coverage-functions. This repository declares
+  # "node": ">=20" and this workflow pins 20, where those flags do not exist: node 20.20.2 answers
+  # `bad option: --test-coverage-lines=99` and exits without running anything. That was checked on
+  # the runtime before the gate was written, because a gate built on a flag the runtime rejects is
+  # a gate that never runs.
+  #
+  # TWO LEVELS, BOTH BLOCKING, AND NEITHER REPLACES THE OTHER.
+  #
+  #   1. src/probe/observe.js, the measurement layer, which is what a wrong reading here would
+  #      come from. It is above the floor and this step keeps it there.
+  #   2. The aggregate `all files` row, which is the pinned ruler and is BELOW the floor today.
+  #
+  # The aggregate is depressed by something no test can fix from here: node writes one coverage
+  # record per module INSTANCE, and tests/unit/ui_state.test.js imports `src/ui/app.js?fresh=N`
+  # once per mount, so one 635 line file is counted eighteen times in the denominator. Measured on
+  # 369c769, that is 11,430 of 24,621 counted lines, together at 65.80 percent, against a union
+  # across those eighteen records of 95.75 percent. Everything that is not app.js is already at
+  # 95.38 percent of lines; set it to 100 and the aggregate reaches 84.12, so the floor cannot be
+  # met by writing more tests. The gate prints the eighteen rows when it fails, so the number is
+  # attributable rather than mysterious, and the step stays red until the harness or app.js is
+  # fixed. Widening the floor to make it green would be the wrong repair.
+  #
+  # Those figures carry a date and a commit because they will drift. Reproduce them by reading the
+  # `18 rows for src/ui/app.js` line the gate prints on any failing run.
+  coverage:
+    name: Coverage thresholds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: The gate proves it can fail, then runs
+        run: node tests/unit/coverage_gate.mjs --selftest
+
+      # `tee` rather than a redirect, so a failing suite still fails this job rather than being
+      # swallowed by a redirect that always succeeds.
+      #
+      # `shell: bash` IS LOAD BEARING AND IS NOT DECORATION. The default shell on a linux runner is
+      # `bash -e`, which has no pipefail, so the exit code of a pipeline is the exit code of `tee`
+      # and `tee` always succeeds. Without this line a failing suite would pass this step while the
+      # comment above claimed it could not, which is a gate that is fail open and says otherwise.
+      # Naming the shell turns it into `bash --noprofile --norc -eo pipefail`.
+      - name: Measure
+        shell: bash
+        run: node --experimental-test-coverage --test tests/unit | tee coverage.txt
+
+      - name: The measurement layer is above the floor
+        run: >
+          node tests/unit/coverage_gate.mjs coverage.txt --threshold=85 --only-files
+          --file=src/probe/observe.js
+
+      # ONE RECORD PER FILE, because the raw "all files" row is not a coverage measurement.
+      #
+      # Node writes one record per module INSTANCE, and tests/unit/ui_state.test.js imports
+      # src/ui/app.js with a fresh query string once per mount. Measured on this tree: eighteen
+      # records for that one file and one for every other, so the raw aggregate divides by a
+      # denominator that moves when a UI test adds a mount. Gating on it would gate on the harness.
+      #
+      # The raw figure is still printed by this step, every file below the floor is named, and
+      # nothing is excluded.
+      - name: The whole suite is above the floor, counting each file once
+        run: node tests/unit/coverage_gate.mjs coverage.txt --per-file --threshold=85
+
   style:
     name: Style gate
     runs-on: ubuntu-latest
