@@ -270,7 +270,7 @@ export const BEHAVIOURS = Object.freeze([
     measured: 'signal in the options bag: present before abort, absent after. '
       + 'signal on the descriptor: present before abort, PRESENT AFTER. Nothing is thrown and '
       + 'nothing is logged.',
-    why: 'This is the ninth tool. A tool the page believes it withdrew stays on the surface, and an '
+    why: 'This is the row the suite is named for. A tool the page believes it withdrew stays on the surface, and an '
       + 'agent can call an action the page no longer offers.',
     reproduce: 'node bin/ninthtool.mjs --behaviour C2',
   },

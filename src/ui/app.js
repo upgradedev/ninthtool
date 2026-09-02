@@ -6,7 +6,7 @@
  * audit has produced findings, and it is WITHDRAWN when they are cleared. It is registered with the
  * signal in the options bag, which is the only place that works, and behaviour C2 exists because
  * putting it anywhere else fails silently. The tool count in the status line moves when it happens,
- * so the ninth tool appearing and disappearing is visible rather than described.
+ * so the conditional tool appearing and disappearing is visible rather than described.
  *
  * NOTHING IS GATED TO NULL. If there is no WebMCP host object the run control is disabled and the
  * reason is rendered beside it, in words, with what to do about it. The catalogue renders either
