@@ -850,6 +850,7 @@ async function driveLivePage() {
         fail: document.querySelectorAll('.groups .card.v-fail').length,
         pass: document.querySelectorAll('.groups .card.v-pass').length,
         notApplicable: document.querySelectorAll('.groups .card.v-na').length,
+        byDesign: document.querySelectorAll('.groups .card.v-design').length,
         total: document.querySelectorAll('.groups .card').length
       };
       // THE VERDICT THE VISITOR SEES, ROW BY ROW. Counting classes gives three totals, and three
@@ -857,8 +858,12 @@ async function driveLivePage() {
       // can be compared to the judgement one behaviour at a time.
       out.cardVerdicts = [...document.querySelectorAll('.groups .card')].map((card) => {
         const chip = card.querySelector('.chip');
+        // A row the page renders as BY DESIGN must be read as by-design here, or the per-id
+        // comparison below reports a disagreement that does not exist and the gate fails for the
+        // wrong reason.
         const shown = card.classList.contains('v-fail') ? 'fail'
           : card.classList.contains('v-pass') ? 'pass'
+          : card.classList.contains('v-design') ? 'by-design'
           : card.classList.contains('v-na') ? 'not-applicable' : 'nothing rendered';
         return { id: chip ? chip.textContent.trim() : '', verdict: shown };
       });

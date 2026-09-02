@@ -41,7 +41,13 @@ node bin/ninthtool.mjs --behaviour B1
 ## What was measured, on the day
 
 Driving the live page end to end, judged from the raw transcript and cross checked against what the
-page rendered: **14 of 20 promises broken, 5 kept, 1 unsettled.** Nineteen rows reached a verdict.
+page rendered: **13 of 20 promises broken, 5 kept, 1 by design, 1 unsettled.** Nineteen rows
+reached a verdict.
+
+**It was 14 broken until C4 stopped being counted as one.** That row's own catalogue entry always
+read "That pause is the design, not a defect", while the code scored it as a broken promise because
+there were only two outcomes. The number went down because the definition got honest, not because
+the browser changed.
 
 The unsettled row is P5, and it is the most interesting row here, so it is not rounded away. An
 earlier version of this document reported P5 as **holding**, on the grounds that the tool "answered
@@ -104,7 +110,7 @@ Pressed the button a visitor presses, through the same flagged Chrome:
 |---|---|
 | the page boots | 20 cards, 5 groups, 3 tools published, no blocking message |
 | tool aggregation | 5 tools visible: 3 from the page, 2 from the same origin subject frame |
-| the audit | 14 broken, 5 kept, 1 unsettled, and the page agreed with the transcript. Around **4.5 to 5 seconds**; the exact figure moves run to run and is printed by the gate rather than pinned here |
+| the audit | 13 broken, 5 kept, 1 by design, 1 unsettled, and the page agreed with the transcript. Around **4.5 to 5 seconds**; the exact figure moves run to run and is printed by the gate rather than pinned here |
 | the ninth tool appears | 5 tools before the run, **6 after**, `nt_get_findings` present |
 | an agent reads the findings | `executeTool` returned the findings as structured JSON |
 | the ninth tool withdraws | 6 tools before clearing, **5 after**, `nt_get_findings` gone |

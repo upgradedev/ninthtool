@@ -5,14 +5,14 @@
  "unresolved": [],
  "refused": [],
  "files": {
-  "assets/styles.css": "c30b201880f3a4de2618c689e7bc447f2c293f099bab872cad0e4719dcac3f62",
+  "assets/styles.css": "5f1ccabc510f0b6c813b165b1b85258b6dfccb1c56e70f29cb4fac35d3376548",
   "fixtures/subject.html": "42305e787c13a3bec354a18e558e3fda5c176066b11ac7d37877d6deb4b8f89e",
   "index.html": "351f0d0309a396edcae8585210b68d13112949196bccbb14687f47fecdaee378",
-  "src/judge/behaviours.js": "3f118f7743d8bc673f8f802c1cb11b49fc450889b72ee2b74cd0a388c7f33d36",
-  "src/judge/verdict.js": "0e89277e06111eb64e6a8b6090c33f57ab47b0ca9c870a95130b4a7cd573065c",
+  "src/judge/behaviours.js": "93f521ce1d94d18b323e3eb3fc2383ad769a0a36613a08541a3e46aa6ee95212",
+  "src/judge/verdict.js": "f05865c6ebf97816ddf2e6ad266a4d24420dee35f8eec6f213a2c2fb45f5a563",
   "src/probe/fixture_identity.js": "a71f43181385dfefa8dfefb3a3f9580322b98c4c57430721bba431eae465d060",
-  "src/probe/observe.js": "cad606e84b76dc14e4b4e7a9574dc5759857b0e4042215ba22edc57b2ff49e76",
+  "src/probe/observe.js": "7548f71451f4fefd7fdfe28e71edcad7e7c0824a1edc0e5cabdd798cc4ddbee0",
   "src/probe/steps.js": "ce12cf53217a323532f258c41ceef0635464769c578092bf624acacd40edc045",
-  "src/ui/app.js": "d67f046f92283f4cea99a49a832bef7cbdf2f06a181df18e35d284a3b1ea949c"
+  "src/ui/app.js": "9ae69785daf901d6a470322cab62bcbc89a4f218c30bac44a187fbba2e7464a8"
  }
 }

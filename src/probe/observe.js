@@ -399,6 +399,19 @@ export async function observeAll(ctx, options = {}) {
     await step('B3', async () => ({
       sentAnnotationKeys: annotationsSent,
       returnedAnnotationKeys: annotationsBack,
+      /*
+       * WHOSE FINDING IS WHOSE.
+       *
+       * All six names go on one tool because registering six tools to ask one question would be
+       * six times the side effect. But the two rows read different subsets of the same answer.
+       *
+       * A3 is about `consequentialHint`, which Chromium's own model_context_tool.idl declares and
+       * this build drops: a divergence between the browser and its own IDL. B3 is about the three
+       * names that belong to backend MCP and were never part of this standard. Counting
+       * consequentialHint in both made one measured fact into two broken promises.
+       */
+      subject: ['destructiveHint', 'idempotentHint', 'openWorldHint'],
+      measuredElsewhere: { consequentialHint: 'A3' },
     }));
 
     // -------------------------------------- B1 and B2, can a refusal reach the caller at all

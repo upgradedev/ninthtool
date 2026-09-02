@@ -439,9 +439,8 @@ from documentation. Where the documentation disagrees with the measurement, the 
 documentation promised and is reported as a divergence.
 
 `tests/support/transcripts.mjs` holds the transcript that browser actually produced, transcribed
-rather than summarised, so the fourteen failures, five passes and one inconclusive row reproduce
-from a checkout
-without a browser at all.
+rather than summarised, so the thirteen failures, five passes, one by-design row and one
+inconclusive row reproduce from a checkout without a browser at all.
 
 ## Licence
 
