@@ -152,3 +152,28 @@ so in `results.md`.
 **What the study is now understood to have measured**, stated plainly: 5 of 20 rows vary between
 pages and all 5 are `metadata` rows, so on this population Ninth Tool did not produce page-specific
 findings beyond what a declaration-only reading reaches. The preregistered hypothesis fails.
+
+### 2026-09-02, later. The threshold in section 4 was unreachable when it was written.
+
+Taking the 13 `execution` rows apart, which nobody did before fixing the threshold at three:
+
+- 8 register this tool's own probe tools and read what the browser does with them. One browser, one
+  answer, identical on all 12 pages.
+- 3 need a form submitted. Since `6bcf551` the runner refuses to write to a fixture it does not own,
+  so on an external page they can never settle.
+- 2 read the page's own tools, and both abstained on every page because no corpus entry authorised a
+  tool call.
+
+So at most **two** rows could ever have told one page from another, against a threshold of **three**.
+The bar could not be cleared by any result, which is a defect in this protocol rather than a finding
+about the instrument.
+
+**The threshold is NOT lowered and the metric is NOT changed.** Section 11 binds, and moving a bar
+after seeing that it cannot be met is the exact move this protocol exists to prevent. What changes
+is the EXPLANATION in `results.md`, which had attributed the flat result to the tool's reach when the
+measured cause is this study's own read only default. A false statement in the modest direction is
+still false.
+
+A second wave running the four pages whose tools are marked `readOnlyHint` under `--allow-tool-calls`,
+which section 10 already authorises, would let those two rows speak. If it is run it is reported
+separately and labelled a second wave, and the primary result above stands as published either way.

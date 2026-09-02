@@ -113,6 +113,37 @@ for (const r of ran) {
     verdictsById.get(f.id).add(f.verdict);
   }
 }
+const reasonsById = new Map();
+for (const r of ran) {
+  for (const f of (r.data.result.findings || [])) {
+    if (!reasonsById.has(f.id)) reasonsById.set(f.id, new Set());
+    reasonsById.get(f.id).add(String(f.reason || ''));
+  }
+}
+
+/*
+ * WHY THE EXECUTION HALF WENT FLAT, TAKEN APART ROW BY ROW.
+ *
+ * "It measured the browser" was the first explanation written here and it is only two thirds true.
+ * Three of the constant rows never ran at all: they need a form submitted, and since 6bcf551 the
+ * runner refuses to write to a fixture it does not own, so on somebody else's page they can never
+ * settle. Two more read the page's OWN tools, and both abstained because no corpus entry authorised
+ * a tool call. So the count of rows that could have told these pages apart is not thirteen.
+ *
+ * That matters more than the verdict. A threshold of three was fixed on a partition where at most
+ * two rows were ever able to move, which is a defect in the preregistration rather than a finding
+ * about the tool. Saying "the tool did not reach" when the measured cause is "the study switched it
+ * off" would be a false statement in the modest direction, and modest is not the same as true.
+ */
+const executionRows = [...verdictsById.keys()].filter((id) => EXECUTION.has(id));
+const constant = (id) => verdictsById.get(id).size === 1;
+const only = (id) => [...verdictsById.get(id)][0];
+const because = (id, phrase) => [...(reasonsById.get(id) || [])].some((r) => r.includes(phrase));
+const settledEverywhere = executionRows.filter((id) => constant(id) && SETTLED.has(only(id)));
+const abstainedEverywhere = executionRows.filter((id) => constant(id) && only(id) === 'not-applicable');
+const needsAForm = abstainedEverywhere.filter((id) => because(id, 'submitting a form'));
+const needsAToolCall = abstainedEverywhere.filter((id) => because(id, 'calling a tool'));
+
 const varying = [...verdictsById.entries()].filter(([, v]) => v.size > 1).map(([id]) => id).sort();
 const varyingExecution = varying.filter((id) => EXECUTION.has(id));
 const discriminates = varyingExecution.length > 0;
@@ -148,11 +179,29 @@ if (!runs.length) {
     lines.push('called are not telling these pages apart, and the rows that tell these pages apart did');
     lines.push('not need a tool to be called.');
     lines.push('');
-    lines.push('The execution rows were not measuring nothing. They were measuring the **browser**,');
-    lines.push('through tools this instrument registers itself, and one browser returns one answer.');
-    lines.push('That is a real reading and it is reported below as a post-hoc secondary result. It is');
-    lines.push('not the reading the primary metric was written to support, and the metric is not');
-    lines.push('changed to fit it.');
+    lines.push('### The threshold was unreachable on the day it was written');
+    lines.push('');
+    lines.push(`The ${executionRows.length} \`execution\` rows are not one kind of row, and taking them `
+      + 'apart says more than the verdict does.');
+    lines.push('');
+    lines.push(`- **${settledEverywhere.length} rows** settled the same way on all ${ran.length} pages: `
+      + `${settledEverywhere.map((id) => `\`${id}\``).join(', ')}. They register this tool's own probe `
+      + 'tools and read what the browser does with them, so one browser gives one answer.');
+    lines.push(`- **${needsAForm.length} rows** abstained everywhere because submitting a form was not `
+      + `authorised: ${needsAForm.map((id) => `\`${id}\``).join(', ')}. The runner refuses to write to a `
+      + 'fixture it does not own, so on somebody else’s page these can never settle at all.');
+    lines.push(`- **${needsAToolCall.length} rows** abstained everywhere because calling the page’s `
+      + `own tools was not authorised: ${needsAToolCall.map((id) => `\`${id}\``).join(', ')}. These are `
+      + 'the only execution rows that read the tools the page itself published.');
+    lines.push('');
+    lines.push(`So at most **${needsAToolCall.length}** execution rows could ever have told one page `
+      + `from another, against a preregistered threshold of **${THRESHOLD}**. The bar was set on a `
+      + 'partition that could not clear it, and it was set before anyone looked.');
+    lines.push('');
+    lines.push('**That is a defect in the preregistration, not a measurement of the tool’s reach.**');
+    lines.push('The two rows that read a page’s own tools were switched off by this study’s own read');
+    lines.push('only default, which is a safety setting working exactly as written. Reporting that as');
+    lines.push('"the tool found nothing" would be false in the modest direction, and modest is not true.');
     lines.push('');
   }
   lines.push('## The preregistered answer, first');
