@@ -96,3 +96,23 @@ export async function serveRuntime(root) {
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   return { server, origin: `http://127.0.0.1:${server.address().port}`, allowed };
 }
+
+/**
+ * Hold this process open until something terminates it.
+ *
+ * WHY --keep-open NEEDED THIS. The runner has two surfaces a reader might want to keep: the
+ * browser it started, and the loopback origin that browser is reading. Both die with this process,
+ * and the runner used to call process.exit() unconditionally, so --keep-open closed the very
+ * things it promised to leave running. Not exiting is most of the fix, but it is not all of it: a
+ * run given a URL of its own starts no server, so with nothing left listening the event loop would
+ * drain and the process would end anyway, a second or two later, for a different reason.
+ *
+ * A timer that never usefully fires is the whole mechanism. It is deliberately not unref'd,
+ * because holding the loop open is the entire point.
+ *
+ * @returns {{release: function(): void}} release lets the process end again
+ */
+export function keepAlive() {
+  const timer = setInterval(() => {}, 1 << 30);
+  return { release() { clearInterval(timer); } };
+}
