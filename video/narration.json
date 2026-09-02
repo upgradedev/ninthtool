@@ -1,0 +1,106 @@
+{
+  "_comment": "The beat structure for the submission video. captionText is what a viewer reads. speechText is what the voice says. They are separate fields on purpose: the caption carries the exact tool names, spellings and figures a judge will check, and the speech carries the spelled out form a text to speech engine pronounces correctly. So WebMCP in a caption is Web M C P in speech, and nt_get_findings is the findings tool. Fixing a pronunciation must never change what is written on screen.",
+
+  "schemaVersion": "ninthtool.submission-video/v1",
+
+  "_comment_identity": "frozenSha is the 40 character commit the live surface is serving when the takes are recorded, and it is REQUIRED. It ships unfilled on purpose: the build and the gate refuse while it is a placeholder, the narrate step warns because the words can be written before the freeze, and --plan prints it as not yet frozen. A video of a different commit than the one submitted is a judge facing statement that is false.",
+  "frozenSha": "<FROZEN_SHA_40_HEX>",
+  "deployedUrl": "https://upgradedev.github.io/ninthtool/",
+
+  "_comment_provider": "elevenlabs reads the key from ELEVENLABS_API_KEY, then XI_API_KEY, then ELEVEN_LABS_KEY. The value is never printed. If none is set the pipeline says so and stops.",
+  "provider": "elevenlabs",
+  "elevenLabs": {
+    "voiceId": "pNInz6obpgDQGcFmaJgB",
+    "modelId": "eleven_multilingual_v2",
+    "outputFormat": "mp3_44100_128"
+  },
+
+  "_comment_planning": "wordsPerSecond is a PLANNING figure only, used by --plan so the beat list can be checked before a single byte of media exists. Nothing downstream trusts it: narrate measures every beat with ffprobe and the gate reads the shipped file. tailSeconds is the fixed pause added after each beat's measured speech.",
+  "planning": {
+    "wordsPerSecond": 2.5,
+    "tailSeconds": 0.65,
+    "expectedDriftTolerance": 0.15
+  },
+
+  "_comment_duration": "The target band is what a good cut lands in. hardCapSeconds is the rule limit and nothing may exceed it, ever. Do not widen these to make a red run green: cut words instead.",
+  "duration": {
+    "targetMinSeconds": 150,
+    "targetMaxSeconds": 165,
+    "hardCapSeconds": 180
+  },
+
+  "video": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 25,
+    "outputName": "ninthtool-demo.mp4"
+  },
+
+  "_comment_beats": "Nine beats, in order. Each one needs its own take recorded to video/../takes as NN-id with a video extension. Contract: ids match [a-z][a-z-]{1,24}, caption and speech each 20 to 800 characters, each beat 3 to 40 measured seconds, whole video inside the target band and under the hard cap.",
+
+  "beats": [
+    {
+      "id": "promise",
+      "expectedSeconds": 17.85,
+      "onScreen": "The WebMCP promise stated plainly. A tool descriptor with destructiveHint set, an isError result, and a signal passed on the descriptor, all three accepted by the browser with nothing thrown and nothing in the console.",
+      "captionText": "WebMCP hands a page's own tools to an agent. I marked a tool destructive. I returned an error. I passed a signal so it would withdraw. All three were accepted and none did anything. Reading a declaration cannot see that.",
+      "speechText": "Web M C P hands a page's own tools to an agent. I marked a tool destructive. I returned an error. I passed a signal so it would withdraw. All three were accepted and none did anything. Reading a declaration cannot see that."
+    },
+    {
+      "id": "open",
+      "expectedSeconds": 17.85,
+      "onScreen": "A clean Chrome window with the WebMCP testing flag on, navigating to the live URL. No sign in, no extension, no console. The page header and the first cards render.",
+      "captionText": "This is Ninth Tool, live at upgradedev.github.io/ninthtool. No account, no install, no credential. It needs Chrome with WebMCP enabled at the testing flag. Without that flag the page renders the catalogue and refuses to report a result, with a reason on every row.",
+      "speechText": "This is Ninth Tool, live on GitHub Pages. No account, no install, no credential. It needs Chrome with Web M C P enabled. Without that flag the page renders the catalogue and refuses to report a result, with a reason on every row."
+    },
+    {
+      "id": "catalogue",
+      "expectedSeconds": 17.05,
+      "onScreen": "The catalogue scrolling through all twenty cards, with the five group headings legible: spec divergence, standard gap, silent trap, by design, holds, and the your page group.",
+      "captionText": "Twenty behaviours in five groups. Six read the tools your page publishes. The other fourteen are facts about the host: three where the browser diverges from the specification, five the standard cannot express, three silent traps, one deliberate, two that hold.",
+      "speechText": "Twenty behaviours in five groups. Six read the tools your page publishes. The other fourteen are facts about the host: three where the browser diverges from the specification, five the standard cannot express, three silent traps, one deliberate, two that hold."
+    },
+    {
+      "id": "defect",
+      "expectedSeconds": 17.85,
+      "onScreen": "The C1 card expanded, showing its promise, its contract and what was measured. The two calls side by side, the second one missing witness_name and resolving anyway.",
+      "captionText": "Behaviour C1. The browser's own schema says witness name is required. Call one sends a full set and resolves. Call two omits that property and resolves anyway, handed the value call one left behind. A wrong write and a leak at once.",
+      "speechText": "Behaviour C one. The browser's own schema says witness name is required. Call one sends a full set and resolves. Call two omits that property and resolves anyway, handed the value call one left behind. A wrong write and a leak at once."
+    },
+    {
+      "id": "audit",
+      "expectedSeconds": 16.65,
+      "onScreen": "The Run audit button pressed, the status line moving, rows filling in as the probe drives the subject fixture in the same origin frame.",
+      "captionText": "Press Run audit. The page drives a subject fixture in a same origin frame and records what happened. Gathering and deciding are separate files: the probe has no idea what a pass is, and the judge cannot reach a browser.",
+      "speechText": "Press Run audit. The page drives a subject fixture in a same origin frame and records what happened. Gathering and deciding are separate files: the probe has no idea what a pass is, and the judge cannot reach a browser."
+    },
+    {
+      "id": "totals",
+      "expectedSeconds": 17.85,
+      "onScreen": "The finished summary line reading 13 broken, 5 kept, 1 by design, 1 unsettled, 20 tested, then the C4 card showing the by design outcome.",
+      "captionText": "Thirteen broken, five kept, one by design, one unsettled, twenty tested. It is deliberately not fourteen. Row C4 was counted broken while its own entry called that pause intended. It became a fourth outcome. The number went down because the definition got honest.",
+      "speechText": "Thirteen broken, five kept, one by design, one unsettled, twenty tested. It is deliberately not fourteen. Row C four was counted broken while its own entry called that pause intended. It became a fourth outcome. The number went down because the definition got honest."
+    },
+    {
+      "id": "surfaces",
+      "expectedSeconds": 20.25,
+      "onScreen": "TWO READINGS, LABELLED, NEVER MERGED, AND THE PAGE RENDERS NO COUNT OF ITS OWN. Film the tool list by name from the console, document.modelContext.getTools(), at three moments: five names before the run, six with nt_get_findings after it, five again after Clear. Inside that one list show each tool's window field, which separates the three this page registers from the two the subject frame publishes, so the page's own registrations reading three, four, three is visible as a subset of the named list and never as a second counter. The status line saying nt_get_findings has been withdrawn is the same event in words.",
+      "captionText": "Watch two surfaces. The tools this page registers go three, four, three: nt_get_findings does not exist until a run produces findings, and is withdrawn when they clear. The aggregated surface adds the subject frame's two, so the same event reads five, six, five. Never one number for both.",
+      "speechText": "Watch two surfaces. The tools this page registers go three, four, three. The findings tool does not exist until a run produces findings, and is withdrawn when they clear. The aggregated surface adds the subject frame's two, so the same event reads five, six, five. Never one number for both."
+    },
+    {
+      "id": "cli",
+      "expectedSeconds": 17.45,
+      "onScreen": "A terminal running the exact published command against a page the viewer owns: npx --yes https://github.com/upgradedev/ninthtool/tarball/main https://your-page.example, then the report it prints.",
+      "captionText": "Point it at your own page from a terminal. One line, no clone, no install step. Node twenty has no WebSocket client, so the runner speaks the frames itself, and the same probe and judge decide here as in the page.",
+      "speechText": "Point it at your own page from a terminal. One line, no clone, no install step. Node twenty has no Web Socket client, so the runner speaks the frames itself, and the same probe and judge decide here as in the page."
+    },
+    {
+      "id": "scope",
+      "expectedSeconds": 18.25,
+      "onScreen": "The safety section of the page: the default with no tool calls, the flag that authorises read only calls, and the bundled fixture that is the only thing forms are ever submitted to. Then the honest limits line carrying the coverage figure. No external corpus study exists and none is claimed.",
+      "captionText": "By default it calls no tool of yours and submits no form. Calling your read only tools needs a flag, and form writing runs only against its own fixture. Line coverage is seventy six point eight percent, short of eighty five, and named rather than hidden.",
+      "speechText": "By default it calls no tool of yours and submits no form. Calling your read only tools needs a flag, and form writing runs only against its own fixture. Line coverage is seventy six point eight percent, short of eighty five, and named rather than hidden."
+    }
+  ]
+}

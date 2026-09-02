@@ -1,0 +1,119 @@
+name: Video
+
+# WHAT RUNS HERE AND WHAT DOES NOT.
+#
+# The two jobs that need no key and no recorded footage run on every change: the beat plan, and the
+# proof that the sync gate can fail. Both are cheap and both catch the things that are expensive to
+# find late, which is a beat list that cannot fit inside the time limit and a gate that has quietly
+# stopped being able to go red.
+#
+# The narration job is manual, because every run of it spends real text to speech calls. It is here
+# so the measured total can be produced without a key on anyone's laptop.
+#
+# There is no build job. Building needs the recorded takes, and takes are not in this repository:
+# they are the owner's, they are large, and an agent that can compose and upload is an agent that
+# can publish the wrong cut. Build and gate run where the takes are.
+
+on:
+  pull_request:
+    paths:
+      - 'video/**'
+      - '.github/workflows/video.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'video/**'
+      - '.github/workflows/video.yml'
+  workflow_dispatch:
+    inputs:
+      narrate:
+        description: 'Synthesize the narration. This spends text to speech calls.'
+        type: boolean
+        default: false
+      force:
+        description: 'Re-roll narration: all, or a single beat id. Leave empty to reuse the cache.'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: The beat plan fits inside the time limit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # No package manager runs here. This repository declares no dependencies and has no lock file.
+      #
+      # This step needs no ffmpeg, no key and no media, which is the whole point of having it: the
+      # beat list is argued about and the total is checked before anything is recorded.
+      - name: node video/pipeline.mjs --plan
+        run: node video/pipeline.mjs --plan
+
+  gate-selftest:
+    name: The sync gate proves it can fail
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      # The exit code gates the job. The self test builds one correct tree and eleven broken ones,
+      # hands each to the REAL gate, and requires every breakage to be caught by the rule it was
+      # aimed at. There is nothing to grep and nothing to swallow.
+      #
+      # NO `|| true` AND NO PIPE. A pipe here would hand the job the exit code of the last command
+      # in it rather than the gate's, which is how a red gate reads as a green build.
+      - name: node video/pipeline.mjs --selftest
+        run: node video/pipeline.mjs --selftest
+
+  narrate:
+    name: Synthesize and measure the narration
+    if: github.event_name == 'workflow_dispatch' && inputs.narrate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
+      # The key is a repository secret and is never echoed. If it is absent the step stops and says
+      # which names it looked for, rather than producing an empty directory that looks finished.
+      - name: node video/pipeline.mjs --narrate
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          NINTHTOOL_VIDEO_ROOT: ${{ runner.temp }}/video
+        run: |
+          if [ -n "${{ inputs.force }}" ]; then
+            node video/pipeline.mjs --narrate --force "${{ inputs.force }}"
+          else
+            node video/pipeline.mjs --narrate
+          fi
+
+      # The measured total and the caption windows are what the recording session is planned
+      # against, so they leave the runner even when the job after this one fails.
+      - name: Keep the measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: narration
+          path: ${{ runner.temp }}/video/narration
+          if-no-files-found: error
+          retention-days: 30
