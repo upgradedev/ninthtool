@@ -141,9 +141,15 @@ export function findingsForLine(relative, line, index) {
  * each sample names the rule it is meant to trip, so a sample caught by the WRONG rule is not
  * counted as proof.
  *
+ * WHY IT TAKES THE SCANNER AS AN ARGUMENT. Defaulted, so every caller behaves as before. It exists
+ * so a test can hand this a deliberately broken scanner and check that the selftest goes RED. A
+ * selftest nobody has ever seen fail is a selftest nobody knows can fail, which is the same defect
+ * one level up, and it was found here twice before.
+ *
+ * @param {(relative: string, line: string, index: number) => string[]} scan
  * @returns {number} how many checks could not be made to behave, zero when the gate is sound
  */
-export function runSelfTest() {
+export function runSelfTest(scan = findingsForLine) {
   const cases = [
     ['em dash', `a sentence with an ${EM_DASH} in it`, /em dash/],
     ['en dash', `a range 1 ${EN_DASH} 2`, /en dash/],
@@ -160,7 +166,7 @@ export function runSelfTest() {
 
   let broken = 0;
   for (const [label, sample, expect] of cases) {
-    const hits = findingsForLine('selftest.md', sample, 0);
+    const hits = scan('selftest.md', sample, 0);
     if (!hits.length) {
       console.error(`selftest: "${label}" was NOT caught. The gate cannot fail on it.`);
       broken++;
@@ -180,7 +186,7 @@ export function runSelfTest() {
     ['the word this repository is about', 'selftest.md', 'conformance with the published standard'],
   ];
   for (const [label, file, sample] of negatives) {
-    const hits = findingsForLine(file, sample, 0);
+    const hits = scan(file, sample, 0);
     if (hits.length) {
       console.error(`selftest: ${label} was flagged, so the rules fire on anything: ${hits.join('; ')}`);
       broken++;
@@ -192,11 +198,11 @@ export function runSelfTest() {
    * meant to. A marker pasted into a judge facing file must leave that line scanned.
    */
   const marked = `we ${BANNED_WORDS[0]} the platform ${RULE_LITERAL_MARKER}`;
-  if (findingsForLine(RULE_LITERAL_FILES[0], marked, 0).length !== 0) {
+  if (scan(RULE_LITERAL_FILES[0], marked, 0).length !== 0) {
     console.error('selftest: the rule literal marker did not exempt a line in the file that owns it.');
     broken++;
   }
-  if (findingsForLine('README.md', marked, 0).length === 0) {
+  if (scan('README.md', marked, 0).length === 0) {
     console.error('selftest: the rule literal marker silenced a line in README.md, so it is a '
       + 'general purpose escape hatch rather than a narrow exemption.');
     broken++;

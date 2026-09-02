@@ -25,7 +25,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 import {
-  findingsForLine, runSelfTest, BANNED_WORDS, BANNED_PHRASES,
+  findingsForLine, runSelfTest, main, BANNED_WORDS, BANNED_PHRASES,
 } from '../../scripts/check_style.mjs';
 import {
   EXEMPT, OTHER_COMPETITIONS, SIBLING_ENTRY, SIBLING_MAY_BE_NAMED_IN,
@@ -297,6 +297,81 @@ test('no marker is decorative', () => {
 
 test('the selftest passes when called directly', () => {
   assert.equal(runSelfTest(), 0, 'the gate cannot demonstrate that every rule of its own can fail');
+});
+
+test('the selftest itself goes red when the scanner it checks is broken', () => {
+  /*
+   * A selftest nobody has ever watched fail is a selftest nobody knows can fail. This hands it two
+   * broken scanners rather than trusting that it would notice one. It is the mutation that was run
+   * by hand against this file, kept as a test so it stays run.
+   *
+   * console.error is swapped out because a deliberately failing selftest prints one line per rule,
+   * and thirty lines of expected noise in a passing suite trains people to ignore the output.
+   */
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    assert.ok(
+      runSelfTest(() => []) > 0,
+      'a scanner that never finds anything was handed to the selftest and the selftest passed',
+    );
+    assert.ok(
+      runSelfTest((relative, line, index) => [`${relative}:${index + 1} everything`]) > 0,
+      'a scanner that flags every line was handed to the selftest and the selftest passed, so the '
+      + 'negative cases are not doing any work',
+    );
+  } finally {
+    console.error = quiet;
+  }
+});
+
+test('the gate fails on a real file in the tree, not only on a line handed to it', () => {
+  /*
+   * Every rule above is proved against a string. That leaves the part between a rule and a verdict
+   * unproven: the walk, the read, the loop and the exit code. This breaks the input deliberately,
+   * once, and then puts it back. A `.md` name is chosen so the file cannot disturb the module count
+   * that tests/unit/modules_parse.test.js pins, and the removal is in a finally so a failing
+   * assertion cannot leave it behind.
+   */
+  const probe = path.join(ROOT, 'tests/unit/zz_style_gate_probe.md');
+  assert.equal(main([]), 0, 'the tree was not clean before the probe file was written');
+  fs.writeFileSync(probe, `we ${BANNED_WORDS[0]} the platform\n`, 'utf8');
+  try {
+    assert.equal(
+      main([]), 1,
+      'a file holding a banned word was written into a scanned directory and the gate still '
+      + 'returned 0, so the walk, the read or the verdict is not connected to the rules',
+    );
+  } finally {
+    fs.rmSync(probe, { force: true });
+  }
+  assert.equal(main([]), 0, 'the gate did not go back to green once the probe file was removed');
+});
+
+test('running the gate with the selftest asked for still reaches the scan', () => {
+  // main() takes the selftest branch only when it is asked for, and it must fall through to the
+  // scan afterwards rather than reporting on the selftest alone.
+  assert.equal(main(['node', 'check_style.mjs', '--selftest']), 0);
+});
+
+test('the whole file exemption still covers a file nobody here writes', () => {
+  /*
+   * `EXEMPT` is down to one entry, a lock file, kept so that one appearing does not arrive as a
+   * wall of findings about somebody else's package metadata. This repository ships none, so that
+   * branch is never taken by the tree as it stands and the reason for the entry would go unchecked
+   * until the day it mattered. One is written, held wrong on purpose, and removed.
+   */
+  const lock = path.join(ROOT, 'tests/unit/package-lock.json');
+  assert.ok(EXEMPT.has('package-lock.json'), 'the exemption this test is about is gone');
+  fs.writeFileSync(lock, `{ "note": "we ${BANNED_WORDS[0]} the platform" }\n`, 'utf8');
+  try {
+    assert.equal(
+      main([]), 0,
+      'a lock file holding a banned word was scanned, so the whole file exemption is not applied',
+    );
+  } finally {
+    fs.rmSync(lock, { force: true });
+  }
 });
 
 test('running the script scans the tree and reports, so the main guard is not a no op', () => {
