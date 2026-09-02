@@ -122,9 +122,9 @@
     <pre class="cmd"><code>node bin/ninthtool.mjs https://your-page.example</code></pre>
     <p><strong>The probe calls only tools your page marks <code>readOnlyHint</code>.</strong> A tool
       carrying no annotations is never called, and that refusal is reported as a finding, because a
-      page that gives an auditor no way to know a tool is safe gives an agent no way either. Two
-      rows submit a form, which is a write, and they run only against the subject page this suite
-      ships. No account, no backend, no crawling, and no verdict is published about anybody's named
+      page that gives an auditor no way to know a tool is safe gives an agent no way either. Three
+      rows submit a form, which is a write: C1, C3 and C4. They run only against a fixture this tool
+      owns, meaning one it served itself or the document it is running inside. No account, no backend, no crawling, and no verdict is published about anybody's named
       page.</p>
   </section>
 
