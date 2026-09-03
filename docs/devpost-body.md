@@ -111,6 +111,6 @@ The same author has a second entry in this hackathon, **ClaimReady**. Exactly on
 
 ---
 
-## Try it out
+## Where to start
 
-Open https://upgradedev.github.io/ninthtool/ and press **Run the audit**. Nothing to install, nothing to sign into.
+Open https://upgradedev.github.io/ninthtool/ and press **Run the audit**. Nothing to install, nothing to sign into. Devpost lists the same two links below.
