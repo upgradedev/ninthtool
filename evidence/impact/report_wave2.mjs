@@ -238,12 +238,31 @@ if (!runs.length) {
 
   out.push('## Provenance');
   out.push('');
-  out.push('| page | row | source commit | instrument commit | authorisation |');
-  out.push('|---|---|---|---|---|');
+  /*
+   * THE INSTRUMENT COMMIT IS PRINTED WITH WHETHER IT CAN BE BELIEVED.
+   *
+   * It is read from HEAD, which describes the repository rather than the code that executed. This
+   * wave was first run with the P5 guard uncommitted, so all eight records named a commit that does
+   * not contain it. Printing the commit without the tree state is how that passed unnoticed.
+   */
+  const dirty = runs.filter((r) => r.data.toolTreeClean === false).length;
+  const unknown = runs.filter((r) => r.data.toolTreeClean === undefined).length;
+  if (dirty || unknown) {
+    out.push(`**${dirty + unknown} of ${runs.length} runs cannot vouch for their instrument commit.** `
+      + `${dirty ? `${dirty} ran with uncommitted changes in the tree. ` : ''}`
+      + `${unknown ? `${unknown} predate this record being kept. ` : ''}`
+      + 'For those rows the commit below is a hint about when, not a provenance a reader can check '
+      + 'out and reproduce.');
+    out.push('');
+  }
+  out.push('| page | row | source commit | instrument commit | tree clean | authorisation |');
+  out.push('|---|---|---|---|---|---|');
   for (const row of rows) {
     for (const x of [...byRow[row]].sort((a, b) => a.id.localeCompare(b.id))) {
+      const clean = x.data.toolTreeClean === true ? 'yes'
+        : x.data.toolTreeClean === false ? '**NO**' : 'not recorded';
       out.push(`| \`${x.id}\` | ${row} | \`${String(x.data.sourceCommit).slice(0, 12)}\` | `
-        + `\`${String(x.data.toolCommit).slice(0, 12)}\` | ${x.data.authorisation} |`);
+        + `\`${String(x.data.toolCommit).slice(0, 12)}\` | ${clean} | ${x.data.authorisation} |`);
     }
   }
 }

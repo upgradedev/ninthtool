@@ -3,9 +3,9 @@
  "repo": "sdras/webmcp-demo",
  "sourceCommit": "45ddb9060b08fba6ce2a14f4240f77beaf404608",
  "entryPoint": "index.html",
- "servedAt": "http://127.0.0.1:55684/index.html",
+ "servedAt": "http://127.0.0.1:54055/index.html",
  "behaviour": "P5",
- "toolCommit": "c8e08920305529a6178d8f82e6a8f988c9dcefd8",
+ "toolCommit": "d77127862e8278393f360ecce0b9d20d7b229745",
  "browser": "Opening in existing browser session.",
  "browserFlags": {
   "recordedHere": [
@@ -18,9 +18,9 @@
   "getAvailability"
  ],
  "authorisation": "read-only tool calls",
- "startedAt": "2026-09-03T03:38:44.197Z",
- "endedAt": "2026-09-03T03:38:49.737Z",
- "elapsedMs": 4224,
+ "startedAt": "2026-09-03T04:05:11.342Z",
+ "endedAt": "2026-09-03T04:05:17.966Z",
+ "elapsedMs": 4684,
  "exitCode": 3,
  "signal": null,
  "stderr": "",
@@ -28,7 +28,7 @@
  "parseError": null,
  "transcript": {
   "meta": {
-   "url": "http://127.0.0.1:55684/index.html",
+   "url": "http://127.0.0.1:54055/index.html",
    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
    "api": "document.modelContext"
   },
@@ -68,7 +68,7 @@
   "pageTools": [
    {
     "name": "bookSlot",
-    "origin": "http://127.0.0.1:55684",
+    "origin": "http://127.0.0.1:54055",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -76,7 +76,7 @@
    },
    {
     "name": "cancelBooking",
-    "origin": "http://127.0.0.1:55684",
+    "origin": "http://127.0.0.1:54055",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -84,7 +84,7 @@
    },
    {
     "name": "getAvailability",
-    "origin": "http://127.0.0.1:55684",
+    "origin": "http://127.0.0.1:54055",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -348,7 +348,7 @@
   "pageTools": [
    {
     "name": "bookSlot",
-    "origin": "http://127.0.0.1:55684",
+    "origin": "http://127.0.0.1:54055",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -356,7 +356,7 @@
    },
    {
     "name": "cancelBooking",
-    "origin": "http://127.0.0.1:55684",
+    "origin": "http://127.0.0.1:54055",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -364,7 +364,7 @@
    },
    {
     "name": "getAvailability",
-    "origin": "http://127.0.0.1:55684",
+    "origin": "http://127.0.0.1:54055",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -372,7 +372,7 @@
    }
   ],
   "environment": {
-   "url": "http://127.0.0.1:55684/index.html",
+   "url": "http://127.0.0.1:54055/index.html",
    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
    "api": "document.modelContext",
    "catalogueMeasuredAgainst": "Chrome 152.0.7977.65",
