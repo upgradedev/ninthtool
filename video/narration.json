@@ -4,7 +4,7 @@
   "schemaVersion": "ninthtool.submission-video/v1",
 
   "_comment_identity": "frozenSha is the 40 character commit the live surface is serving when the takes are recorded, and it is REQUIRED. It ships unfilled on purpose: the build and the gate refuse while it is a placeholder, the narrate step warns because the words can be written before the freeze, and --plan prints it as not yet frozen. A video of a different commit than the one submitted is a judge facing statement that is false.",
-  "frozenSha": "<FROZEN_SHA_40_HEX>",
+  "frozenSha": "ea29ab94b78be245042de7b177ea92a000855880",
   "deployedUrl": "https://upgradedev.github.io/ninthtool/",
 
   "_comment_provider": "elevenlabs reads the key from ELEVENLABS_API_KEY, then XI_API_KEY, then ELEVEN_LABS_KEY. The value is never printed. If none is set the pipeline says so and stops.",
