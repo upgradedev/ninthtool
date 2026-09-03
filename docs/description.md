@@ -44,6 +44,35 @@ throwing, because another row measured that throwing erases the page's own reaso
 makes an author choose between a refusal a caller can read and one a caller can detect. This suite
 can only confirm the second, so it abstains and says why.
 
+## What Devpost asks, answered in its own words
+
+**Why your use case is a strong fit for WebMCP.** The subject being tested is WebMCP itself. Whether
+a host honours `destructiveHint`, whether a refusal survives the boundary, whether a tool registered
+with a signal actually withdraws: none of it is visible from outside a browser, and none of it can
+be read off a declaration. This is not a page that uses WebMCP to deliver something else. WebMCP is
+the thing under test, so the only place the work can happen is inside a page that speaks it.
+
+**How it creates a better user experience.** A page author gets what their browser actually did,
+next to the one command that reproduces it, instead of a linter's reading of their source. No
+account, no install, no uploading their page anywhere, and every row that could not be run says so
+rather than counting as a pass.
+
+**What people and agents can do together that was difficult or impossible before.** This page
+publishes its own WebMCP tools, so an agent can run the audit, list the twenty behaviours, explain
+one row in full and read the findings without touching the screen, while a person watches the same
+rows fill in beside it. The findings tool does not exist until a run has produced findings, and it
+is withdrawn when they are cleared, so an agent that asks for findings which are not there is
+answered by the tool surface rather than left to guess. That is the behaviour this suite is named
+for, demonstrated on itself rather than described.
+
+**How WebMCP was implemented.** `document.modelContext.registerTool` publishes three tools from this
+page at rest and a fourth while findings exist. Three carry `readOnlyHint`; the one that runs the
+audit deliberately does not. The subject
+page it drives is a separate document in a same origin frame that promotes two ordinary forms to
+tools through the declarative HTML attributes, so both halves of the standard are on one surface.
+The probe registers its own throwaway tools with a `signal` in the options bag and withdraws them
+when it is finished.
+
 ## How I built it
 
 Gathering and deciding are separate files. The probe runs inside a document, calls things, and
