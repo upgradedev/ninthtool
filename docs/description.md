@@ -126,7 +126,7 @@ a default run, and that is stated rather than hidden.
 
 ## Honest limits
 
-Coverage, counting each file once, averages 97.79 percent of lines across 53 files against a floor
+Coverage, counting each file once, averages 97.83 percent of lines across 54 files against a floor
 of 85. The raw `all files` row reads 77.88 because it counts some files more than once, and four
 files sit below the floor on their own. The gate names them rather than hiding them inside the
 average, and `bin/ninthtool.mjs` at 63.34 and `scripts/readiness.mjs` at 70.26 are the two that
