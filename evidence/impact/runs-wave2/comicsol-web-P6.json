@@ -3,9 +3,10 @@
  "repo": "wenn-id/comicsol",
  "sourceCommit": "c27fd9b53b83f75774c1d3c725f313a44c728bce",
  "entryPoint": "web/comic_sol_web/static/index.html",
- "servedAt": "http://127.0.0.1:55807/web/comic_sol_web/static/index.html",
+ "servedAt": "http://127.0.0.1:63439/web/comic_sol_web/static/index.html",
  "behaviour": "P6",
- "toolCommit": "c8e08920305529a6178d8f82e6a8f988c9dcefd8",
+ "toolCommit": "92d12e7028d1ef8fa8e72dbffe818c88bdd5c716",
+ "toolTreeClean": true,
  "browser": "Opening in existing browser session.",
  "browserFlags": {
   "recordedHere": [
@@ -22,9 +23,9 @@
   "recommend_provider"
  ],
  "authorisation": "read-only tool calls",
- "startedAt": "2026-09-03T03:38:27.301Z",
- "endedAt": "2026-09-03T03:38:44.194Z",
- "elapsedMs": 4235,
+ "startedAt": "2026-09-03T04:11:47.896Z",
+ "endedAt": "2026-09-03T04:12:02.699Z",
+ "elapsedMs": 4363,
  "exitCode": 0,
  "signal": null,
  "stderr": "",
@@ -32,7 +33,7 @@
  "parseError": null,
  "transcript": {
   "meta": {
-   "url": "http://127.0.0.1:55807/web/comic_sol_web/static/index.html",
+   "url": "http://127.0.0.1:63439/web/comic_sol_web/static/index.html",
    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
    "api": "document.modelContext"
   },
@@ -83,7 +84,7 @@
   "pageTools": [
    {
     "name": "approve_provider_switch",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -91,7 +92,7 @@
    },
    {
     "name": "create_project",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -99,7 +100,7 @@
    },
    {
     "name": "export_project",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -107,7 +108,7 @@
    },
    {
     "name": "get_project_state",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -115,7 +116,7 @@
    },
    {
     "name": "get_qa_summary",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -123,7 +124,7 @@
    },
    {
     "name": "import_project",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -131,7 +132,7 @@
    },
    {
     "name": "list_generation_jobs",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -139,7 +140,7 @@
    },
    {
     "name": "list_generation_options",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -147,7 +148,7 @@
    },
    {
     "name": "queue_generation",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -155,7 +156,7 @@
    },
    {
     "name": "recommend_provider",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -163,7 +164,7 @@
    },
    {
     "name": "reject_provider_switch",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -171,7 +172,7 @@
    },
    {
     "name": "run_qa",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -179,7 +180,7 @@
    },
    {
     "name": "submit_generated_asset",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -187,7 +188,7 @@
    },
    {
     "name": "update_project_plan",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -451,7 +452,7 @@
   "pageTools": [
    {
     "name": "approve_provider_switch",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -459,7 +460,7 @@
    },
    {
     "name": "create_project",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -467,7 +468,7 @@
    },
    {
     "name": "export_project",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -475,7 +476,7 @@
    },
    {
     "name": "get_project_state",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -483,7 +484,7 @@
    },
    {
     "name": "get_qa_summary",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -491,7 +492,7 @@
    },
    {
     "name": "import_project",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -499,7 +500,7 @@
    },
    {
     "name": "list_generation_jobs",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -507,7 +508,7 @@
    },
    {
     "name": "list_generation_options",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -515,7 +516,7 @@
    },
    {
     "name": "queue_generation",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -523,7 +524,7 @@
    },
    {
     "name": "recommend_provider",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -531,7 +532,7 @@
    },
    {
     "name": "reject_provider_switch",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -539,7 +540,7 @@
    },
    {
     "name": "run_qa",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -547,7 +548,7 @@
    },
    {
     "name": "submit_generated_asset",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -555,7 +556,7 @@
    },
    {
     "name": "update_project_plan",
-    "origin": "http://127.0.0.1:55807",
+    "origin": "http://127.0.0.1:63439",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -563,7 +564,7 @@
    }
   ],
   "environment": {
-   "url": "http://127.0.0.1:55807/web/comic_sol_web/static/index.html",
+   "url": "http://127.0.0.1:63439/web/comic_sol_web/static/index.html",
    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
    "api": "document.modelContext",
    "catalogueMeasuredAgainst": "Chrome 152.0.7977.65",

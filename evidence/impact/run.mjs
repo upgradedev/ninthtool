@@ -35,6 +35,38 @@ function toolCommit() {
   } catch { return null; }
 }
 
+/*
+ * WAS THE TREE CLEAN WHEN THIS RAN? BECAUSE THE COMMIT ALONE CAN LIE.
+ *
+ * `toolCommit` reads HEAD, which describes the REPOSITORY, not the code that executed. The second
+ * wave was first run with the P5 guard sitting uncommitted in the working tree, so every one of the
+ * eight records was stamped with a commit that does not contain the guard. A reader who checked that
+ * commit out and re-ran would have got the OLD behaviour back, including the two findings those very
+ * records exist to retract.
+ *
+ * Nothing failed. The number was simply wrong, and it was wrong in the field a reader trusts most.
+ * So the record now carries whether `git status --porcelain` was empty, and a `false` here means the
+ * commit beside it is a hint rather than a provenance.
+ */
+const INSTRUMENT_PATHS = ['src', 'bin', 'evidence/impact/run.mjs'];
+
+function toolTreeClean() {
+  try {
+    /*
+     * SCOPED TO THE CODE THAT EXECUTES, because the first version asked about the WHOLE tree and
+     * this runner writes into that tree as it goes. The opening run reported clean and the other
+     * seven reported dirty, all in one wave, on the strength of the run files the runner had just
+     * written. A provenance check defeated by its own output is worse than none: it looks like a
+     * finding about the instrument.
+     *
+     * What matters for reproducing a result is whether bin, src and this file were committed.
+     */
+    const out = execFileSync('git', ['status', '--porcelain', '--', ...INSTRUMENT_PATHS],
+      { cwd: ROOT }).toString().trim();
+    return out === '';
+  } catch { return null; }
+}
+
 /** The browser the runner will actually launch, asked rather than assumed. */
 function browserVersion() {
   for (const exe of [
@@ -113,7 +145,8 @@ async function runEntry(entry, options = {}) {
     // protocol forbids dropping losing cases, and an entry that could not be fetched is a case.
     return {
       corpusId: entry.id, repo: entry.repo, sourceCommit: entry.commit,
-      entryPoint: entry.entryPoint, toolCommit: toolCommit(), browser: browserVersion(),
+      entryPoint: entry.entryPoint, toolCommit: toolCommit(), toolTreeClean: toolTreeClean(),
+      browser: browserVersion(),
       flags: ['--enable-features=WebMCP'], authorisation: 'not reached', startedAt,
       endedAt: new Date().toISOString(), elapsedMs: 0, exitCode: null, signal: null,
       stderr: checkout.why, stdoutBytes: 0, parseError: null, transcript: null, result: null,
@@ -190,6 +223,7 @@ async function runEntry(entry, options = {}) {
     servedAt: url,
     behaviour,
     toolCommit: toolCommit(),
+    toolTreeClean: toolTreeClean(),
     browser: browserVersion(),
     /*
      * NAMED FOR WHAT IT IS. This used to read `flags: ['--enable-features=WebMCP']`, which reads as

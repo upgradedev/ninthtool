@@ -3,9 +3,10 @@
  "repo": "arpitagarwala/worldmonitor",
  "sourceCommit": "f0d7c2429652c7b6e71fd04336a824593ccc65d0",
  "entryPoint": "pro-test/welcome.html",
- "servedAt": "http://127.0.0.1:63022/pro-test/welcome.html",
+ "servedAt": "http://127.0.0.1:63811/pro-test/welcome.html",
  "behaviour": "P5",
- "toolCommit": "c8e08920305529a6178d8f82e6a8f988c9dcefd8",
+ "toolCommit": "92d12e7028d1ef8fa8e72dbffe818c88bdd5c716",
+ "toolTreeClean": true,
  "browser": "Opening in existing browser session.",
  "browserFlags": {
   "recordedHere": [
@@ -18,9 +19,9 @@
   "getWorldMonitorMcpEndpoint"
  ],
  "authorisation": "read-only tool calls",
- "startedAt": "2026-09-03T03:39:12.509Z",
- "endedAt": "2026-09-03T03:39:50.708Z",
- "elapsedMs": 8941,
+ "startedAt": "2026-09-03T04:12:28.858Z",
+ "endedAt": "2026-09-03T04:12:56.025Z",
+ "elapsedMs": 6482,
  "exitCode": 3,
  "signal": null,
  "stderr": "",
@@ -28,7 +29,7 @@
  "parseError": null,
  "transcript": {
   "meta": {
-   "url": "http://127.0.0.1:63022/pro-test/welcome.html",
+   "url": "http://127.0.0.1:63811/pro-test/welcome.html",
    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
    "api": "document.modelContext"
   },
@@ -67,7 +68,7 @@
   "pageTools": [
    {
     "name": "getWorldMonitorMcpEndpoint",
-    "origin": "http://127.0.0.1:63022",
+    "origin": "http://127.0.0.1:63811",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -75,7 +76,7 @@
    },
    {
     "name": "launchWorldMonitor",
-    "origin": "http://127.0.0.1:63022",
+    "origin": "http://127.0.0.1:63811",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -339,7 +340,7 @@
   "pageTools": [
    {
     "name": "getWorldMonitorMcpEndpoint",
-    "origin": "http://127.0.0.1:63022",
+    "origin": "http://127.0.0.1:63811",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -347,7 +348,7 @@
    },
    {
     "name": "launchWorldMonitor",
-    "origin": "http://127.0.0.1:63022",
+    "origin": "http://127.0.0.1:63811",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -355,7 +356,7 @@
    }
   ],
   "environment": {
-   "url": "http://127.0.0.1:63022/pro-test/welcome.html",
+   "url": "http://127.0.0.1:63811/pro-test/welcome.html",
    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
    "api": "document.modelContext",
    "catalogueMeasuredAgainst": "Chrome 152.0.7977.65",
