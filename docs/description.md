@@ -116,7 +116,11 @@ argument at its first line, and on the other this tool's own control call was as
 one it meant to break. That is the thing worth reading. A conformance suite that runs against
 strangers' pages will produce false findings, and the useful question is whether it catches them and
 publishes the retraction beside the claim, with the handler cited, in the same generated file. It
-did, and the two weaknesses that caused it are recorded open rather than patched in a hurry. The protocol was written and committed before any page ran, the failure
+did. One of the two weaknesses behind it is now closed: the row refuses to score a tool whose schema
+declares a constraint this suite cannot satisfy, so it can no longer blame a page for a call that was
+invalid before it left, and the wave was re-run to prove both false findings are gone. The other
+stays open on purpose, because excluding oracles that only appear to answer was built and measured
+against a copy of the tree and it turned this suite's own flagship true positive into an abstention. The protocol was written and committed before any page ran, the failure
 is published in `evidence/impact/results.md`, and the primary metric was not changed afterwards to
 make it read better. The same author has
 a second entry, ClaimReady; exactly one file is shared, a 200 line DevTools client, and the README

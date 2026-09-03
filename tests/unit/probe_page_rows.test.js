@@ -233,7 +233,11 @@ test('P5 calls a different answer inconclusive rather than a refusal', async () 
         ready: { type: 'boolean', description: 'whether it is ready' },
         tags: { type: 'array', description: 'labels' },
       },
-      required: ['id', 'tags'],
+      // `tags` stays OPTIONAL. It used to be required, and the probe sent the string 'ninthtool'
+      // for it, which is not an array. The row now declines to test a tool whose required property
+      // has a type this suite cannot synthesise, so requiring it here would skip the tool and this
+      // test would stop testing what it is named for.
+      required: ['id'],
     },
     async run(input) { seen.push(input); return `you sent ${JSON.stringify(input)}`; },
   })];
@@ -246,12 +250,84 @@ test('P5 calls a different answer inconclusive rather than a refusal', async () 
   assert.match(p5.inconclusive[0], /answered differently, which is consistent with a refusal/);
 
   // The arguments the probe synthesised, read from the handler rather than guessed. A boolean gets
-  // false, and a shape this code does not understand gets a string only because the tool said the
-  // property was required.
+  // false, and `tags` is left out entirely because this code cannot build an array it can defend.
   assert.equal(seen.length, 4, 'the counterbalanced plan is four calls');
-  assert.deepEqual(seen[0], { id: 'ninthtool', ready: false, tags: 'ninthtool' });
-  assert.deepEqual(seen[1], { ready: false, tags: 'ninthtool' },
+  assert.deepEqual(seen[0], { id: 'ninthtool', ready: false });
+  assert.deepEqual(seen[1], { ready: false },
     'the broken call must differ from the well formed one by the required property alone');
+});
+
+/*
+ * THE GUARD THAT STOPS P5 BLAMING A PAGE FOR THIS SUITE'S OWN INVALID CALL.
+ *
+ * P5 published two findings against real third party pages, both wrong, both for the same reason:
+ * the call it calls WELL FORMED violated a constraint the schema declared and synthesiseArguments
+ * does not honour. One page declared a 64 hex `pattern`, the other a `format` of date, both got
+ * the string 'ninthtool', both legs failed identically, and the row reported the PAGE as ignoring
+ * its own required property. One of them had rejected the omission on its first line.
+ *
+ * The guard names only what this suite cannot honour, which is why the third test below matters
+ * more than the first two: a plain string property is still fair game, so every defect the row
+ * could previously prove it still proves. A check that could only ever fire on the branch that
+ * proves a defect would be a veto rather than a control, and this repository has rejected four
+ * oracle fixes of exactly that shape.
+ */
+test('P5 will not score a tool whose schema declares a constraint this suite cannot satisfy', async () => {
+  const page = [readOnlyTool('patterned', {
+    inputSchema: {
+      type: 'object',
+      properties: {
+        job_id: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+        note: { type: 'string' },
+      },
+      required: ['job_id'],
+    },
+    // Redacts every failure to one string and RESOLVES it, which is what defeated the old control.
+    async run() { return 'The request is invalid.'; },
+  })];
+  const transcript = await run(makeHost({ pageTools: page }), ['P5'], { allow: { toolCalls: true } });
+  const p5 = rowOf(transcript, 'P5');
+  assert.deepEqual(p5.attempted, [], 'the tool must not be called at all');
+  assert.deepEqual(p5.ignored, [], 'and above all it must not be reported as ignoring its input');
+  assert.equal(p5.skipped.length, 1, p5.skipped.join(' | '));
+  assert.match(p5.skipped[0], /cannot build a call it can defend/);
+  assert.match(p5.skipped[0], /declares pattern/);
+});
+
+test('P5 will not score a tool whose required property has a type it cannot build', async () => {
+  const page = [readOnlyTool('needs_an_array', {
+    inputSchema: {
+      type: 'object',
+      properties: { tags: { type: 'array', description: 'labels' } },
+      required: ['tags'],
+    },
+    async run() { return 'same answer every time'; },
+  })];
+  const transcript = await run(makeHost({ pageTools: page }), ['P5'], { allow: { toolCalls: true } });
+  const p5 = rowOf(transcript, 'P5');
+  assert.deepEqual(p5.attempted, []);
+  assert.deepEqual(p5.ignored, []);
+  assert.match(p5.skipped[0], /"tags" is required and its type is array/);
+});
+
+test('P5 still proves the defect it exists for: the guard is not a veto', async () => {
+  // The same shape as the tool the guard must NEVER silence: a plain string property the page
+  // declares required and then ignores completely. If this ever abstains, the guard has stopped
+  // being a control and has become a way of never failing anything.
+  const page = [readOnlyTool('ignores_it', {
+    inputSchema: {
+      type: 'object',
+      properties: { date_range: { type: 'string', description: 'ISO range' } },
+      required: ['date_range'],
+    },
+    async run() { return 'the same cached summary'; },
+  })];
+  const transcript = await run(makeHost({ pageTools: page }), ['P5'], { allow: { toolCalls: true } });
+  const p5 = rowOf(transcript, 'P5');
+  assert.deepEqual(p5.skipped, [], 'nothing about this schema is undefendable');
+  assert.deepEqual(p5.attempted, ['ignores_it']);
+  assert.equal(p5.ignored.length, 1, p5.ignored.join(' | '));
+  assert.match(p5.ignored[0], /omitting date_range changed nothing/);
 });
 
 /* ------------------------------------------------------------------ P6, the differential */

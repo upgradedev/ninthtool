@@ -208,9 +208,25 @@ the comparison leg was worthless because `synthesiseArguments` ignores `format` 
 retractions are published in `results-wave2.md` with the handler citations, read from
 `grounding.json` so they are data rather than prose.
 
-**Two instrument weaknesses, reproduced and open**, recorded rather than fixed on freeze day: P5's
-control leg is not guaranteed well formed, and P6 counts a resolved error envelope as an answer. The
-second one carries P6's only settled verdict in this wave.
+**Two instrument weaknesses, one now closed and one open with a measured reason.**
+
+`P5` is CLOSED, 2026-09-03. The row no longer scores a tool whose schema declares `format`,
+`pattern`, `minLength`, `maxLength`, `multipleOf` or an exclusive bound, nor one whose required
+property has a type this suite cannot build. It skips the tool and quotes the constraint it cannot
+honour. The guard reads the SCHEMA and never the outcome, so it cannot fire in response to a defect
+being found, and a test named for that holds a tool which ignores a plain string argument and
+asserts the row still fails it. The wave was re-run afterwards: both false findings are gone and
+neither page is blamed for anything.
+
+`P6` is OPEN and stays open. Excluding oracles that only appear to answer was implemented against a
+copy of the tree and measured: `controlAnswered` is the row's arity gate, read before stability and
+before the moved list, so any subtraction from it vetoes the whole row. The suite's own flagship
+true positive, a `readOnlyHint` tool that answers a constant while silently moving state another
+tool reports, turned from `fail` into `not-applicable` while the correct finding stayed in the
+transcript. A false pass traded for a false silence is not a fix. What changed instead is the
+sentence the row publishes: it now says the tools returned something, and that a resolved error
+envelope cannot be told apart from an answer, which is what the code's own docblock already said and
+the published sentence did not.
 
 **What survives.** Authorising the calls moved two rows from abstaining everywhere to settling
 somewhere, which is a reach result and not a discrimination result. The preregistered failure stands

@@ -186,6 +186,48 @@ function synthesiseArguments(schema) {
 }
 
 
+/*
+ * WHEN THIS SUITE CANNOT DEFEND THE ARGUMENTS IT INVENTED.
+ *
+ * synthesiseArguments honours type, enum, minimum and maximum. A property that also declares
+ * `format`, `pattern`, `minLength` and the rest gets a value that satisfies none of them, and a
+ * required property whose type this code does not synthesise gets the string 'ninthtool' regardless
+ * of what it asked for. Either way the call this suite calls WELL FORMED is not well formed, and a
+ * comparison against it proves nothing about the page.
+ *
+ * THIS IS WHY THE ROW MISREAD TWO REAL PAGES. One declared a 64 hex character `pattern` and one a
+ * `format` of date; both received 'ninthtool', both legs failed for the same reason, the answers
+ * matched, and P5 reported the PAGE as ignoring its own required property. One of those pages had
+ * rejected the omission on its first line.
+ *
+ * It is a guard on THIS suite's competence, not on the page's behaviour, so it names only what it
+ * cannot honour. A property carrying nothing but `type` and a description is still fair game, which
+ * is why the row keeps every defect it could previously prove: the tool that genuinely ignores a
+ * plain string argument is untouched by this.
+ */
+const CONSTRAINTS_NOT_SYNTHESISED = ['format', 'pattern', 'minLength', 'maxLength',
+  'multipleOf', 'exclusiveMinimum', 'exclusiveMaximum'];
+const TYPES_SYNTHESISED = ['string', 'number', 'integer', 'boolean'];
+
+export function undefendableArguments(schema) {
+  const properties = (schema && schema.properties) || {};
+  const required = Array.isArray(schema && schema.required) ? schema.required : [];
+  const reasons = [];
+  for (const key of Object.keys(properties)) {
+    const property = properties[key] || {};
+    const unmet = CONSTRAINTS_NOT_SYNTHESISED.filter(
+      (k) => Object.prototype.hasOwnProperty.call(property, k),
+    );
+    if (unmet.length) reasons.push(`"${key}" declares ${unmet.join(' and ')}`);
+    const enumerated = Array.isArray(property.enum) && property.enum.length;
+    if (!enumerated && required.includes(key) && !TYPES_SYNTHESISED.includes(property.type)) {
+      reasons.push(`"${key}" is required and its type is ${property.type === undefined ? 'not declared' : property.type}`);
+    }
+  }
+  return reasons;
+}
+
+
 /**
  * Exercise everything and return a transcript.
  *
@@ -916,6 +958,13 @@ export async function observeAll(ctx, options = {}) {
         if (!Object.prototype.hasOwnProperty.call(properties, required[0])) {
           skipped.push(`${record.name}: requires "${required[0]}" which is not in its own properties, `
             + 'so removing it would change nothing to send');
+          continue;
+        }
+        const undefendable = undefendableArguments(record.schema);
+        if (undefendable.length) {
+          skipped.push(`${record.name}: this suite cannot build a call it can defend as well formed, `
+            + `because ${undefendable.join(', ')}, and a comparison against a call that may itself `
+            + 'be invalid cannot show what the page did with the missing property');
           continue;
         }
         testable.push(record);

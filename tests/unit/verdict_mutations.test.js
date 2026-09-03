@@ -325,7 +325,7 @@ const p6 = (over) => judgeBehaviour('P6', {
 test('P6 passes when two oracles answered and neither moved the other', () => {
   const finding = p6({});
   assert.equal(finding.verdict, 'pass', finding.observed);
-  assert.match(finding.observed, /2 of 2 read only tools answered/);
+  assert.match(finding.observed, /2 of 2 read only tools returned something/);
 });
 
 test('P6 abstains when every oracle rejected the control call', () => {
@@ -367,7 +367,7 @@ test('P6 counts what answered, not what the page published', () => {
     controlUnanswered: ['eight_others: rejected then rejected'],
   });
   assert.equal(finding.verdict, 'pass', finding.observed);
-  assert.match(finding.observed, /2 of 10 read only tools answered/);
+  assert.match(finding.observed, /2 of 10 read only tools returned something/);
   assert.match(finding.observed, /Not counted: eight_others/);
 });
 

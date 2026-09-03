@@ -12,7 +12,7 @@ preregistered threshold was three. The primary metric and its threshold are unto
 Authorised on **4 pages**, the ones wave 1 recorded as publishing at least one
 tool they annotated `readOnlyHint`. Two rows, run separately.
 
-- **`P5`** ran on 4, reached a verdict on 4, **settled on 2**, and returned **2 distinct verdicts**: `fail`, `not-applicable`. Counting only the ones that settled: `fail`.
+- **`P5`** ran on 4, reached a verdict on 4, **settled on 0**, and returned **1 distinct verdict**: `not-applicable`. Counting only the ones that settled: none.
 - **`P6`** ran on 4, reached a verdict on 4, **settled on 1**, and returned **2 distinct verdicts**: `not-applicable`, `pass`. Counting only the ones that settled: `pass`.
 
 **Neither row told one page from another.** Authorising the calls changed what these
@@ -22,29 +22,33 @@ rows say, and did not change whether they discriminate between pages.
 
 | page | row | read only tools authorised | verdict | ms | exit |
 |---|---|---|---|---|---|
-| `comicsol-web` | P5 | 5 | fail | 5899 | 0 |
-| `sdras-webmcp-demo` | P5 | 1 | fail | 5664 | 0 |
-| `vector-lab` | P5 | 1 | not-applicable | 4883 | 3 |
-| `worldmonitor-pro-test` | P5 | 1 | not-applicable | 17429 | 3 |
-| `comicsol-web` | P6 | 5 | pass | 6799 | 0 |
-| `sdras-webmcp-demo` | P6 | 1 | not-applicable | 5427 | 3 |
-| `vector-lab` | P6 | 1 | not-applicable | 5052 | 3 |
-| `worldmonitor-pro-test` | P6 | 1 | not-applicable | 11958 | 3 |
+| `comicsol-web` | P5 | 5 | not-applicable | 4380 | 3 |
+| `sdras-webmcp-demo` | P5 | 1 | not-applicable | 4224 | 3 |
+| `vector-lab` | P5 | 1 | not-applicable | 4166 | 3 |
+| `worldmonitor-pro-test` | P5 | 1 | not-applicable | 8941 | 3 |
+| `comicsol-web` | P6 | 5 | pass | 4235 | 0 |
+| `sdras-webmcp-demo` | P6 | 1 | not-applicable | 4080 | 3 |
+| `vector-lab` | P6 | 1 | not-applicable | 8947 | 3 |
+| `worldmonitor-pro-test` | P6 | 1 | not-applicable | 7757 | 3 |
 
 ## What each run actually observed, in its own words
 
-- `comicsol-web` **P5 fail**: 1 of 2 ignored it: recommend_provider: omitting project_id changed nothing in the answer
-- `sdras-webmcp-demo` **P5 fail**: 1 of 1 ignored it: getAvailability: omitting startDate changed nothing in the answer
+- `comicsol-web` **P5 not-applicable**: no tool on this page is both marked readOnlyHint and declares a required property that is in its own schema, and this probe calls nothing else. Skipped: approve_provider_switch: not marked readOnlyHint; create_project: not marked readOnlyHint; export_project: not marked readOnlyHint; import_project: not marked readOnlyHint; queue_generation: not marked readOnlyHint; reject_provider_switch: not marked readOnlyHint; ru
+- `sdras-webmcp-demo` **P5 not-applicable**: no tool on this page is both marked readOnlyHint and declares a required property that is in its own schema, and this probe calls nothing else. Skipped: bookSlot: not marked readOnlyHint; cancelBooking: not marked readOnlyHint; getAvailability: this suite cannot build a call it can defend as well formed, because "startDate" declares format, "endDate" declares format, and a comparison against a call that may itself be
 - `vector-lab` **P5 not-applicable**: no tool on this page is both marked readOnlyHint and declares a required property that is in its own schema, and this probe calls nothing else. Skipped: fit_svg_to_view: carries no annotations; load_sample_svg: carries no annotations; set_svg_markup: carries no annotations; get_current_svg: declares no required properties, so there is nothing to break
 - `worldmonitor-pro-test` **P5 not-applicable**: no tool on this page is both marked readOnlyHint and declares a required property that is in its own schema, and this probe calls nothing else. Skipped: launchWorldMonitor: not marked readOnlyHint; getWorldMonitorMcpEndpoint: declares no required properties, so there is nothing to break
-- `comicsol-web` **P6 pass**: 5 of 5 read only tools answered a schema valid call in both control reads, and calling any of them did not change what the others answered
+- `comicsol-web` **P6 pass**: 5 of 5 read only tools returned something in both control reads, and calling any of them did not change what the others returned. A refusal resolves in WebMCP, so a returned error envelope cannot be told apart from an answer here, and a page that refuses every call identically reaches this same sentence
 - `sdras-webmcp-demo` **P6 not-applicable**: the transcript carries no observation for this behaviour **Why it could not run:** this page publishes 1 read only tool(s), and a differential needs at least two: one to call and one to read the state with
 - `vector-lab` **P6 not-applicable**: the transcript carries no observation for this behaviour **Why it could not run:** this page publishes 1 read only tool(s), and a differential needs at least two: one to call and one to read the state with
 - `worldmonitor-pro-test` **P6 not-applicable**: the transcript carries no observation for this behaviour **Why it could not run:** this page publishes 1 read only tool(s), and a differential needs at least two: one to call and one to read the state with
 
-## Retracted: two of those observations are defects in this instrument
+## Retracted, and now prevented: two findings that were this instrument’s fault
 
 Checked 2026-09-02 against each page’s own source at its pinned commit. The handler for each named tool was read at the corpus commit and traced against what the probe sent and what it compared.
+
+**Retracted and PREVENTED. P5 now declines to score a tool whose schema declares a constraint synthesiseArguments cannot satisfy, or whose required property has a type it cannot build, so it never reaches the comparison that produced these two.**
+
+Two wave 2 observations were checked against the pages' own source at their pinned commits. Both turned out to be defects in THIS instrument, not in the pages. THE GUARD THAT STOPS THEM IS NOW IN THE CODE, and the runs in runs-wave2/ were taken after it, so neither observation appears there any more: both rows now abstain and name the reason. This record is kept because the findings were published before the fix, and deleting the account of a published claim is not a correction. The generator reads this file so the retraction stays data with citations.
 
 ### `recommend_provider` on `comicsol-web`: instrument defect, and the finding was inverted
 
@@ -53,6 +57,8 @@ Ninth Tool reported: *omitting project_id changed nothing in the answer.*
 **What the handler actually does.** It rejects the omission before anything else. assertObject enforces exact key set equality against [project_id, expected_revision, job_id], so a call missing project_id throws WebMcpInputError and the handler body is never reached.
 
 **Why this instrument missed it.** The page redacts every input error to one message, and its safeExecute RESOLVES with an ok:false envelope rather than rejecting. P5's control asks whether the good calls SETTLED, not whether they succeeded, so both legs looked like answers and their identical redacted text compared equal. The good call was itself invalid: synthesiseArguments sent the string 'ninthtool' for job_id, whose schema pattern is 64 hex characters.
+
+**What the row returns now.** not-applicable, with the tool named in the skipped list and the undefendable constraint quoted, instead of a defect attributed to the page.
 
 - `wenn-id/comicsol@c27fd9b53b83 web/comic_sol_web/static/webmcp.js:483 assertObject(input, ['project_id','expected_revision','job_id'])`
 - `wenn-id/comicsol@c27fd9b53b83 web/comic_sol_web/static/webmcp.js:271-280 exact key set equality, throws WebMcpInputError`
@@ -69,6 +75,8 @@ Ninth Tool reported: *omitting startDate changed nothing in the answer.*
 
 **Why this instrument missed it.** The comparison leg was worthless. synthesiseArguments sent the literal string 'ninthtool' for a property whose schema declares format date, so the WELL FORMED call also matched no date and also returned an empty object. Two empty objects compared equal, and the row read that as the page ignoring its own required property. A probe whose good call is as broken as its bad call cannot tell them apart.
 
+**What the row returns now.** not-applicable, with the tool named in the skipped list and the undefendable constraint quoted, instead of a defect attributed to the page.
+
 - `sdras/webmcp-demo app.js:394 startDate is read and used in the range comparison`
 - `src/probe/observe.js:166-186 synthesiseArguments ignores format, so a date property receives the string 'ninthtool'`
 - `src/probe/observe.js:992 the two legs are compared as text`
@@ -77,10 +85,10 @@ Ninth Tool reported: *omitting startDate changed nothing in the answer.*
 That is the correction, and it is the whole reason a suite like this has to be pointed at
 itself before it is pointed at anyone else.
 
-### The two weaknesses that produced them, reproduced and open
+### The two weaknesses that produced them
 
-- **P5 control, open.** synthesiseArguments honours type, enum, minimum and maximum only. A property declaring format, pattern or minLength receives a value that violates it, so P5's well formed control leg can be rejected for the same reason as its deliberately broken leg. Both pages above were misread this way. *P5 can report a page as ignoring a required property when the page enforced it, which is a false finding about somebody else's code.*
-- **P6 control, open.** controlAnswered counts a call as answered when its promise RESOLVES. A page that resolves an error envelope rather than rejecting is recorded as having answered. comicsol-web does exactly that, and it is the only page where P6 settled. *P6's single pass in wave 2 rests on a control that cannot distinguish an answer from a resolved refusal.*
+- **P5 control, closed.** CLOSED 2026-09-03. synthesiseArguments still honours only type, enum, minimum and maximum, but P5 no longer scores a tool whose schema declares format, pattern, minLength, maxLength, multipleOf or an exclusive bound, nor one whose required property has a type this suite cannot build. It skips the tool and says which constraint it cannot honour. *The row can no longer report a page as ignoring a required property on the strength of a call that was itself invalid, which is how both retractions above happened.* **Why it is a control and not a veto:** The guard reads the SCHEMA, never the outcome, so it cannot fire in response to a defect being found. A property carrying nothing but a type is still scored, and the test named "the guard is not a veto" holds a tool that ignores a plain string argument and asserts the row still fails it.
+- **P6 control, still open.** STILL OPEN, and deliberately. controlAnswered counts a call as answered when its promise RESOLVES, and WebMCP resolves refusals, so a page that returns error envelopes is recorded as having answered. The row's published sentence now says exactly that instead of claiming the tools answered. *P6 can still pass on a page where nothing was really read. What it no longer does is claim otherwise in the sentence a reader sees.* **Why it is not fixed:** Excluding such oracles was implemented against a copy of the tree and measured: controlAnswered is the row's arity gate, checked before stability and before the moved list is read, so any subtraction from it vetoes the whole row. The suite's own flagship true positive, a readOnlyHint tool that answers a constant while silently moving state another tool reports, turns from fail to not-applicable while the correct finding stays in the transcript. Replacing a false pass with a false abstention is not a fix.
 
 ## Exactly which tools were authorised
 
@@ -119,24 +127,24 @@ be re-derived from the wave 1 run files instead of trusted.
 
 | page | row | source commit | instrument commit | authorisation |
 |---|---|---|---|---|
-| `comicsol-web` | P5 | `c27fd9b53b83` | `a39837db10b1` | read-only tool calls |
-| `sdras-webmcp-demo` | P5 | `45ddb9060b08` | `a39837db10b1` | read-only tool calls |
-| `vector-lab` | P5 | `558616071770` | `a39837db10b1` | read-only tool calls |
-| `worldmonitor-pro-test` | P5 | `f0d7c2429652` | `a39837db10b1` | read-only tool calls |
-| `comicsol-web` | P6 | `c27fd9b53b83` | `a39837db10b1` | read-only tool calls |
-| `sdras-webmcp-demo` | P6 | `45ddb9060b08` | `a39837db10b1` | read-only tool calls |
-| `vector-lab` | P6 | `558616071770` | `a39837db10b1` | read-only tool calls |
-| `worldmonitor-pro-test` | P6 | `f0d7c2429652` | `a39837db10b1` | read-only tool calls |
+| `comicsol-web` | P5 | `c27fd9b53b83` | `c8e089203055` | read-only tool calls |
+| `sdras-webmcp-demo` | P5 | `45ddb9060b08` | `c8e089203055` | read-only tool calls |
+| `vector-lab` | P5 | `558616071770` | `c8e089203055` | read-only tool calls |
+| `worldmonitor-pro-test` | P5 | `f0d7c2429652` | `c8e089203055` | read-only tool calls |
+| `comicsol-web` | P6 | `c27fd9b53b83` | `c8e089203055` | read-only tool calls |
+| `sdras-webmcp-demo` | P6 | `45ddb9060b08` | `c8e089203055` | read-only tool calls |
+| `vector-lab` | P6 | `558616071770` | `c8e089203055` | read-only tool calls |
+| `worldmonitor-pro-test` | P6 | `f0d7c2429652` | `c8e089203055` | read-only tool calls |
 
 ## Artifact hashes
 
 | file | sha256 |
 |---|---|
-| `runs-wave2/comicsol-web-P5.json` | `4b3322ed3854069754f84dcbc37f2ae576e91476a1f4c2ec845724328f3ca0be` |
-| `runs-wave2/comicsol-web-P6.json` | `1c7fd75c1831bd576cfd3ee3e735c29f1fd9ba7d908403434e18c8d442cd3881` |
-| `runs-wave2/sdras-webmcp-demo-P5.json` | `d52d425be8143b5357504927c93c73ce8577ee4cd49284cb9e297f7da35eb186` |
-| `runs-wave2/sdras-webmcp-demo-P6.json` | `a53129f1d5648f6467ac0d97a94612563d476b7d0dea62d37dffbf009265ef41` |
-| `runs-wave2/vector-lab-P5.json` | `b37343698549c837944b91fbc95e988364aea713ba706202131033525cafa0c1` |
-| `runs-wave2/vector-lab-P6.json` | `2db437a22633079a68128ee2a6c9a98907c94ed9c213cba9466c604686489c76` |
-| `runs-wave2/worldmonitor-pro-test-P5.json` | `93880fa9d9901d2710aa85451f2786fdae7ddb83441d0cc23a91f2ae683896ca` |
-| `runs-wave2/worldmonitor-pro-test-P6.json` | `b5c3f23f6ce982b2d04382eedc924aabb3a938b7caaa0b3e9f80ab8faa768962` |
+| `runs-wave2/comicsol-web-P5.json` | `d1362ad6eac6e2aa0e1412060f28fc68ab8d6bbf3d3e54520c4d95a4555e7dc8` |
+| `runs-wave2/comicsol-web-P6.json` | `b1e294bff92616f23090802140b737fe301945b60f6c0f5e813f2a4a7c352ef9` |
+| `runs-wave2/sdras-webmcp-demo-P5.json` | `93e489f62d2b63e963ba66c2e959b0232b6cca5a76b5e82024be36e08cb0bb86` |
+| `runs-wave2/sdras-webmcp-demo-P6.json` | `964fc6aaae541d8cbee694347edc610a7c285fa9103929d64905a77b4632fdb2` |
+| `runs-wave2/vector-lab-P5.json` | `02e6544f71836e3d299cb0cafce996cc606568211930a1b6dec0aecd5b28a743` |
+| `runs-wave2/vector-lab-P6.json` | `e3466c2aae5b03c1bde6c988edb05abb6e41e0325404590240e2060674ed870b` |
+| `runs-wave2/worldmonitor-pro-test-P5.json` | `4e86f1b73d4e12f771322a453a343588a80ac3d466da3dd7e2d9643ba14d8f19` |
+| `runs-wave2/worldmonitor-pro-test-P6.json` | `6b469ede1cb77e1ffffccf5add709ace3d14a57ede025cf8138b4856a7804c34` |

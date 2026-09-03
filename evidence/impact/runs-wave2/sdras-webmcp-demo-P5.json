@@ -3,9 +3,9 @@
  "repo": "sdras/webmcp-demo",
  "sourceCommit": "45ddb9060b08fba6ce2a14f4240f77beaf404608",
  "entryPoint": "index.html",
- "servedAt": "http://127.0.0.1:57792/index.html",
+ "servedAt": "http://127.0.0.1:55684/index.html",
  "behaviour": "P5",
- "toolCommit": "a39837db10b162fe2f108b0765b33de7219aed57",
+ "toolCommit": "c8e08920305529a6178d8f82e6a8f988c9dcefd8",
  "browser": "Opening in existing browser session.",
  "browserFlags": {
   "recordedHere": [
@@ -18,33 +18,30 @@
   "getAvailability"
  ],
  "authorisation": "read-only tool calls",
- "startedAt": "2026-09-02T18:59:16.497Z",
- "endedAt": "2026-09-02T18:59:24.010Z",
- "elapsedMs": 5664,
- "exitCode": 0,
+ "startedAt": "2026-09-03T03:38:44.197Z",
+ "endedAt": "2026-09-03T03:38:49.737Z",
+ "elapsedMs": 4224,
+ "exitCode": 3,
  "signal": null,
  "stderr": "",
- "stdoutBytes": 10867,
+ "stdoutBytes": 11435,
  "parseError": null,
  "transcript": {
   "meta": {
-   "url": "http://127.0.0.1:57792/index.html",
+   "url": "http://127.0.0.1:55684/index.html",
    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
    "api": "document.modelContext"
   },
   "observations": {
    "P5": {
-    "attempted": [
-     "getAvailability"
-    ],
+    "attempted": [],
     "refused": [],
-    "ignored": [
-     "getAvailability: omitting startDate changed nothing in the answer"
-    ],
+    "ignored": [],
     "inconclusive": [],
     "skipped": [
      "bookSlot: not marked readOnlyHint",
-     "cancelBooking: not marked readOnlyHint"
+     "cancelBooking: not marked readOnlyHint",
+     "getAvailability: this suite cannot build a call it can defend as well formed, because \"startDate\" declares format, \"endDate\" declares format, and a comparison against a call that may itself be invalid cannot show what the page did with the missing property"
     ]
    }
   },
@@ -71,7 +68,7 @@
   "pageTools": [
    {
     "name": "bookSlot",
-    "origin": "http://127.0.0.1:57792",
+    "origin": "http://127.0.0.1:55684",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -79,7 +76,7 @@
    },
    {
     "name": "cancelBooking",
-    "origin": "http://127.0.0.1:57792",
+    "origin": "http://127.0.0.1:55684",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -87,7 +84,7 @@
    },
    {
     "name": "getAvailability",
-    "origin": "http://127.0.0.1:57792",
+    "origin": "http://127.0.0.1:55684",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -301,10 +298,10 @@
     "subject": "page",
     "title": "Your read only tools demonstrably refuse a call that breaks their own required list",
     "reproduce": "node bin/ninthtool.mjs <your url> --behaviour P5",
-    "verdict": "fail",
-    "expected": "all 1 read only tools demonstrably refuse a call that omits a required property",
-    "observed": "1 of 1 ignored it: getAvailability: omitting startDate changed nothing in the answer",
-    "reason": null
+    "verdict": "not-applicable",
+    "expected": "A tool enforces the schema it published, because the browser does not.",
+    "observed": "",
+    "reason": "no tool on this page is both marked readOnlyHint and declares a required property that is in its own schema, and this probe calls nothing else. Skipped: bookSlot: not marked readOnlyHint; cancelBooking: not marked readOnlyHint; getAvailability: this suite cannot build a call it can defend as well formed, because \"startDate\" declares format, \"endDate\" declares format, and a comparison against a call that may itself be invalid cannot show what the page did with the missing property"
    },
    {
     "id": "P6",
@@ -321,8 +318,8 @@
   "counts": {
    "total": 1,
    "pass": 0,
-   "fail": 1,
-   "notApplicable": 0,
+   "fail": 0,
+   "notApplicable": 1,
    "byDesign": 0,
    "outOfScope": 19,
    "catalogue": 20
@@ -342,7 +339,7 @@
    "fixture": null
   },
   "completeness": {
-   "everySelectedObserved": true,
+   "everySelectedObserved": false,
    "environmentIdentified": true,
    "noFatalErrors": true,
    "anythingMeasured": true
@@ -351,7 +348,7 @@
   "pageTools": [
    {
     "name": "bookSlot",
-    "origin": "http://127.0.0.1:57792",
+    "origin": "http://127.0.0.1:55684",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -359,7 +356,7 @@
    },
    {
     "name": "cancelBooking",
-    "origin": "http://127.0.0.1:57792",
+    "origin": "http://127.0.0.1:55684",
     "readOnlyHint": false,
     "annotations": "object",
     "declarative": false,
@@ -367,7 +364,7 @@
    },
    {
     "name": "getAvailability",
-    "origin": "http://127.0.0.1:57792",
+    "origin": "http://127.0.0.1:55684",
     "readOnlyHint": true,
     "annotations": "object",
     "declarative": false,
@@ -375,12 +372,12 @@
    }
   ],
   "environment": {
-   "url": "http://127.0.0.1:57792/index.html",
+   "url": "http://127.0.0.1:55684/index.html",
    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
    "api": "document.modelContext",
    "catalogueMeasuredAgainst": "Chrome 152.0.7977.65",
    "catalogueMeasuredOn": "2026-09-01"
   },
-  "complete": true
+  "complete": false
  }
 }
