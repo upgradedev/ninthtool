@@ -76,7 +76,7 @@ registered anything of its own.
 | B5 | broken | a string handler and an object handler both returned `typeof "string"` |
 | C1 | broken | the call resolved, and the handler was handed `M. Okafor` from the previous call |
 | C2 | broken | signal in the options bag withdraws; signal on the descriptor does not, and nothing is thrown |
-| C3 | broken | script registered tools do not enforce, form derived tools do |
+| C3 | broken | script registered enforces none of the three declared constraints; the form half enforces type and enum but not `required`, so 0 of 3 are enforced on both paths |
 | C4 | **by design** | still pending after 2502 ms, which is the human hold working, and nothing on the tool surface distinguishes it from a tool that answers |
 | D1 | **holds** | 1 event on register, 1 on withdraw |
 | D2 | **holds** | all four synthesised: bounds on `age` (min and max together), an enum on `severity`, a description on every control, and `required` naming a real one. The row now demands all four rather than any three, and demands each on the control its markup declares |

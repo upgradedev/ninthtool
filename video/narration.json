@@ -56,9 +56,9 @@
     {
       "id": "catalogue",
       "expectedSeconds": 17.05,
-      "onScreen": "The catalogue scrolling through all twenty cards, with the five group headings legible: spec divergence, standard gap, silent trap, by design, holds, and the your page group.",
-      "captionText": "Twenty behaviours in five groups. Six read the tools your page publishes. The other fourteen are facts about the host: three where the browser diverges from the specification, five the standard cannot express, three silent traps, one deliberate, two that hold.",
-      "speechText": "Twenty behaviours in five groups. Six read the tools your page publishes. The other fourteen are facts about the host: three where the browser diverges from the specification, five the standard cannot express, three silent traps, one deliberate, two that hold."
+      "onScreen": "The catalogue scrolling through all twenty cards, with the six group headings legible: spec divergence, standard gap, silent trap, by design, holds, and the your page group.",
+      "captionText": "Twenty behaviours in six groups. Six read the tools your page publishes. The other fourteen are facts about the host: three where the browser diverges from the specification, five the standard cannot express, three silent traps, one deliberate, two that hold.",
+      "speechText": "Twenty behaviours in six groups. Six read the tools your page publishes. The other fourteen are facts about the host: three where the browser diverges from the specification, five the standard cannot express, three silent traps, one deliberate, two that hold."
     },
     {
       "id": "defect",
@@ -99,8 +99,8 @@
       "id": "scope",
       "expectedSeconds": 18.25,
       "onScreen": "The safety section of the page: the default with no tool calls, the flag that authorises read only calls, and the bundled fixture that is the only thing forms are ever submitted to. Then the honest limits line carrying the coverage figure. No external corpus study exists and none is claimed.",
-      "captionText": "By default it calls no tool of yours and submits no form. Calling your read only tools needs a flag, and form writing runs only against its own fixture. Line coverage is seventy six point eight percent, short of eighty five, and named rather than hidden.",
-      "speechText": "By default it calls no tool of yours and submits no form. Calling your read only tools needs a flag, and form writing runs only against its own fixture. Line coverage is seventy six point eight percent, short of eighty five, and named rather than hidden."
+      "captionText": "By default it calls no tool of yours and submits no form. Read only calls need a flag, and form writing only against its own fixture. Counting each file once, line coverage is ninety seven point eight, and the four below the floor are named.",
+      "speechText": "By default it calls no tool of yours and submits no form. Read only calls need a flag, and form writing only against its own fixture. Counting each file once, line coverage is ninety seven point eight, and the four below the floor are named."
     }
   ]
 }
