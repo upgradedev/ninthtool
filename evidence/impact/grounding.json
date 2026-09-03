@@ -1,5 +1,5 @@
 {
-  "why": "Two wave 2 observations were checked against the pages' own source at their pinned commits. Both turned out to be defects in THIS instrument, not in the pages. The findings were published before this check and are retracted here rather than deleted. The generator reads this file so the retraction appears in results-wave2.md as data with citations, instead of being typed into a generated document.",
+  "why": "Two wave 2 observations were checked against the pages' own source at their pinned commits. Both turned out to be defects in THIS instrument, not in the pages. THE GUARD THAT STOPS THEM IS NOW IN THE CODE, and the runs in runs-wave2/ were taken after it, so neither observation appears there any more: both rows now abstain and name the reason. This record is kept because the findings were published before the fix, and deleting the account of a published claim is not a correction. The generator reads this file so the retraction stays data with citations.",
   "checkedOn": "2026-09-02",
   "method": "The handler for each named tool was read at the corpus commit and traced against what the probe sent and what it compared.",
   "clears": [
@@ -17,7 +17,8 @@
         "wenn-id/comicsol@c27fd9b53b83 web/comic_sol_web/static/webmcp.js:796 safeExecute resolves rather than rejects",
         "src/probe/observe.js:963 the control tests settlement, not success",
         "src/probe/observe.js:166-186 synthesiseArguments honours type, enum, minimum and maximum, and ignores pattern, format and minLength"
-      ]
+      ],
+      "nowReturns": "not-applicable, with the tool named in the skipped list and the undefendable constraint quoted, instead of a defect attributed to the page"
     },
     {
       "page": "sdras-webmcp-demo",
@@ -30,21 +31,25 @@
         "sdras/webmcp-demo app.js:394 startDate is read and used in the range comparison",
         "src/probe/observe.js:166-186 synthesiseArguments ignores format, so a date property receives the string 'ninthtool'",
         "src/probe/observe.js:992 the two legs are compared as text"
-      ]
+      ],
+      "nowReturns": "not-applicable, with the tool named in the skipped list and the undefendable constraint quoted, instead of a defect attributed to the page"
     }
   ],
   "instrumentWeaknesses": [
     {
       "id": "P5 control",
-      "open": true,
-      "what": "synthesiseArguments honours type, enum, minimum and maximum only. A property declaring format, pattern or minLength receives a value that violates it, so P5's well formed control leg can be rejected for the same reason as its deliberately broken leg. Both pages above were misread this way.",
-      "consequence": "P5 can report a page as ignoring a required property when the page enforced it, which is a false finding about somebody else's code."
+      "open": false,
+      "what": "CLOSED 2026-09-03. synthesiseArguments still honours only type, enum, minimum and maximum, but P5 no longer scores a tool whose schema declares format, pattern, minLength, maxLength, multipleOf or an exclusive bound, nor one whose required property has a type this suite cannot build. It skips the tool and says which constraint it cannot honour.",
+      "consequence": "The row can no longer report a page as ignoring a required property on the strength of a call that was itself invalid, which is how both retractions above happened.",
+      "notAVeto": "The guard reads the SCHEMA, never the outcome, so it cannot fire in response to a defect being found. A property carrying nothing but a type is still scored, and the test named \"the guard is not a veto\" holds a tool that ignores a plain string argument and asserts the row still fails it."
     },
     {
       "id": "P6 control",
       "open": true,
-      "what": "controlAnswered counts a call as answered when its promise RESOLVES. A page that resolves an error envelope rather than rejecting is recorded as having answered. comicsol-web does exactly that, and it is the only page where P6 settled.",
-      "consequence": "P6's single pass in wave 2 rests on a control that cannot distinguish an answer from a resolved refusal."
+      "what": "STILL OPEN, and deliberately. controlAnswered counts a call as answered when its promise RESOLVES, and WebMCP resolves refusals, so a page that returns error envelopes is recorded as having answered. The row's published sentence now says exactly that instead of claiming the tools answered.",
+      "consequence": "P6 can still pass on a page where nothing was really read. What it no longer does is claim otherwise in the sentence a reader sees.",
+      "whyNotFixed": "Excluding such oracles was implemented against a copy of the tree and measured: controlAnswered is the row's arity gate, checked before stability and before the moved list is read, so any subtraction from it vetoes the whole row. The suite's own flagship true positive, a readOnlyHint tool that answers a constant while silently moving state another tool reports, turns from fail to not-applicable while the correct finding stays in the transcript. Replacing a false pass with a false abstention is not a fix."
     }
-  ]
+  ],
+  "status": "Retracted and PREVENTED. P5 now declines to score a tool whose schema declares a constraint synthesiseArguments cannot satisfy, or whose required property has a type it cannot build, so it never reaches the comparison that produced these two."
 }

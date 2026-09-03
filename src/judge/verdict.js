@@ -674,8 +674,10 @@ const RULES = {
         + 'report unchanged',
       observed: moved.length
         ? `${moved.length} changed another tool's answer: ${moved.join('; ')}`
-        : `${answered.length} of ${o.oracleCount} read only tools answered a schema valid call in `
-          + `both control reads, and calling any of them did not change what the others answered`
+        : `${answered.length} of ${o.oracleCount} read only tools returned something in both `
+          + `control reads, and calling any of them did not change what the others returned. A `
+          + `refusal resolves in WebMCP, so a returned error envelope cannot be told apart from an `
+          + `answer here, and a page that refuses every call identically reaches this same sentence`
           + (unanswered.length ? `. Not counted: ${unanswered.join('; ')}` : '')
           + (selfChanged.length ? `. ${selfChanged.length} changed their own answer: ${selfChanged.join('; ')}` : ''),
     };

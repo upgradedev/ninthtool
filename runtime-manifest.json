@@ -9,9 +9,9 @@
   "fixtures/subject.html": "4472026a06f36a27e7293848c43b6991261428dc40783834f3337984db871ba6",
   "index.html": "8b19698a9b8ad446761833a72f511b221416f0fdbaa1019ac5dfef113c0f318c",
   "src/judge/behaviours.js": "85f82c01b398f0fb68f22f3efdf181b576f550873f242a7c3ef7a1e62ceef2c0",
-  "src/judge/verdict.js": "c13fa66fb03a91339c581cd8433de320d91dc9badb1b123ca30c822117bbf5e2",
+  "src/judge/verdict.js": "70eac38b310949989828edd3ef8138bcc434804df53746634746bcc77e9aacdb",
   "src/probe/fixture_identity.js": "82d182d01c8a5d6d4654990b0975a8c7e5f2c33bd88be4640849b8f48d577307",
-  "src/probe/observe.js": "bdef50175c9c5b23b1dbbb3164da2f1a0d98d337ad587160be66dba1601c8714",
+  "src/probe/observe.js": "b6ec94e4e9368310849e8a87c9191db859730f4390cc61f4c1799f202435c204",
   "src/probe/steps.js": "ce12cf53217a323532f258c41ceef0635464769c578092bf624acacd40edc045",
   "src/ui/app.js": "f59d0fb0d9f86185ddc834eb0015fe74edb932bf297ad1b09f75afea0fbeb761"
  }

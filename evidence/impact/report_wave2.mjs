@@ -160,11 +160,13 @@ if (!runs.length) {
   const groundPath = path.join(HERE, 'grounding.json');
   if (fs.existsSync(groundPath)) {
     const g = JSON.parse(fs.readFileSync(groundPath, 'utf8'));
-    out.push('## Retracted: two of those observations are defects in this instrument');
+    out.push('## Retracted, and now prevented: two findings that were this instrument’s fault');
     out.push('');
     out.push(`Checked ${g.checkedOn} against each page’s own source at its pinned commit. `
       + `${g.method}`);
     out.push('');
+    if (g.status) { out.push(`**${g.status}**`); out.push(''); }
+    if (g.why) { out.push(g.why); out.push(''); }
     for (const c of g.clears || []) {
       out.push(`### \`${c.tool}\` on \`${c.page}\`: ${c.verdict}`);
       out.push('');
@@ -174,6 +176,7 @@ if (!runs.length) {
       out.push('');
       out.push(`**Why this instrument missed it.** ${c.whyTheProbeMissedIt}`);
       out.push('');
+      if (c.nowReturns) { out.push(`**What the row returns now.** ${c.nowReturns}.`); out.push(''); }
       for (const cite of c.citations || []) out.push(`- \`${cite}\``);
       out.push('');
     }
@@ -182,10 +185,12 @@ if (!runs.length) {
     out.push('itself before it is pointed at anyone else.');
     out.push('');
     if ((g.instrumentWeaknesses || []).length) {
-      out.push('### The two weaknesses that produced them, reproduced and open');
+      out.push('### The two weaknesses that produced them');
       out.push('');
       for (const w of g.instrumentWeaknesses) {
-        out.push(`- **${w.id}${w.open ? ', open' : ', closed'}.** ${w.what} *${w.consequence}*`);
+        out.push(`- **${w.id}, ${w.open ? 'still open' : 'closed'}.** ${w.what} *${w.consequence}*`
+          + (w.notAVeto ? ` **Why it is a control and not a veto:** ${w.notAVeto}` : '')
+          + (w.whyNotFixed ? ` **Why it is not fixed:** ${w.whyNotFixed}` : ''));
       }
       out.push('');
     }
