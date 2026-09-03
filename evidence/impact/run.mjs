@@ -48,9 +48,22 @@ function toolCommit() {
  * So the record now carries whether `git status --porcelain` was empty, and a `false` here means the
  * commit beside it is a hint rather than a provenance.
  */
+const INSTRUMENT_PATHS = ['src', 'bin', 'evidence/impact/run.mjs'];
+
 function toolTreeClean() {
   try {
-    return execFileSync('git', ['status', '--porcelain'], { cwd: ROOT }).toString().trim() === '';
+    /*
+     * SCOPED TO THE CODE THAT EXECUTES, because the first version asked about the WHOLE tree and
+     * this runner writes into that tree as it goes. The opening run reported clean and the other
+     * seven reported dirty, all in one wave, on the strength of the run files the runner had just
+     * written. A provenance check defeated by its own output is worse than none: it looks like a
+     * finding about the instrument.
+     *
+     * What matters for reproducing a result is whether bin, src and this file were committed.
+     */
+    const out = execFileSync('git', ['status', '--porcelain', '--', ...INSTRUMENT_PATHS],
+      { cwd: ROOT }).toString().trim();
+    return out === '';
   } catch { return null; }
 }
 
