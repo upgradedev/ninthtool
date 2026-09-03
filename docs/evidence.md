@@ -108,7 +108,7 @@ Pressed the button a visitor presses, through the same flagged Chrome:
 
 | step | result |
 |---|---|
-| the page boots | 20 cards, 5 groups, 3 tools published, no blocking message |
+| the page boots | 20 cards, 6 groups, 3 tools published, no blocking message |
 | tool aggregation | 5 tools visible: 3 from the page, 2 from the same origin subject frame |
 | the audit | 13 broken, 5 kept, 1 by design, 1 unsettled, and the page agreed with the transcript. Around **4.5 to 5 seconds**; the exact figure moves run to run and is printed by the gate rather than pinned here |
 | the conditional tool appears | 5 tools before the run, **6 after** on the aggregate surface, `nt_get_findings` present |

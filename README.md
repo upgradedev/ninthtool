@@ -352,7 +352,7 @@ there.
 
 ## The readiness gate
 
-Thirteen automated rows and four the owner has to close. It answers one question: could a stranger
+Fourteen automated rows and four the owner has to close. It answers one question: could a stranger
 with no account reach every mandatory artifact right now?
 
 **It fetches the live URL and fails on anything but 200**, checks every asset that page needs, greps
@@ -381,8 +381,10 @@ Three things it will not do:
 Every row has been watched failing, two ways. `--selftest` feeds each row's judgement a
 deliberately wrong input and requires it to go red, which proves the judgement rather than the
 plumbing. The plumbing was proved separately, and more strongly, by pointing the config at an origin
-that does not exist: M4 through M7 and R5 went red through their real checks and the run fell to
-57 percent.
+that does not exist: M4 through M7 and R5 went red through their real checks, the browser row could
+not reach a live origin at all, and the run fell to 57 percent. That is eight of the fourteen
+automated rows, which is six red against the five this sentence used to name; M8 is the sixth, and
+it was missing from the list rather than from the run.
 
 ## The console is not silent during a run, on purpose
 
@@ -448,7 +450,10 @@ share no code that expresses it.
   command line help used to say the default run "touches nothing belonging to the page under test",
   which was true of its tools and its forms and not true of its listeners.
 - No account, no backend, no database, no crawling.
-- No verdict is published about anybody's named page.
+- No page is named as defective. The impact study under `evidence/impact/` does name the pages it
+  ran and publishes what this tool reported on each, because a study that hid its population would
+  not be one. Two of those reports were checked against the pages' own source and retracted as
+  defects in THIS tool, with the handler lines cited, in the same generated file.
 
 ## Evidence
 

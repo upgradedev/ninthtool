@@ -114,8 +114,12 @@ const HELP = `ninthtool, a behavioural conformance suite for WebMCP
                       served from a temporary local server.
 
   --behaviour, -b ID  run ONE behaviour, for example B1 or C2. Only that row's step and its
-                      declared dependencies execute. Nothing else is registered, no tool of the
-                      page under test is called, and no form is submitted
+                      declared dependencies execute. AGAINST A URL, nothing else is registered,
+                      no tool of that page is called and no form is submitted. WITH NO URL the
+                      subject is the fixture this command serves itself, and both authorisations
+                      are on for it, so a row that needs them will call and submit against that
+                      fixture. Run P6 alone with no flags and it settles, which it cannot do
+                      without calling tools
   --fail-on WHAT      exit non zero when something fails. "page" fails on a defect in the page
                       under test, "any" fails on anything, "none" is the default and exits zero
                       whenever the run completed
