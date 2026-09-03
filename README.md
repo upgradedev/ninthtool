@@ -237,7 +237,7 @@ what a conformance pass over that half looks like while it is being written.
 |---|---|---|
 | C1 | a missing required property is **not refused, it is filled from the control's stale value** | a call omitting a required property resolved, and the handler was handed the name left in the DOM by the previous, unrelated call |
 | C2 | withdrawal only works via `registerTool(desc, { signal })` | `signal` on the descriptor registers a tool that can never withdraw, and throws nothing |
-| C3 | validation depends on which half registered the tool | the same four bad calls: script registered refuses **0 of 4**, form derived refuses **4 of 4**. Read with C1: the form path enforces `required` against the **control**, not the call, so an untouched form refuses and a form left holding a previous value accepts |
+| C3 | validation depends on which half registered the tool | script registered enforces **nothing it declares**; the form half enforces the declared type and enum but **not `required`**, so no declared constraint is enforced on both paths. Read with C1: the form path decides `required` from the **control**, not the call, so what a previous call left in the DOM changes the answer. The run prints the per constraint split; this table does not carry counts, because a count typed here cannot track a browser that moves |
 
 ### Deliberate, and the gap around it
 

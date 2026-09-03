@@ -283,15 +283,23 @@ export const BEHAVIOURS = Object.freeze([
     promise: 'Every constraint the declared schema expresses is enforced.',
     contract: 'One schema format, one executeTool, two ways to register. Nothing in the standard '
       + 'says the two should behave differently.',
-    measured: 'The same four bad calls, against schemas declaring the same constraints: a missing '
-      + 'required property, a wrong type, a value outside an enum, and an undeclared property. '
-      + 'Script registered: 0 of 4 refused, and the handler received every one unchanged. Form '
-      + 'derived: 4 of 4 refused. Read that second number with C1 beside it, because together they '
-      + 'say something neither says alone: the form path enforces `required` against the CONTROL, '
-      + 'not against the call. This row sends its bad calls to an untouched form, so the control is '
-      + 'empty and the call is refused. C1 sends a complete call first, and the omitted property is '
-      + 'then filled from what that call left in the control and accepted. Same rule, opposite '
-      + 'outcome, decided by state the caller cannot see.',
+    /*
+     * NO COUNTS IN THIS STRING, DELIBERATELY. It used to read "0 of 4" and "4 of 4", and the second
+     * number had stopped being true: the form half enforces the declared type and the enum and does
+     * NOT enforce `required`, so nothing is enforced on both paths. A count typed into a static
+     * catalogue entry cannot track a browser that moves. The per constraint matrix is measured on
+     * every run and printed in the row's own observation, which is where a reader should take it
+     * from. `tests/unit/c3_published_claims.test.js` fails if a count reappears here.
+     */
+    measured: 'The same bad calls, against schemas declaring the same constraints: a missing '
+      + 'required property, a wrong type, and a value outside an enum. Script registered enforces '
+      + 'none of them, and the handler receives every bad call unchanged. The form half enforces '
+      + 'the declared type and the declared enum, and does not enforce `required`, so no declared '
+      + 'constraint is enforced on both paths. Read the `required` line with C1 beside it: the form '
+      + 'path decides that constraint from the CONTROL rather than from the call, which is why what '
+      + 'a previous call left in the DOM changes the answer. Same rule, different outcome, decided '
+      + 'by state the caller cannot see. The exact per constraint split is in the observation for '
+      + 'this row on every run rather than in this sentence.',
     why: 'A developer’s mental model is wrong on one of the two paths whichever way they guess: '
       + 'write the descriptor yourself and nothing you declared is checked. An earlier version of '
       + 'this row compared a different constraint on each half and passed whenever the two answers '
