@@ -449,6 +449,29 @@ export const ROWS = [
         .filter((heading) => !text.includes(heading));
       if (missing.length) throw new Error(`the description is missing ${missing.join(', ')}`);
 
+      /*
+       * THE FOUR THINGS THE ORGANISER ASKS THE DESCRIPTION TO EXPLAIN, CHECKED BY THEIR OWN WORDS.
+       *
+       * The event page lists them: why the use case fits WebMCP, how it improves the experience,
+       * what people and agents can now do together, and how WebMCP was implemented. This gate did
+       * not look for any of them, and the description answered one and a half. That is the shape of
+       * loss this workspace already has on record: an entry that listed what it built next to one
+       * that answered what was asked.
+       *
+       * Checked as exact phrases rather than by keyword, because a keyword search over prose is how
+       * a gate quietly stops covering the thing it was written for.
+       */
+      const asked = [
+        'Why your use case is a strong fit for WebMCP',
+        'How it creates a better user experience',
+        'What people and agents can do together that was difficult or impossible before',
+        'How WebMCP was implemented',
+      ].filter((phrase) => !text.includes(phrase));
+      if (asked.length) {
+        throw new Error(`the description does not answer, in the organiser's own words: `
+          + `${asked.join('; ')}`);
+      }
+
       // The elements the rules and the kit require, each checked rather than assumed.
       const required = [
         [LIVE_URL, 'the exact live URL'],
