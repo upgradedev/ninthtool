@@ -77,9 +77,9 @@
     {
       "id": "totals",
       "expectedSeconds": 17.85,
-      "onScreen": "The finished summary line reading 13 broken, 5 kept, 1 by design, 1 unsettled, 20 tested, then the C4 card showing the by design outcome.",
-      "captionText": "Thirteen broken, five kept, one by design, one unsettled, twenty tested. It is deliberately not fourteen. Row C4 was counted broken while its own entry called that pause intended. It became a fourth outcome. The number went down because the definition got honest.",
-      "speechText": "Thirteen broken, five kept, one by design, one unsettled, twenty tested. It is deliberately not fourteen. Row C four was counted broken while its own entry called that pause intended. It became a fourth outcome. The number went down because the definition got honest."
+      "onScreen": "The finished summary line reading 13 broken, 5 kept, 1 could not be run, 20 tested, with the run labelled incomplete, then the rows below it.",
+      "captionText": "Thirteen broken, five kept, one that could not be observed, twenty tested. The page says incomplete rather than rounding up. And deliberately not fourteen broken: row C4 was counted broken while its own entry called that pause intended. It became a fourth outcome.",
+      "speechText": "Thirteen broken, five kept, one that could not be observed, twenty tested. The page says incomplete rather than rounding up. And deliberately not fourteen broken: row C four was counted broken while its own entry called that pause intended. It became a fourth outcome."
     },
     {
       "id": "surfaces",
