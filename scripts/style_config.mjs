@@ -97,5 +97,5 @@ export const JUDGE_FACING_FILES = ['README.md', 'index.html', 'docs/evidence.md'
 export const SIBLING_ENTRY = 'claimready'; // style-gate:rule-literal
 // The Devpost description MUST disclose the sibling entry, so it is both allowed to name it and
 // required to. A file that has to carry the disclosure cannot be one the gate bans it from.
-export const SIBLING_MAY_BE_NAMED_IN = ['README.md', 'docs/prior-art.md', 'docs/reuse.md', 'docs/description.md'];
-export const SIBLING_MUST_BE_NAMED_IN = ['README.md', 'docs/description.md'];
+export const SIBLING_MAY_BE_NAMED_IN = ['README.md', 'docs/prior-art.md', 'docs/reuse.md', 'docs/description.md', 'docs/devpost-body.md'];
+export const SIBLING_MUST_BE_NAMED_IN = ['README.md', 'docs/description.md', 'docs/devpost-body.md'];

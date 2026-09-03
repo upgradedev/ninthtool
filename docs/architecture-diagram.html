@@ -1,0 +1,165 @@
+<meta charset="utf-8">
+<title>Ninth Tool Architecture</title>
+<style>
+  :root {
+    --bg-top: #16181c; --bg-bot: #222429; --ink: #e9ecf1; --dim: #9aa3b2;
+    --accent: #5f84d6; --broken: #e06c75; --kept: #4bb87a; --amber: #d9a441;
+    --card: #1c1f25; --edge: #2c313a;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: linear-gradient(180deg, var(--bg-top), var(--bg-bot));
+    color: var(--ink);
+    font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+    padding: 40px 56px;
+  }
+  code, .mono { font-family: Consolas, "Courier New", monospace; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 26px; }
+  h1 { font-size: 37px; letter-spacing: -0.5px; font-weight: 700; }
+  .sub { color: var(--dim); font-size: 17px; margin-top: 8px; }
+  .badges { display: flex; gap: 12px; }
+  .badge {
+    border: 1px solid var(--edge); border-radius: 999px; padding: 9px 18px;
+    font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim);
+  }
+  .badge.on { border-color: #2f5a41; color: #7fd3a2; }
+  .badge.acc { border-color: #33456f; color: #8fa9e8; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; height: 812px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--edge); border-radius: 14px;
+    padding: 22px; display: flex; flex-direction: column;
+  }
+  .panel h2 { font-size: 19px; display: flex; align-items: center; gap: 11px; margin-bottom: 18px; }
+  .n {
+    width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center;
+    font-size: 13px; color: #0d0f13; font-weight: 700;
+  }
+  .p1 .n { background: #8b6fd6; } .p2 .n { background: #4aa3c7; }
+  .p3 .n { background: #d9a441; } .p4 .n { background: #4bb87a; }
+  .item { background: #212530; border-radius: 9px; padding: 13px 15px; margin-bottom: 11px; }
+  .item b { display: block; font-size: 14px; margin-bottom: 5px; }
+  .item p { color: var(--dim); font-size: 13px; }
+  .item .cmd {
+    display: block; font-size: 11.5px; color: #8fa9e8; margin: 6px 0;
+    word-break: break-all; line-height: 1.45;
+  }
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #212530; border-radius: 9px; padding: 12px 15px; margin-bottom: 10px; font-size: 13.5px;
+  }
+  .row .tag { font-size: 11.5px; padding: 3px 10px; border-radius: 6px; }
+  .t-broken { background: #3a2225; color: var(--broken); }
+  .t-kept { background: #1e3328; color: var(--kept); }
+  .t-mix { background: #33301f; color: var(--amber); }
+  .t-page { background: #22304a; color: #8fa9e8; }
+  .foot-note {
+    margin-top: auto; border-radius: 10px; padding: 14px 15px; font-size: 12.5px; line-height: 1.55;
+  }
+  .fn-a { background: #241f33; border: 1px solid #3a3350; }
+  .fn-b { background: #1a2635; border: 1px solid #2b3d55; }
+  .fn-c { background: #2b2519; border: 1px solid #4a3f26; }
+  .fn-d { background: #172a20; border: 1px solid #27452f; }
+  .foot-note b { display: block; margin-bottom: 5px; font-size: 13px; }
+  footer {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-top: 18px; color: var(--dim); font-size: 13px;
+  }
+  .stats { text-align: right; line-height: 1.75; }
+  .stats b { color: var(--ink); }
+</style>
+
+<header>
+  <div>
+    <h1>Ninth Tool Architecture &amp; Behaviour Matrix</h1>
+    <div class="sub">Behaviour probe for the W3C WebMCP draft, measured in real browsers</div>
+  </div>
+  <div class="badges">
+    <span class="badge">OpenAI WebMCP 2026</span>
+    <span class="badge on">520 / 520 tests passed</span>
+    <span class="badge acc">20 behaviours &middot; 19 settled</span>
+  </div>
+</header>
+
+<div class="grid">
+  <section class="panel p1">
+    <h2><span class="n">1</span> Dual transport engine</h2>
+    <div class="item">
+      <b>In-browser interactive runner</b>
+      <p>Drives a subject fixture in a same-origin frame. No install, no account, served from GitHub Pages.</p>
+    </div>
+    <div class="item">
+      <b>Headless DevTools CLI</b>
+      <span class="cmd mono">npx --yes https://github.com/upgradedev/ninthtool/tarball/main https://your-page.example</span>
+      <p>Dependency-free Chrome DevTools Protocol automation. The package is not on npm, so the tarball URL is the whole install.</p>
+    </div>
+    <div class="foot-note fn-a">
+      <b>Zero-dependency core</b>
+      No bundler, no test framework, no lock file. Node 20 and a Chromium browser, nothing else.
+    </div>
+  </section>
+
+  <section class="panel p2">
+    <h2><span class="n">2</span> Twenty behaviours, six groups</h2>
+    <div class="row"><span class="mono">Your page (6 rows)</span><span class="tag t-page">6 live probes</span></div>
+    <div class="row"><span class="mono">Spec divergence (3)</span><span class="tag t-broken">3 broken</span></div>
+    <div class="row"><span class="mono">Standard gaps (5)</span><span class="tag t-broken">5 unexpressible</span></div>
+    <div class="row"><span class="mono">Silent traps (3)</span><span class="tag t-broken">3 traps</span></div>
+    <div class="row"><span class="mono">By design (1)</span><span class="tag t-mix">1 intended</span></div>
+    <div class="row"><span class="mono">And these hold (2)</span><span class="tag t-kept">2 kept</span></div>
+    <div class="foot-note fn-b">
+      <b>Verdict on its own page, Chrome 152</b>
+      13 broken, 5 kept, 1 by design, 1 unsettled, 20 tested. The in-browser run reports the same
+      thirteen and five and labels itself PARTIAL, because one row it cannot observe from there.
+    </div>
+  </section>
+
+  <section class="panel p3">
+    <h2><span class="n">3</span> The auditor is a WebMCP page</h2>
+    <div class="item">
+      <b class="mono">nt_run_audit</b>
+      <p>Runs every probe against the live page. Not marked read only, because it drives forms.</p>
+    </div>
+    <div class="item">
+      <b class="mono">nt_list_behaviours</b>
+      <p>Every row with its group, its subject and the promise being tested. Read only.</p>
+    </div>
+    <div class="item">
+      <b class="mono">nt_explain_behaviour</b>
+      <p>One row in full: the promise, what the draft says, what was measured, and the command that reproduces it. Read only.</p>
+    </div>
+    <div class="foot-note fn-c">
+      <b class="mono">nt_get_findings</b>
+      Three tools are published at rest and a fourth while findings exist. It is withdrawn when they
+      clear, so the behaviour this suite is named for runs on itself.
+    </div>
+  </section>
+
+  <section class="panel p4">
+    <h2><span class="n">4</span> Gathering is not deciding</h2>
+    <div class="item">
+      <b>Strict separation</b>
+      <p>The probe records what happened and has no idea what a pass is. The judge is pure and cannot reach a browser.</p>
+    </div>
+    <div class="item">
+      <b>Every rule ships a mutation</b>
+      <p>Each rule is paired with an input that proves it can go red. A gate never watched failing is not a gate.</p>
+    </div>
+    <div class="item">
+      <b>Honest abstention</b>
+      <p>A row that could not run says so. It is never counted as a pass.</p>
+    </div>
+    <div class="foot-note fn-d">
+      <b>Reproduce any row</b>
+      <span class="mono">node bin/ninthtool.mjs --behaviour C3</span>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <div>Ninth Tool &middot; Behavioural conformance suite for WebMCP &middot; not the first, see docs/prior-art.md &middot; MIT &middot; upgradedev.github.io/ninthtool</div>
+  <div class="stats">
+    Line coverage, counting each file once: <b>97.83%</b> across <b>54 files</b><br>
+    Unit tests: <b>520 passing</b> &middot; Runtime dependencies: <b>0</b>
+  </div>
+</footer>
