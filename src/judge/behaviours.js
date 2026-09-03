@@ -386,7 +386,7 @@ export const BEHAVIOURS = Object.freeze([
       + 'undefined, so half the standard cannot say this.',
     why: 'A tool with no readOnlyHint is a tool an agent has to guess about, and the safe guess '
       + 'stops it using your page at all.',
-    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P1',
+    reproduce: 'node bin/ninthtool.mjs https://your-page.example --behaviour P1',
   },
   {
     id: 'P2',
@@ -401,7 +401,7 @@ export const BEHAVIOURS = Object.freeze([
       + 'is visible from outside the page.',
     why: 'A tool with no properties accepts anything, and the browser validates nothing at all on '
       + 'the script path, so the schema is the only contract there is.',
-    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P2',
+    reproduce: 'node bin/ninthtool.mjs https://your-page.example --behaviour P2',
   },
   {
     id: 'P3',
@@ -416,7 +416,7 @@ export const BEHAVIOURS = Object.freeze([
       + 'page not writing it.',
     why: 'This is the one thing existing WebMCP checkers look at, and it is still worth checking, '
       + 'because an undescribed parameter is a parameter a model fills with something plausible.',
-    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P3',
+    reproduce: 'node bin/ninthtool.mjs https://your-page.example --behaviour P3',
   },
   {
     id: 'P4',
@@ -437,7 +437,7 @@ export const BEHAVIOURS = Object.freeze([
       + 'in one list, in the same shape, and nothing prompts a caller to look. An earlier '
       + 'version of this line claimed nothing on the surface says where a tool came from, '
       + 'which the measured column beside it already contradicted.',
-    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P4',
+    reproduce: 'node bin/ninthtool.mjs https://your-page.example --behaviour P4',
   },
   {
     id: 'P5',
@@ -458,7 +458,7 @@ export const BEHAVIOURS = Object.freeze([
       + 'demonstrated. It now reports three outcomes and passes on only one: a rejection, which is '
       + 'the single failure signal the standard has. An identical answer proves a defect. Anything '
       + 'else is reported as inconclusive rather than scored.',
-    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P5',
+    reproduce: 'node bin/ninthtool.mjs https://your-page.example --behaviour P5 --allow-tool-calls',
   },
   {
     id: 'P6',
@@ -478,7 +478,7 @@ export const BEHAVIOURS = Object.freeze([
       + 'reports, which is a real defect when it happens and is stated as the narrow observation it '
       + 'is. It also reports a tool whose own answer drifts, which the earlier version structurally '
       + 'could not name because it skipped itself and blamed the next tool called.',
-    reproduce: 'node bin/ninthtool.mjs <your url> --behaviour P6',
+    reproduce: 'node bin/ninthtool.mjs https://your-page.example --behaviour P6 --allow-tool-calls',
   },
 ]);
 
