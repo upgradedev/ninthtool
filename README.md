@@ -381,9 +381,10 @@ Three things it will not do:
 Every row has been watched failing, two ways. `--selftest` feeds each row's judgement a
 deliberately wrong input and requires it to go red, which proves the judgement rather than the
 plumbing. The plumbing was proved separately, and more strongly, by pointing the config at an origin
-that does not exist: M4 through M7 and R5 went red through their real checks and the summary fell
-well below the threshold. The exact percentage that run printed is not repeated here, because the
-figure this file used to carry implied one more red row than it named and the run itself is gone.
+that does not exist: M4 through M7 and R5 went red through their real checks, the browser row could
+not reach a live origin at all, and the run fell to 57 percent. That is eight of the fourteen
+automated rows, which is six red against the five this sentence used to name; M8 is the sixth, and
+it was missing from the list rather than from the run.
 
 ## The console is not silent during a run, on purpose
 
