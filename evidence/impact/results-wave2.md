@@ -22,14 +22,14 @@ rows say, and did not change whether they discriminate between pages.
 
 | page | row | read only tools authorised | verdict | ms | exit |
 |---|---|---|---|---|---|
-| `comicsol-web` | P5 | 5 | not-applicable | 5524 | 3 |
-| `sdras-webmcp-demo` | P5 | 1 | not-applicable | 4684 | 3 |
-| `vector-lab` | P5 | 1 | not-applicable | 4171 | 3 |
-| `worldmonitor-pro-test` | P5 | 1 | not-applicable | 7847 | 3 |
-| `comicsol-web` | P6 | 5 | pass | 5659 | 0 |
-| `sdras-webmcp-demo` | P6 | 1 | not-applicable | 4554 | 3 |
-| `vector-lab` | P6 | 1 | not-applicable | 3982 | 3 |
-| `worldmonitor-pro-test` | P6 | 1 | not-applicable | 6663 | 3 |
+| `comicsol-web` | P5 | 5 | not-applicable | 4825 | 3 |
+| `sdras-webmcp-demo` | P5 | 1 | not-applicable | 4252 | 3 |
+| `vector-lab` | P5 | 1 | not-applicable | 3985 | 3 |
+| `worldmonitor-pro-test` | P5 | 1 | not-applicable | 6482 | 3 |
+| `comicsol-web` | P6 | 5 | pass | 4363 | 0 |
+| `sdras-webmcp-demo` | P6 | 1 | not-applicable | 4107 | 3 |
+| `vector-lab` | P6 | 1 | not-applicable | 4461 | 3 |
+| `worldmonitor-pro-test` | P6 | 1 | not-applicable | 11618 | 3 |
 
 ## What each run actually observed, in its own words
 
@@ -125,28 +125,26 @@ be re-derived from the wave 1 run files instead of trusted.
 
 ## Provenance
 
-**8 of 8 runs cannot vouch for their instrument commit.** 8 predate this record being kept. For those rows the commit below is a hint about when, not a provenance a reader can check out and reproduce.
-
 | page | row | source commit | instrument commit | tree clean | authorisation |
 |---|---|---|---|---|---|
-| `comicsol-web` | P5 | `c27fd9b53b83` | `d77127862e82` | not recorded | read-only tool calls |
-| `sdras-webmcp-demo` | P5 | `45ddb9060b08` | `d77127862e82` | not recorded | read-only tool calls |
-| `vector-lab` | P5 | `558616071770` | `d77127862e82` | not recorded | read-only tool calls |
-| `worldmonitor-pro-test` | P5 | `f0d7c2429652` | `d77127862e82` | not recorded | read-only tool calls |
-| `comicsol-web` | P6 | `c27fd9b53b83` | `d77127862e82` | not recorded | read-only tool calls |
-| `sdras-webmcp-demo` | P6 | `45ddb9060b08` | `d77127862e82` | not recorded | read-only tool calls |
-| `vector-lab` | P6 | `558616071770` | `d77127862e82` | not recorded | read-only tool calls |
-| `worldmonitor-pro-test` | P6 | `f0d7c2429652` | `d77127862e82` | not recorded | read-only tool calls |
+| `comicsol-web` | P5 | `c27fd9b53b83` | `92d12e7028d1` | yes | read-only tool calls |
+| `sdras-webmcp-demo` | P5 | `45ddb9060b08` | `92d12e7028d1` | yes | read-only tool calls |
+| `vector-lab` | P5 | `558616071770` | `92d12e7028d1` | yes | read-only tool calls |
+| `worldmonitor-pro-test` | P5 | `f0d7c2429652` | `92d12e7028d1` | yes | read-only tool calls |
+| `comicsol-web` | P6 | `c27fd9b53b83` | `92d12e7028d1` | yes | read-only tool calls |
+| `sdras-webmcp-demo` | P6 | `45ddb9060b08` | `92d12e7028d1` | yes | read-only tool calls |
+| `vector-lab` | P6 | `558616071770` | `92d12e7028d1` | yes | read-only tool calls |
+| `worldmonitor-pro-test` | P6 | `f0d7c2429652` | `92d12e7028d1` | yes | read-only tool calls |
 
 ## Artifact hashes
 
 | file | sha256 |
 |---|---|
-| `runs-wave2/comicsol-web-P5.json` | `24b08a8153038277536e992dde709b24e37d7d594e55c0df89b1f9cc4c2cc6b5` |
-| `runs-wave2/comicsol-web-P6.json` | `4538ed9d612473d16fc52656e57df987f7e665f215fd66c518bcd5912c41890c` |
-| `runs-wave2/sdras-webmcp-demo-P5.json` | `7580d4c6b1a4b5a09c419f3e62af2622f0498a51a698c533f04d8166b9cecec7` |
-| `runs-wave2/sdras-webmcp-demo-P6.json` | `229275873e5e63d75af23a6ce160553d73f85fca879e23ae9064dd59c5ddb7b3` |
-| `runs-wave2/vector-lab-P5.json` | `e6477bd3d282ff48e1d30db22e8e594dfa2f64271f9edaf19769e60a9d2bc483` |
-| `runs-wave2/vector-lab-P6.json` | `2b00bea962ddb512278a52bc7114324ae2779d25946f8c781026e5411b123dce` |
-| `runs-wave2/worldmonitor-pro-test-P5.json` | `1939020fcdf91bd47e192c0fc43ebb681044c12cb59949b54062d763fc2bb70f` |
-| `runs-wave2/worldmonitor-pro-test-P6.json` | `6da7b930a5a92eda82aa886a9040be086bdfbb2e8cf8516af2d42c820fb5d34a` |
+| `runs-wave2/comicsol-web-P5.json` | `7d6fb46dca4d61cf5ac0bf7587ba758fdc7445df1b413da63b14b6b735cc7285` |
+| `runs-wave2/comicsol-web-P6.json` | `a9a2d05a7bec1a5de4c1ee30ebed330b07c3aa0fd9588e1b7700d12c1ba6e9f2` |
+| `runs-wave2/sdras-webmcp-demo-P5.json` | `a98635efba7a32c3d402ea33ee9967745e6d33294df9363ce1beca7f798a6a9b` |
+| `runs-wave2/sdras-webmcp-demo-P6.json` | `c4cd4bc1d0955857ca1f96bf91dc70b07195c9f278a77e6e9d4040e969972c84` |
+| `runs-wave2/vector-lab-P5.json` | `7557505383fbbb9250fb1af7d8ec6b059cddeb4f97e02f14833281a697bdf7a4` |
+| `runs-wave2/vector-lab-P6.json` | `b9e05de00aab7b0d262ff4de544f0b36c4b7185728271368ac7d99dd4a30d29e` |
+| `runs-wave2/worldmonitor-pro-test-P5.json` | `ca5c41861116d3f3e8bd67237956f7f7ace2bd8b5b7bcb87da2f4e493e4bd6b9` |
+| `runs-wave2/worldmonitor-pro-test-P6.json` | `960cd970bc753a612b3c057bd5b635e85b1e040bf2b57c845b30f22be79d4a81` |
