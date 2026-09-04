@@ -1,4 +1,4 @@
-# Ninth Tool: Behavioural Conformance Suite for WebMCP
+# Ninth Tool: A Reproducible Behaviour Probe for WebMCP
 
 Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the browser silently drops, with the command that reproduces each one.
 
