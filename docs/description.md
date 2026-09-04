@@ -131,8 +131,8 @@ of 85 for lines, branches and functions, measured by CI at commit `231c45f`. The
 reads 78.08 because it counts some files more than once. Eleven below-floor metrics occur across six
 files; the gate names all six rather than hiding them inside the average.
 
-The commit is named because this figure moves whenever a test is added, and it has moved four times
-in two days. Reproduce it rather than trusting it:
+The commit is named because this figure moves whenever the measured tree changes. Reproduce it
+rather than trusting it:
 
 ```
 node --experimental-test-coverage --test tests/unit | tee coverage.txt
@@ -168,7 +168,7 @@ argument at its first line, and on the other this tool's own control call was as
 one it meant to break. That is the thing worth reading. Any suite that runs against pages it does not
 own will produce false findings, and the useful question is whether it catches them and
 publishes the retraction beside the claim, with the handler cited, in the same generated file. It
-did. One of the two weaknesses behind it is now closed: the row refuses to score a tool whose schema
+did. One of the two study-specific oracle weaknesses behind those retractions is now closed: the row refuses to score a tool whose schema
 declares a constraint this suite cannot satisfy, so it can no longer blame a page for a call that was
 invalid before it left, and the wave was re-run to prove both false findings are gone. The other
 stays open on purpose, because excluding oracles that only appear to answer was built and measured

@@ -97,7 +97,7 @@ Two findings it did report about strangers' pages were checked against their own
 
 That is the thing worth reading. Any suite that runs against pages it does not own will produce false findings. The useful question is whether it catches them and publishes the retraction beside the claim, in the same generated file. It did.
 
-One of the two oracle weaknesses behind those retractions is now closed. The other stays open on purpose: the obvious fix was built, measured against a copy of the tree, and it turned this suite's own flagship true positive into an abstention. That measurement is published rather than the fix.
+One of the two study-specific oracle weaknesses behind those retractions is now closed. The other stays open on purpose: the obvious fix was built, measured against a copy of the tree, and it turned this suite's own flagship true positive into an abstention. That measurement is published rather than the fix.
 
 The protocol was written and committed before any page ran, the failure is published in `evidence/impact/results.md`, and the primary metric was not changed afterwards to make it read better.
 
