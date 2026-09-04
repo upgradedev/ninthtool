@@ -68,7 +68,7 @@ The probe registers its own throwaway tools with a `signal` in the options bag a
 ## How I built it
 
 * **Gathering is not deciding.** The probe runs inside a document and records what happened, with no opinion about what a pass is. The judge is pure, runs deterministically, and cannot reach a browser.
-* **524 unit tests.** Line coverage averages **98.51%** across 54 files, counting each file once, against a floor of 85.
+* **533 unit tests and 98.57% line coverage across 56 files at commit `badb9ce`**, counting each file once against a floor of 85 per file. Five files sit below that floor and the gate names every one instead of averaging it away. The figure carries a commit because it moves whenever a test is added; reproduce it with `node --experimental-test-coverage --test tests/unit`.
 * **Dual transports.** The in-browser runner, plus a zero-dependency headless Chrome DevTools Protocol client. No bundler, no test framework, no lock file, no runtime dependencies.
 
 Run it against any page from a terminal:
