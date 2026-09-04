@@ -513,8 +513,8 @@ footage shows. Two figures it speaks were true then and are not true now:
 
 | The video says | Measured on this tree |
 |---|---|
-| line coverage ninety seven point eight | **98.51**, each file counted once, across 54 files |
-| four files below the floor | **three**: `scripts/readiness.mjs`, `tests/unit/profile_cleanup.test.js`, `tests/unit/modules_parse.test.js` |
+| line coverage ninety seven point eight | **98.57** at `badb9ce`, each file counted once, across 56 files |
+| four files below the floor | **five** at `badb9ce`, each named by the gate rather than averaged away |
 
 Both moved for the same reason: `tests/unit/reproduce_runnable.test.js` was added afterwards, to
 close a defect where six rows printed a command a reader could not run. The video was not recut, so
