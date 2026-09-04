@@ -126,11 +126,19 @@ a default run, and that is stated rather than hidden.
 
 ## Honest limits
 
-Coverage, counting each file once, averages 98.51 percent of lines across 54 files against a floor
-of 85. The raw `all files` row reads 78.14 because it counts some files more than once, and three
-files sit below the floor on their own. The gate names them rather than hiding them inside the
-average: `scripts/readiness.mjs` at 70.49 lines is the one that matters, and the other two are test
-files short on branches and functions rather than lines. Four oracle weaknesses that would each have let a false pass through were reproduced against
+Coverage, counting each file once, averages 98.57 percent of lines across 56 files against a floor
+of 85, measured at commit `badb9ce`. The raw `all files` row reads 78.20 because it counts some
+files more than once, and five files sit below the floor on their own. The gate names every one of
+them rather than hiding it inside the average, and `scripts/readiness.mjs` at 70.49 lines is the one
+that matters; the rest are test files short on branches or functions rather than lines.
+
+The commit is named because this figure moves whenever a test is added, and it has moved four times
+in two days. Reproduce it rather than trusting it:
+
+```
+node --experimental-test-coverage --test tests/unit | tee coverage.txt
+node tests/unit/coverage_gate.mjs coverage.txt --per-file --threshold=85
+``` Four oracle weaknesses that would each have let a false pass through were reproduced against
 the real code and are now closed, and the adversarial inputs that found them are kept as tests. A preregistered study on thirteen independently authored WebMCP pages has now run, and its
 hypothesis failed. Five of twenty rows told those pages apart and every one of them was already
 readable from the tool list. Taking the other half apart afterwards showed why: at most two rows
