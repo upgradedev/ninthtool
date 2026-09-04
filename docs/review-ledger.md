@@ -81,7 +81,7 @@ scripts and all 25 files under `tests/`.
 | `src/ui/app.js` | 635 | ships | yes |
 | `scripts/build_manifest.mjs` | 123 | ships | yes |
 | `scripts/runtime_graph.mjs` | 241 | ships | yes |
-| `scripts/check_style.mjs` | 168 | gates | **NONE** |
+| `scripts/check_style.mjs` | 168 | gates | yes, `tests/unit/style_gate.test.js` |
 | `scripts/readiness.mjs` | 1423 | gates | yes |
 | `scripts/readiness_config.mjs` | 180 | gates | yes |
 | `scripts/style_config.mjs` | 69 | gates | yes |
@@ -289,17 +289,15 @@ at the bottom keeps the two kinds of NONE apart.
 - **If it were wrong**: it is one of two gates on judge facing prose, and its failure mode is
   silence. Its own docblock records that a version written with `grep -c` returned 0 on a file that
   genuinely held an em dash, so the gate could not fail at all on this machine.
-- **Coverage**: **NONE**. Checked three ways: no test imports it (`grep -rn "^import" tests/`
-  returns no hit for `check_style`), no test spawns it (`grep -rn "spawn(" tests/` shows only
-  `bin/ninthtool.mjs` and generated scripts), and the single mention of the name anywhere under
-  `tests/` is `tests/unit/package.test.js` line 60, which asserts the file is *not* packed by
-  `package.json` `files`. Its exported `findingsForLine` has no external caller in the test tree.
-  What does exist: `node scripts/check_style.mjs --selftest` runs in the CI `style` job and feeds
-  six deliberate samples to the real `findingsForLine`, and
-  `tests/unit/style_coverage.test.js` covers the scope list in `style_config.mjs` but not this file.
-- **Known weakness**: `style_config.mjs` line 33 puts `check_style.mjs` in `EXEMPT`, so the gate
-  never scans itself. The stated reason is that this file contains the banned list and scanning a
-  rule against itself finds the rule.
+- **Coverage**: yes. `tests/unit/style_gate.test.js` line 29 imports `findingsForLine`,
+  `runSelfTest`, `main`, `BANNED_WORDS` and `BANNED_PHRASES` from it, and line 354 calls
+  `main(['node', 'check_style.mjs', '--selftest'])` directly. `node scripts/check_style.mjs
+  --selftest` also runs in the CI `style` job.
+- **Corrected 2026-09-04.** Both halves of the observation that stood here were false when checked
+  against the tree. It said coverage was NONE, and it said `style_config.mjs` line 33 put this file
+  in `EXEMPT` so the gate never scanned itself. `EXEMPT` today reads
+  `new Set(['package-lock.json'])`, and the gate scans itself. The entry handed the reader the exact
+  greps that disprove it, which is the only reason it was ever found.
 
 ### `scripts/readiness.mjs`
 
@@ -588,10 +586,10 @@ repository tests the tests. Where a file runs is stated instead, because that di
   so it accepted a module with a syntax error that shipped and left the page with nought registered
   tools and one console error.
 - **Coverage**: NONE. Runs in `npm test`.
-- **Known weakness**: its directory list is hand written inside the file (`src`, `src/judge`,
-  `src/probe`, `src/ui`, `scripts`, `bin`, `tests/support`, `tests/integration`) and `tests/unit` is
-  not on it. Its only scope assertion is `files.length >= 12`, which is a floor rather than a
-  coverage check, and nothing walks the tree to confirm the list is complete.
+- **Closed 2026-09-04.** This recorded that the directory list omitted `tests/unit` and that the
+  only scope assertion was a floor. `scripts/style_config.mjs` line 16 now lists `tests/unit`, and
+  `tests/unit/style_coverage.test.js` walks the tree and fails on any directory holding a file the
+  gate would scan that is not declared. The floor remains as a second, weaker check.
 
 ### `tests/unit/p5_causality.test.js`
 
@@ -730,7 +728,8 @@ repository tests the tests. Where a file runs is stated instead, because that di
 
 ### Files with no direct test coverage
 
-**Shipping or gating files, excluding tests: 1 of 19.**
+**Shipping or gating files, excluding tests: 0 of 19.** Corrected 2026-09-04; the one entry was
+`check_style.mjs`, which `tests/unit/style_gate.test.js` covers.
 
 - `scripts/check_style.mjs`, 168 lines. No test imports it, spawns it or reads its bytes. Its only
   failure proof is the `--selftest` block inside the same file, which does call the real
@@ -790,8 +789,11 @@ rather than with readability.
 
 Recorded for whoever owns each area. None was changed.
 
-1. **`scripts/check_style.mjs` is the only shipping or gating file with no external test, and it is
-   also exempt from its own scan.** `style_config.mjs` line 33 puts it in `EXEMPT`, for the stated
+1. **Closed 2026-09-04, and it was wrong when written.** This said `check_style.mjs` was the only
+   shipping or gating file with no external test and was exempt from its own scan. Neither holds:
+   `tests/unit/style_gate.test.js` imports and exercises it, and `EXEMPT` contains only
+   `package-lock.json`. Kept rather than deleted, because the entry naming the greps that refute it
+   is how it was caught. Original text below.** `style_config.mjs` line 33 puts it in `EXEMPT`, for the stated
    reason that it holds the banned list. Both facts are defensible on their own. Together they mean
    the file that decides what judge facing prose may say is neither scanned nor imported by anything
    outside itself, and its only failure proof lives inside it.
@@ -799,16 +801,15 @@ Recorded for whoever owns each area. None was changed.
 2. **`tests/unit/modules_parse.test.js` selects its files from a hand written directory list, which
    is the exact failure class the repository documents twice elsewhere.** `style_config.mjs` and
    `runtime_graph.mjs` both exist because a hand maintained list went stale. This test's list is at
-   line 24, `tests/unit` is not on it, and its only scope assertion is `files.length >= 12`.
-   `style_coverage.test.js` is the pattern that would fix it: walk the tree, fail on an unlisted
-   directory holding a matching file.
+   line 24. **Closed 2026-09-04**: `tests/unit` is on the list at `style_config.mjs` line 16, and
+   `style_coverage.test.js` is no longer a pattern that *would* fix it but the test that *does*,
+   walking the tree and failing on any undeclared directory holding a file the gate would scan.
 
-3. **The readiness rows skip M9.** `grep -n "^    id: '"` over `scripts/readiness.mjs` returns M1
-   to M8, then M10, then R1 to R5 and O1 to O4, 18 rows in total, and
-   `grep -rn "M9" src scripts bin tests .github index.html` returns no hit across those paths.
-   Nothing records whether a row was removed, renamed or reserved. Counts are computed
-   from `ROWS.length` rather than typed, so no number is wrong today, but a reader comparing row
-   labels against a count has no way to tell which of the three happened.
+3. **There is no M10, and M9 is simply out of order.** Corrected 2026-09-04. This entry said the
+   rows skipped M9 and that an M10 existed. `grep -n "^    id: '"` over `scripts/readiness.mjs`
+   returns M1 to M8, then R1 to R5, then **M9 at line 429**, then O1 to O4. `grep -rn "M10" src
+   scripts bin tests .github index.html` returns nothing at all. M9 sits after the R rows because it
+   was added last, which is untidy and is not a gap. The gap this entry recorded has been closed.
 
 4. **The end to end safety check does not run the shipped entry point.**
    `tests/integration/side_effect_isolation.mjs` line 94 inlines the probe "the way

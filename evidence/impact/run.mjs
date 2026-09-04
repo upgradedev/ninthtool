@@ -67,7 +67,21 @@ function toolTreeClean() {
   } catch { return null; }
 }
 
-/** The browser the runner will actually launch, asked rather than assumed. */
+/**
+ * The browser the runner will actually launch, asked rather than assumed.
+ *
+ * ASKING CAN ANSWER WITH SOMETHING THAT IS NOT A VERSION. On Windows, `chrome.exe --version` with a
+ * Chrome already open is forwarded to the running instance, which prints "Opening in existing
+ * browser session." and exits zero. Every wave one run recorded that sentence as its browser, and
+ * the study that rests on one browser version named its browser nowhere. Trusting stdout because
+ * the exit code was zero is the whole defect.
+ *
+ * So the shape is checked, not the exit code. Anything that does not look like a version is
+ * refused, and null travels to the report, which then prefers the user agent the probe read from
+ * the browser it actually drove.
+ */
+const LOOKS_LIKE_A_VERSION = /\d+\.\d+\.\d+/;
+
 function browserVersion() {
   for (const exe of [
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -76,7 +90,8 @@ function browserVersion() {
   ]) {
     if (!fs.existsSync(exe)) continue;
     const out = spawnSync(exe, ['--version'], { encoding: 'utf8' });
-    if (out.stdout) return out.stdout.trim();
+    const said = String(out.stdout || '').trim();
+    if (said && LOOKS_LIKE_A_VERSION.test(said)) return said;
   }
   return null;
 }

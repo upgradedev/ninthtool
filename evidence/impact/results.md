@@ -105,19 +105,19 @@ as one finding reproduced twelve times, never as twelve findings.
 
 | page | source commit | instrument commit | browser |
 |---|---|---|---|
-| `a2ui-catalog` | `18ebc19f43a6` | `c4104380e7a3` | Opening in existing browser session. |
-| `b-agent-landing` | `72ca28b59a20` | `c4104380e7a3` | Opening in existing browser session. |
-| `comicsol-web` | `c27fd9b53b83` | `c4104380e7a3` | Opening in existing browser session. |
-| `incident-command` | `e18cbb7c9aae` | `c4104380e7a3` | Opening in existing browser session. |
-| `job-mcp` | `493e0589a09d` | `c4104380e7a3` | Opening in existing browser session. |
-| `patchbridge-agent-demo` | `7f27cb66964e` | `c4104380e7a3` | Opening in existing browser session. |
-| `school-of-freelancing` | `3d9b9057703b` | `c4104380e7a3` | Opening in existing browser session. |
-| `sdras-webmcp-demo` | `45ddb9060b08` | `c4104380e7a3` | Opening in existing browser session. |
-| `sieve-webmcp` | `ed49ca3818ef` | `c4104380e7a3` | Opening in existing browser session. |
-| `sosumi-ai` | `afec623b039a` | `c4104380e7a3` | Opening in existing browser session. |
-| `vector-lab` | `558616071770` | `c4104380e7a3` | Opening in existing browser session. |
-| `watch-dog-reference` | `4cc191cc2d23` | `c4104380e7a3` | Opening in existing browser session. |
-| `worldmonitor-pro-test` | `f0d7c2429652` | `c4104380e7a3` | Opening in existing browser session. |
+| `a2ui-catalog` | `18ebc19f43a6` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `b-agent-landing` | `72ca28b59a20` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `comicsol-web` | `c27fd9b53b83` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `incident-command` | `e18cbb7c9aae` | `c4104380e7a3` | not recorded |
+| `job-mcp` | `493e0589a09d` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `patchbridge-agent-demo` | `7f27cb66964e` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `school-of-freelancing` | `3d9b9057703b` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `sdras-webmcp-demo` | `45ddb9060b08` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `sieve-webmcp` | `ed49ca3818ef` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `sosumi-ai` | `afec623b039a` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `vector-lab` | `558616071770` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `watch-dog-reference` | `4cc191cc2d23` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
+| `worldmonitor-pro-test` | `f0d7c2429652` | `c4104380e7a3` | HeadlessChrome/152.0.0.0 |
 
 ## There is a second wave, and it is reported separately
 

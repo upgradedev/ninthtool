@@ -1,9 +1,13 @@
 /**
  * The smallest Chrome DevTools Protocol client this repository needs, and the only one it has.
  *
- * REUSED COMPONENT, NAMED RATHER THAN QUIETLY ABSORBED. This file is carried over from an earlier
- * project of the same author, where it drove a page through a flagged Chrome for exactly this kind
- * of evidence gathering. It is listed in the README under reused components, as the rules require.
+ * REUSED COMPONENT, NAMED RATHER THAN QUIETLY ABSORBED. This file is carried over from the same
+ * author's other entry in this same hackathon, where it drove a page through a flagged Chrome for
+ * exactly this kind of evidence gathering. This docblock used to call it an earlier project, which
+ * turned a concurrent sibling entry into a piece of history and understated what a judge needs to
+ * know. The entry is named, with its source commit, in README.md under "Relationship to our other
+ * entry, and what was reused". It is not named here because the style gate bans another entry's
+ * name outside the files the rules require it in, and this file is not one of them.
  * Nothing else in this repository is carried over: the catalogue, the judge, the probe, the page
  * and the runner are all new.
  *

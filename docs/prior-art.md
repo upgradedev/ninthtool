@@ -111,7 +111,7 @@ Where it differs, and these were checked against this repository's own source on
   `node -e "import('./src/judge/behaviours.js').then(m=>console.log(m.BEHAVIOURS.length, m.BEHAVIOURS.filter(b=>b.subject==='page').length))"`
 - the findings tool here is **scoped to the result lifecycle**. `nt_get_findings` does not exist
   before an audit produces findings, is registered with an `AbortController` signal, and is
-  withdrawn when the result is cleared, at `src/ui/app.js:412` and `src/ui/app.js:458`. Glass Box's
+  withdrawn when the result is cleared, at `src/ui/app.js:569-616` and `src/ui/app.js:622-627`. Glass Box's
   self registered tools are documented as an install time option, not as tools that come and go with
   a result
 

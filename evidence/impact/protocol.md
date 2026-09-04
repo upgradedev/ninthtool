@@ -244,3 +244,40 @@ not say. `src/probe/launch.mjs` sets no proxy and no resolver rule, and `worldmo
 loads an analytics script from a third party host on load, in wave 1 as well as wave 2. Nothing was
 submitted anywhere, and a request did leave this machine. The Downloads folder held 121 entries
 before the eight runs and 121 after, counted by hand once.
+
+
+## Amendment, 2026-09-04: three statements above are withdrawn
+
+Appended rather than edited, as the header requires. Nothing above is changed.
+
+**1. The reach claim is withdrawn and narrowed.** The `What survives` paragraph says authorising the
+calls moved *two* rows from abstaining everywhere to settling somewhere. Counted from the eight
+records in `evidence/impact/runs-wave2`, one did:
+
+| row | runs | settled | where |
+|---|---|---|---|
+| P5 | 4 | **0** | abstained on all four |
+| P6 | 4 | **1** | `pass` on `comicsol-web`, abstained on the other three |
+
+So the reach bought by authorisation is one row on one page. The discrimination result is unchanged
+and was never in question: two rows against a threshold of three, fixed before anyone looked.
+
+**2. The settled counts at the paragraph beginning `Each row settled on some pages`** were taken
+before the P5 schema guard landed. Re-counted from the same directory today they read as the table
+above. The conclusion that paragraph draws is unaffected: a row with one settled result still has
+nothing to differ from.
+
+**3. The frozen commit in the header is the commit this protocol was written at, not the commit the
+runs executed.** Recorded here so a reader can check out what actually ran. Wave 1 records name
+`c4104380e7a3`. Wave 2 records name `92d12e7028d1 (clean)`. Where a record says the tree was dirty, the commit is a hint
+about when, not a provenance that can be checked out, which the wave 2 provenance table already
+prints in full.
+
+**4. The `browser` column in `results.md` was not a browser.** It recorded
+`Opening in existing browser session.` on all thirteen wave 1 rows. That is what `chrome.exe
+--version` prints on Windows when a Chrome is already open, because the call is forwarded to the
+running instance. The study rested on `one browser version` and named no browser anywhere. The
+report now reads `transcript.meta.userAgent`, reported by the browser the probe actually drove over
+the same DevTools session that ran the behaviours, which is the stronger evidence and was in the
+artifact all along: twelve of thirteen read `HeadlessChrome/152.0.0.0`, and `incident-command`,
+which never reached a page, reads `not recorded`. No count, threshold or verdict moved.

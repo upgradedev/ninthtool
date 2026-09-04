@@ -4,6 +4,7 @@
   "schemaVersion": "ninthtool.submission-video/v1",
 
   "_comment_identity": "frozenSha is the 40 character commit the live surface is serving when the takes are recorded, and it is REQUIRED. It ships unfilled on purpose: the build and the gate refuse while it is a placeholder, the narrate step warns because the words can be written before the freeze, and --plan prints it as not yet frozen. A video of a different commit than the one submitted is a judge facing statement that is false.",
+  "_comment_drift": "The takes show ea29ab94 and that is left alone, because re-stamping this field at a later commit would claim the footage shows code it does not. What has moved since, recorded 2026-09-04: beat 9 speaks line coverage as ninety seven point eight and says four files sit below the floor. Both were true at ea29ab94. Adding tests/unit/reproduce_runnable.test.js moved the each-file-once mean to 98.51 and the count below the floor to three. The video was not recut, on the owner's instruction, and README.md and the Devpost body carry the correction in text so the two surfaces do not silently disagree.",
   "frozenSha": "ea29ab94b78be245042de7b177ea92a000855880",
   "deployedUrl": "https://upgradedev.github.io/ninthtool/",
 
@@ -98,7 +99,7 @@
     {
       "id": "scope",
       "expectedSeconds": 18.25,
-      "onScreen": "The safety section of the page: the default with no tool calls, the flag that authorises read only calls, and the bundled fixture that is the only thing forms are ever submitted to. Then the honest limits line carrying the coverage figure. No external corpus study exists and none is claimed.",
+      "onScreen": "The safety section of the page: the default with no tool calls, the flag that authorises read only calls, and the bundled fixture that is the only thing forms are ever submitted to. Then the honest limits line carrying the coverage figure. The preregistered thirteen page corpus study is published and is named as a failed hypothesis, not as reach.",
       "captionText": "By default it calls no tool of yours and submits no form. Read only calls need a flag, and form writing only against its own fixture. Counting each file once, line coverage is ninety seven point eight, and the four below the floor are named.",
       "speechText": "By default it calls no tool of yours and submits no form. Read only calls need a flag, and form writing only against its own fixture. Counting each file once, line coverage is ninety seven point eight, and the four below the floor are named."
     }
