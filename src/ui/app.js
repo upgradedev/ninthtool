@@ -705,7 +705,7 @@ async function publishStandingTools(ctx) {
 
   await ctx.registerTool({
     name: 'nt_run_audit',
-    description: 'Run the conformance audit against the subject page in the frame on this page, '
+    description: 'Run the behaviour probe against the subject page in the frame on this page, '
       + 'and return the counts. It drives forms on a subject page hosted by this site, so it is '
       + 'not read only, but it writes nothing that outlives the page and sends nothing anywhere.',
     inputSchema: { type: 'object', properties: {} },

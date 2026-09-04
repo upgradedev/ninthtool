@@ -68,7 +68,7 @@ The probe registers its own throwaway tools with a `signal` in the options bag a
 ## How I built it
 
 * **Gathering is not deciding.** The probe runs inside a document and records what happened, with no opinion about what a pass is. The judge is pure, runs deterministically, and cannot reach a browser.
-* **533 unit tests and 98.57% line coverage across 56 files at commit `badb9ce`**, counting each file once against a floor of 85 per file. Five files sit below that floor and the gate names every one instead of averaging it away. The figure carries a commit because it moves whenever a test is added; reproduce it with `node --experimental-test-coverage --test tests/unit`.
+* **533 unit tests and 97.95% line coverage across 57 files at commit `231c45f`**, counting each file once against an 85% floor for lines, branches and functions. Eleven below-floor metrics occur across six files, and the gate names every file instead of averaging it away. Reproduce it with `node --experimental-test-coverage --test tests/unit | tee coverage.txt` then `node tests/unit/coverage_gate.mjs coverage.txt --per-file --threshold=85`.
 * **Dual transports.** The in-browser runner, plus a zero-dependency headless Chrome DevTools Protocol client. No bundler, no test framework, no lock file, no runtime dependencies.
 
 Run it against any page from a terminal:
@@ -97,21 +97,21 @@ Two findings it did report about strangers' pages were checked against their own
 
 That is the thing worth reading. Any suite that runs against pages it does not own will produce false findings. The useful question is whether it catches them and publishes the retraction beside the claim, in the same generated file. It did.
 
-One of the two oracle weaknesses behind those retractions is now closed. The other stays open on purpose: the obvious fix was built, measured against a copy of the tree, and it turned this suite's own flagship true positive into an abstention. That measurement is published rather than the fix.
+One of the two study-specific oracle weaknesses behind those retractions is now closed. The other stays open on purpose: the obvious fix was built, measured against a copy of the tree, and it turned this suite's own flagship true positive into an abstention. That measurement is published rather than the fix.
 
 The protocol was written and committed before any page ran, the failure is published in `evidence/impact/results.md`, and the primary metric was not changed afterwards to make it read better.
 
-**Three rows still fail open, found by an external review of this code and reproduced before publishing.** They are listed here rather than fixed quietly on the last night, because a probe that hides its own fail-open oracles has no business reporting anyone else's:
+**Five rows have known fail-open paths, and P2 is only partially closed.** They were found by external review and reproduced before publishing:
 
-* **P4** decides provenance with `t.fromThisDocument === false`. A tool whose provenance cannot be read is neither true nor false, so it falls out of the filter and the row reports *all tools were registered by this document*. Unknown is counted as ours.
-* **P3** walks only the top level of a schema's `properties`. A nested parameter with no description is never visited, so it passes.
-* **D1** listens for a `toolchange` event without correlating it to the tool that should have caused it, so an unrelated event satisfies the row.
+* **P4** treats unreadable provenance as local because it filters only `fromThisDocument === false`.
+* **P3** walks only top-level `schema.properties`, so an undescribed nested parameter passes.
+* **D1** accepts any `toolchange` event without proving that the target tool caused it.
+* **P5** removes only `required[0]`, always uses the same good/bad/bad/good order, and later resolves the snapshotted tool by name. Later required keys, position-dependent behaviour, or a same-name replacement can produce a false pass or misbound call.
+* **P6** also resolves by name, stringifies answers, is order-sensitive, and counts every resolved value, including an error envelope, as an answer. A replacement writer can be called, distinct structured states can collapse to the same text, and a resolved refusal can satisfy the control.
 
-A fourth, **P2**, held whenever `type` was `object` and checked nothing else, so `properties: "not-an-object"` counted as a readable schema. That one is closed, with a test that was watched failing first.
+**P2 is partially closed.** It now rejects a non-object `properties` container; it does not recursively validate nested schema structure.
 
-Three files sit below the coverage floor on their own. The gate names them instead of hiding them inside the average.
-
-**The demo video was recorded earlier and two of its numbers have since moved.** It says line coverage is ninety seven point eight and that four files sit below the floor. Both were true at the commit it was recorded against. A test added afterwards, closing a defect where six rows printed a command a reader could not run, moved them, and further work since has moved them again: at commit `badb9ce` they read **98.57%** and **five**. That is the point rather than an embarrassment. A figure spoken into a recording is fixed at the moment it was spoken, so it is dated here instead of being quietly restated. The video was not recut; the README carries the same correction with the command that reproduces either number.
+**The demo video was recorded earlier and two figures have since moved.** It says 97.8% line coverage and four below the floor; both were true at its frozen commit. At `231c45f`, CI reports **97.95%** across **57 files**, with **eleven below-floor metrics across six files**. The video remains unchanged; this dated correction and the README carry the exact command.
 
 ---
 

@@ -13,6 +13,6 @@
   "src/probe/fixture_identity.js": "82d182d01c8a5d6d4654990b0975a8c7e5f2c33bd88be4640849b8f48d577307",
   "src/probe/observe.js": "4e72a16cfbd645c135d62180f18ee1dcf9dedf7dc85b995c8df149a723bca8cb",
   "src/probe/steps.js": "ce12cf53217a323532f258c41ceef0635464769c578092bf624acacd40edc045",
-  "src/ui/app.js": "f59d0fb0d9f86185ddc834eb0015fe74edb932bf297ad1b09f75afea0fbeb761"
+  "src/ui/app.js": "e0aa8ff5b218339470d6f0a5ca24e0f3f99b862ccf894b51f9f8b8c07259d799"
  }
 }
