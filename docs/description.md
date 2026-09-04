@@ -126,11 +126,10 @@ a default run, and that is stated rather than hidden.
 
 ## Honest limits
 
-Coverage, counting each file once, averages 98.57 percent of lines across 56 files against a floor
-of 85, measured at commit `badb9ce`. The raw `all files` row reads 78.20 because it counts some
-files more than once, and five files sit below the floor on their own. The gate names every one of
-them rather than hiding it inside the average, and `scripts/readiness.mjs` at 70.49 lines is the one
-that matters; the rest are test files short on branches or functions rather than lines.
+Coverage, counting each file once, averages 97.95 percent of lines across 57 files against a floor
+of 85 for lines, branches and functions, measured by CI at commit `231c45f`. The raw `all files` row
+reads 78.08 because it counts some files more than once. Eleven below-floor metrics occur across six
+files; the gate names all six rather than hiding them inside the average.
 
 The commit is named because this figure moves whenever a test is added, and it has moved four times
 in two days. Reproduce it rather than trusting it:
@@ -138,8 +137,24 @@ in two days. Reproduce it rather than trusting it:
 ```
 node --experimental-test-coverage --test tests/unit | tee coverage.txt
 node tests/unit/coverage_gate.mjs coverage.txt --per-file --threshold=85
-``` Four oracle weaknesses that would each have let a false pass through were reproduced against
-the real code and are now closed, and the adversarial inputs that found them are kept as tests. A preregistered study on thirteen independently authored WebMCP pages has now run, and its
+```
+
+Five rows have known fail-open paths, and P2 is only partially closed:
+
+- **P4** treats unreadable provenance as local because it filters only `fromThisDocument === false`.
+- **P3** walks only top-level `schema.properties`, so an undescribed nested parameter passes.
+- **D1** accepts any `toolchange` event without proving that the target tool caused it.
+- **P5** removes only `required[0]`, uses a fixed call order, and re-resolves a snapshotted tool by
+  name. Later required keys, position-dependent behaviour, or a same-name replacement can escape or
+  misbind the measurement.
+- **P6** also re-resolves by name, stringifies answers, is order-sensitive, and counts resolved error
+  envelopes as answers. A replacement writer can be called and different structured states can
+  collapse to the same text.
+
+P2 now rejects a non-object `properties` container, but it does not recursively validate nested
+schema structure.
+
+A preregistered study on thirteen independently authored WebMCP pages has now run, and its
 hypothesis failed. Five of twenty rows told those pages apart and every one of them was already
 readable from the tool list. Taking the other half apart afterwards showed why: at most two rows
 could ever have told one of those pages from another, against a threshold of three fixed before

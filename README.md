@@ -487,20 +487,21 @@ documentation promised and is reported as a divergence.
 rather than summarised, so the thirteen failures, five passes, one by-design row and one
 inconclusive row reproduce from a checkout without a browser at all.
 
-### Three rows still fail open, and here they are
+### Five open fail-open paths, plus a partial P2 fix
 
-Found by an external review and reproduced against this tree before being written down. Each is the
-same shape: something unreadable or unchecked is counted as a pass.
+Found by external review and reproduced against this tree before publication.
 
-| row | the fail-open | where |
+| row | known limitation | where |
 |---|---|---|
-| **P4** | provenance is decided with `t.fromThisDocument === false`. A tool whose provenance cannot be read is neither `true` nor `false`, so it drops out of the filter and the row reports *all tools were registered by this document* | `src/probe/observe.js`, the `P4` step |
-| **P3** | only the top level of `schema.properties` is walked, so a nested parameter with no description is never visited | `src/probe/observe.js`, the `P3` step |
-| **D1** | a `toolchange` event is counted without being correlated to the tool that should have caused it | `src/probe/observe.js` |
+| **P4** | unreadable provenance is treated as local because only `fromThisDocument === false` is filtered | `src/probe/observe.js`, P4 |
+| **P3** | only top-level `schema.properties` are visited, so an undescribed nested parameter passes | `src/probe/observe.js`, P3 |
+| **D1** | any `toolchange` event can satisfy the row without correlation to the target tool | `src/probe/observe.js`, D1 |
+| **P5** | only `required[0]` is removed; the fixed call order and name-based re-resolution can miss later keys, accept position-dependent behaviour, or call a same-name replacement | `src/probe/observe.js`, P5 |
+| **P6** | name-based re-resolution, order-sensitive string comparison and treating resolved error envelopes as answers can misbind calls or collapse distinct states | `src/probe/observe.js`, P6 |
 
-A fourth, **P2**, held whenever `type` was `object` and checked nothing else, so a schema declaring
-`properties: "not-an-object"` counted as readable. That one is closed, and
-`tests/unit/p2_schema_shape.test.js` was watched failing before it was trusted.
+**P2 is partially closed.** It now rejects a non-object `properties` container, but it does not
+recursively validate nested schema structure. The focused regression is
+`tests/unit/p2_schema_shape.test.js`.
 
 These are published rather than fixed on the last night of a deadline, because rushing an oracle is
 how a false pass becomes a false failure. A probe that hides its own fail-open rules has no business
@@ -513,12 +514,13 @@ footage shows. Two figures it speaks were true then and are not true now:
 
 | The video says | Measured on this tree |
 |---|---|
-| line coverage ninety seven point eight | **98.57** at `badb9ce`, each file counted once, across 56 files |
-| four files below the floor | **five** at `badb9ce`, each named by the gate rather than averaged away |
+| line coverage ninety seven point eight | **97.95** at `231c45f`, each file counted once across 57 files |
+| four below the floor | **eleven below-floor metrics across six files** at `231c45f`, with all six files named by the gate |
 
-Both moved for the same reason: `tests/unit/reproduce_runnable.test.js` was added afterwards, to
-close a defect where six rows printed a command a reader could not run. The video was not recut, so
-this table is the correction. Reproduce either number with:
+The repository has moved since the recording, including the addition of
+`tests/unit/reproduce_runnable.test.js` to close a defect where six rows printed a command a reader
+could not run. The video was not recut, so this table is the dated correction. Reproduce the current
+figures with:
 
 ```
 node --experimental-test-coverage --test tests/unit | tee coverage.txt
