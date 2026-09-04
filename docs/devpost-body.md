@@ -111,7 +111,7 @@ A fourth, **P2**, held whenever `type` was `object` and checked nothing else, so
 
 Three files sit below the coverage floor on their own. The gate names them instead of hiding them inside the average.
 
-**The demo video was recorded earlier and two of its numbers have since moved.** It says line coverage is ninety seven point eight and that four files sit below the floor. Both were true at the commit it was recorded against. A test added afterwards, closing a defect where six rows printed a command a reader could not run, moved them to **98.51** and **three**. The video was not recut; the README carries the same correction with the command that reproduces either number.
+**The demo video was recorded earlier and two of its numbers have since moved.** It says line coverage is ninety seven point eight and that four files sit below the floor. Both were true at the commit it was recorded against. A test added afterwards, closing a defect where six rows printed a command a reader could not run, moved them, and further work since has moved them again: at commit `badb9ce` they read **98.57%** and **five**. That is the point rather than an embarrassment. A figure spoken into a recording is fixed at the moment it was spoken, so it is dated here instead of being quietly restated. The video was not recut; the README carries the same correction with the command that reproduces either number.
 
 ---
 
