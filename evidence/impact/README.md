@@ -185,4 +185,7 @@ it. While this work was in progress, `497158d` put `evidence/impact` on the gate
 criterion 2 to describe that entry rather than name it, which turned a documented conflict into a
 settled one. The corpus follows the criterion as it now stands: the entry is recorded, described,
 and not named, and the name stays in the root `README.md` where the rules require the disclosure.
-The gate now scans 80 files across 17 directories and passes over both files here.
+The gate scanned 80 files across 17 directories when this was written, and passed over both files
+here. Re-measured 2026-09-04 it reports **109 files across 19 directories**, and it still passes
+over both. Run `node scripts/check_style.mjs` for the figure in your checkout rather than trusting
+this sentence, which is the reason it was wrong.

@@ -99,7 +99,7 @@
     {
       "id": "scope",
       "expectedSeconds": 18.25,
-      "onScreen": "The safety section of the page: the default with no tool calls, the flag that authorises read only calls, and the bundled fixture that is the only thing forms are ever submitted to. Then the honest limits line carrying the coverage figure. The preregistered thirteen page corpus study is published and is named as a failed hypothesis, not as reach.",
+      "onScreen": "The section of the page headed What this does not do, and why: the default with no tool calls, the flag that authorises read only calls, and the bundled fixture that is the only thing forms are ever submitted to. Then the honest limits line carrying the coverage figure. The preregistered thirteen page corpus study is published and is named as a failed hypothesis, not as reach.",
       "captionText": "By default it calls no tool of yours and submits no form. Read only calls need a flag, and form writing only against its own fixture. Counting each file once, line coverage is ninety seven point eight, and the four below the floor are named.",
       "speechText": "By default it calls no tool of yours and submits no form. Read only calls need a flag, and form writing only against its own fixture. Counting each file once, line coverage is ninety seven point eight, and the four below the floor are named."
     }

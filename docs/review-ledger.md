@@ -1,8 +1,12 @@
 # Per-file review ledger
 
-One entry for every file in this repository that ships to a user or gates a build. It records what
-each file is for, what a defect in it would cost, which test files exercise it, and any weakness the
-file or its test already writes down.
+A snapshot, taken at one commit, of every file that shipped to a user or gated a build **at that
+commit**. It records what each file is for, what a defect in it would cost, which test files
+exercise it, and any weakness the file or its test already writes down.
+
+**It has not been re-walked since, and the tree has grown.** The scope command below reported 44
+files when this was written and reports **59** today. Fifteen files therefore have no entry here at
+all. Treat every per-file section as evidence about `481d0f2`, not about your checkout.
 
 **What this is not.** It is not an assessment. No file here is scored, graded or called correct.
 Absence of a recorded weakness means nothing was recorded, not that nothing is wrong. Presence of a
@@ -18,8 +22,10 @@ Every `lines` number below is the `wc -l` count from this one command, run from 
 wc -l $(git ls-files 'src/*' 'scripts/*' 'bin/*' 'tests/*') index.html fixtures/subject.html assets/styles.css
 ```
 
-It reports 44 files and `12875 total`. Those 44 files are the scope of this ledger. `wc -l` counts
-newlines, so the CRLF working tree on this machine and the LF tree on a runner give the same number.
+It reported **44 files and `12875 total`** at `481d0f2`, and those 44 files are the scope of the
+entries below. Re-run on 2026-09-04 the same command reports **59 files and `19101 total`**. The
+gap is fifteen files added since, none of which has an entry here. `wc -l` counts newlines, so the
+CRLF working tree on this machine and the LF tree on a runner give the same number.
 
 ## How coverage was decided
 
@@ -747,8 +753,10 @@ tests import. Two of the 24 do not run under `npm test`:
   `npm test` is `node --test tests/unit`. That job fails when the runner has no Chrome, so it is not
   silently skipped.
 
-**Raw total: 25 of 44 files in scope have no test that exercises them.** That number is only
-meaningful when partitioned as above, because 24 of the 25 are test files.
+**Raw total at `481d0f2`: 25 of 44 files in scope had no test that exercises them.** That number is
+only meaningful when partitioned as above, because 24 of the 25 are test files. It has not been
+recomputed for the 59 files in the tree today, and no figure is offered for them here rather than
+one being guessed.
 
 ### Largest files by line count
 
