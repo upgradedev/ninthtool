@@ -199,7 +199,7 @@ now, and only a rejection is a pass.
 
 ## The host
 
-Fourteen rows that are the same whatever page you point this at, and they are three different kinds
+Fourteen rows that are the same whatever page you point this at, and they are five different kinds
 of thing.
 
 An earlier draft reported one number: "the browser ignores six of these". That was an overstatement.
@@ -267,9 +267,10 @@ and exit zero whatever that was, so pointed at a browser with no WebMCP it print
 reported success. A run that proved nothing looked exactly like a run that proved everything.
 
 **Every rule is broken once, on purpose.** `tests/unit/verdict_mutations.test.js` starts from a
-transcript that passes everything, changes one field, and requires that behaviour to turn red, for
-all twenty. A structural assertion at the bottom of that file fails the build if a behaviour is
-added to the catalogue without a mutation proving its rule can fail.
+transcript that passes everything, changes one field, and requires that behaviour to stop passing,
+for all twenty. Stopping passing is not always turning red: a row can move to an abstention, and
+that still proves the rule reads the field. A structural assertion in that file fails the build if a
+behaviour is added to the catalogue without a mutation proving its rule can fail.
 
 ## Run it
 
@@ -321,10 +322,30 @@ whenever the run completed, and `--fail-on` is how you ask for the other behavio
 node bin/ninthtool.mjs https://your-page.example --fail-on page
 ```
 
+### Every flag, and where to get today's list
+
+`--help` is the shipped list and is what a test asserts against. It carries eight:
+
+| flag | what it does |
+|---|---|
+| `--behaviour ID`, `-b` | run one row, for example `B1` or `C2` |
+| `--fail-on WHAT` | exit non zero on `page` or on `any` |
+| `--json` | print the verdict as JSON instead of a report |
+| `--port N` | the remote debugging port, default 9411 |
+| `--chrome PATH` | the Chrome or Edge binary, found automatically if omitted |
+| `--keep-open` | leave the browser, its profile and the local server running afterwards |
+| `--allow-tool-calls` | let it CALL tools the page marked `readOnlyHint`. Rows P5 and P6 need this |
+| `--allow-fixture-forms` | let it SUBMIT a form, which is a write. Rows C1, C3 and C4 need this |
+
+The two `--allow` flags are the only ones that widen what this tool may touch, and neither is on by
+default against a page you name. Run `node bin/ninthtool.mjs --help` for the version in your
+checkout rather than trusting this table.
+
 `--fail-on page` exits 1 on any of the six your-page rows failing, and ignores the fourteen host
 rows, because your build should not go red over something Chrome does to everybody. `--fail-on any`
-exits 1 on anything. An incomplete run always exits 3, because a behaviour that was never observed
-is not a behaviour that passed.
+exits 1 on anything. An incomplete run exits 3, because a behaviour that was never observed is not
+a behaviour that passed. The one exception is `--keep-open`, which never exits on its own, and
+whose exit code tells you how the run was stopped rather than what it found.
 
 The probe **calls only tools your page has marked `readOnlyHint`**. A tool carrying no annotations is
 never called, and that refusal is reported as a finding, because a page that gives an auditor no way
@@ -465,6 +486,28 @@ documentation promised and is reported as a divergence.
 `tests/support/transcripts.mjs` holds the transcript that browser actually produced, transcribed
 rather than summarised, so the thirteen failures, five passes, one by-design row and one
 inconclusive row reproduce from a checkout without a browser at all.
+
+### The demo video is frozen at an earlier commit, and two numbers have moved since
+
+The video was recorded against `ea29ab94`, which is what its `frozenSha` records and what the
+footage shows. Two figures it speaks were true then and are not true now:
+
+| The video says | Measured on this tree |
+|---|---|
+| line coverage ninety seven point eight | **98.51**, each file counted once, across 54 files |
+| four files below the floor | **three**: `scripts/readiness.mjs`, `tests/unit/profile_cleanup.test.js`, `tests/unit/modules_parse.test.js` |
+
+Both moved for the same reason: `tests/unit/reproduce_runnable.test.js` was added afterwards, to
+close a defect where six rows printed a command a reader could not run. The video was not recut, so
+this table is the correction. Reproduce either number with:
+
+```
+node --experimental-test-coverage --test tests/unit | tee coverage.txt
+node tests/unit/coverage_gate.mjs coverage.txt --per-file --threshold=85
+```
+
+`frozenSha` was deliberately left pointing at `ea29ab94` rather than re-stamped, because moving it
+would claim the footage shows code it does not.
 
 ## Licence
 

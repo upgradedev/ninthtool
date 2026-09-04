@@ -8,7 +8,7 @@ taken. Nothing here is copied from documentation.
 | | |
 |---|---|
 | Browser | **Chrome 152.0.7977.65**, stable channel, Windows 11 |
-| Launched with | `--headless=new --disable-gpu --enable-features=WebMCP --remote-debugging-port=9333 --user-data-dir=<throwaway>` |
+| Launched with | `--headless=new --disable-gpu --no-first-run --no-default-browser-check --enable-features=WebMCP --remote-debugging-port=9411 --user-data-dir=<throwaway>`, the seven `src/probe/launch.mjs` builds. `--no-sandbox` is added only when running as root. Readiness row M8 drives the same launcher on port 9412 |
 | Pages served by | `python -m http.server --bind 127.0.0.1` |
 | Driver | `src/probe/cdp.mjs`, a dependency free Chrome DevTools Protocol client |
 | Date | catalogue measured **2026-09-01**; headline re-measured **2026-09-02** after the P5 oracle was tightened |
@@ -87,7 +87,7 @@ registered anything of its own.
 | P5 | **unsettled** | the tool answered when its `required` argument was omitted, and did not demonstrably refuse. Answering differently is not a refusal, so this abstains rather than passing |
 | P6 | **holds** | 2 read only tools, neither changed what the other answers |
 
-**Two of those six failures are this page's own, and both are owned rather than hidden.** P1 fails
+**Two of the six your-page rows fail, and both failures are this page's own rather than hidden.** P1 fails
 because two of its tools come from HTML forms and the standard has no way to annotate those, which
 is B4. P4 fails because this page deliberately embeds a subject frame whose tools join its surface.
 

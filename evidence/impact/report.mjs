@@ -38,6 +38,32 @@ function loadRuns() {
     .map((f) => ({ file: f, data: JSON.parse(fs.readFileSync(path.join(RUNS, f), 'utf8')) }));
 }
 
+/**
+ * The browser that actually ran the audit, taken from the page it drove.
+ *
+ * WHY NOT `data.browser`. That field asks `chrome.exe --version` in a separate process. On Windows,
+ * with a Chrome already open, that call is forwarded to the running instance, which prints
+ * "Opening in existing browser session." and exits. So every wave one row recorded a launcher
+ * message in the column the protocol reserves for a browser version, and the study that rests on
+ * "one browser version" named its browser nowhere.
+ *
+ * `transcript.meta.userAgent` is reported by the browser the probe connected to, over the same
+ * DevTools session that ran the behaviours. It names the build that produced the verdicts rather
+ * than one queried beside them, which is the stronger evidence and was already in the artifact.
+ * Twelve of the thirteen carry it; the run that does not never reached a page.
+ */
+const LAUNCHER_NOISE = /^Opening in existing browser session\.?$/i;
+
+function browserOf(data) {
+  const meta = data && data.transcript && data.transcript.meta;
+  const ua = meta && meta.userAgent;
+  const match = typeof ua === 'string' ? ua.match(/(?:Headless)?Chrome\/[0-9.]+/) : null;
+  if (match) return match[0];
+  const stated = typeof (data && data.browser) === 'string' ? data.browser.trim() : '';
+  if (stated && !LAUNCHER_NOISE.test(stated)) return stated;
+  return 'not recorded';
+}
+
 function measure(run) {
   const findings = (run.result && run.result.findings) || [];
   const settled = findings.filter((f) => SETTLED.has(f.verdict));
@@ -292,7 +318,7 @@ if (!runs.length) {
   lines.push('|---|---|---|---|');
   for (const r of rows) {
     lines.push(`| \`${r.data.corpusId}\` | \`${String(r.data.sourceCommit).slice(0, 12)}\` | `
-      + `\`${String(r.data.toolCommit).slice(0, 12)}\` | ${r.data.browser || 'not recorded'} |`);
+      + `\`${String(r.data.toolCommit).slice(0, 12)}\` | ${browserOf(r.data)} |`);
   }
 }
 

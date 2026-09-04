@@ -126,11 +126,11 @@ a default run, and that is stated rather than hidden.
 
 ## Honest limits
 
-Coverage, counting each file once, averages 97.83 percent of lines across 54 files against a floor
-of 85. The raw `all files` row reads 77.88 because it counts some files more than once, and four
+Coverage, counting each file once, averages 98.51 percent of lines across 54 files against a floor
+of 85. The raw `all files` row reads 78.14 because it counts some files more than once, and three
 files sit below the floor on their own. The gate names them rather than hiding them inside the
-average, and `bin/ninthtool.mjs` at 63.34 and `scripts/readiness.mjs` at 70.26 are the two that
-matter. Four oracle weaknesses that would each have let a false pass through were reproduced against
+average: `scripts/readiness.mjs` at 70.49 lines is the one that matters, and the other two are test
+files short on branches and functions rather than lines. Four oracle weaknesses that would each have let a false pass through were reproduced against
 the real code and are now closed, and the adversarial inputs that found them are kept as tests. A preregistered study on thirteen independently authored WebMCP pages has now run, and its
 hypothesis failed. Five of twenty rows told those pages apart and every one of them was already
 readable from the tool list. Taking the other half apart afterwards showed why: at most two rows
@@ -138,8 +138,8 @@ could ever have told one of those pages from another, against a threshold of thr
 anyone looked, and both of those two were switched off by the run's own read only default. The bar
 could not be cleared by any result, which is a defect in the protocol rather than a measurement of
 what this tool reaches. Authorising those two rows on the four pages that published a read only tool
-moved them from abstaining everywhere to settling somewhere, and neither varied across the pages it
-settled on. Two findings it did report were then checked against those pages' own source and
+moved one of them: P6 settled on one page and abstained on the other three, and P5 abstained on all
+four. So the reach this bought is one row on one page, not two rows. Two findings it did report were then checked against those pages' own source and
 retracted as defects in this tool, with the handler lines cited: one page had rejected the missing
 argument at its first line, and on the other this tool's own control call was as malformed as the
 one it meant to break. That is the thing worth reading. A conformance suite that runs against
