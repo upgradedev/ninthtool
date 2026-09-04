@@ -103,6 +103,8 @@ The protocol was written and committed before any page ran, the failure is publi
 
 Three files sit below the coverage floor on their own. The gate names them instead of hiding them inside the average.
 
+**The demo video was recorded earlier and two of its numbers have since moved.** It says line coverage is ninety seven point eight and that four files sit below the floor. Both were true at the commit it was recorded against. A test added afterwards, closing a defect where six rows printed a command a reader could not run, moved them to **98.51** and **three**. The video was not recut; the README carries the same correction with the command that reproduces either number.
+
 ---
 
 ## What was reused
