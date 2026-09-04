@@ -19,9 +19,11 @@ runs.
 | That every WebMCP tool in these tables only reads what a page declares | False for at least three of them. The Model Context Tool Inspector, webmcpinspector.com and Glass Box all call tools | The first table is now split into readers and executors |
 | That nothing runs a behavioural WebMCP catalogue live in a browser | Glass Box does, and it publishes its own WebMCP tools while doing it | A named [closest neighbour](#the-closest-neighbour-glass-box) and a narrower falsifier |
 
-**Ninth Tool is not the first WebMCP conformance suite and does not claim to be.** The official one
-is upstream in Web Platform Tests, and at least two package suites and one published npm package got
-there first. What is left is stated at the end, is narrower than what was withdrawn, and each part
+**Ninth Tool is not a conformance suite and does not claim to be one.** An earlier version of this
+line said it was not the FIRST one, which still claimed to be one. The conformance suite for WebMCP
+is upstream in Web Platform Tests, and at least two package suites and one published npm package
+exist besides. This is a behaviour probe: it executes a page's tools and reports what the browser
+did with them, over twenty hand-picked rows rather than systematic coverage of the draft. What is left is stated at the end, is narrower than what was withdrawn, and each part
 of it names its nearest neighbour inline.
 
 ## What was searched

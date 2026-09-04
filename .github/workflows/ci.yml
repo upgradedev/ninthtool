@@ -167,7 +167,7 @@ jobs:
           try () {
             echo "--- trying: $1"
             if timeout 240 npx --yes "$1" --help > help.txt 2>err.txt; then
-              if grep -q "behavioural conformance suite for WebMCP" help.txt; then
+              if grep -q "reproducible behaviour probe for WebMCP" help.txt; then
                 echo "WORKS: $1"; echo "spec=$1" >> "$GITHUB_OUTPUT"; return 0
               fi
               echo "ran but the help text was not ours"
@@ -184,7 +184,7 @@ jobs:
       - name: It installs and starts
         run: |
           set -e
-          grep -q "behavioural conformance suite for WebMCP" help.txt
+          grep -q "reproducible behaviour probe for WebMCP" help.txt
           grep -q -- "--allow-fixture-forms" help.txt
           echo "the bin resolved, every import loaded, and the help text is the shipped one."
 

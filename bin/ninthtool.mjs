@@ -106,7 +106,7 @@ function parseArgs(argv) {
   return { args, errors };
 }
 
-const HELP = `ninthtool, a behavioural conformance suite for WebMCP
+const HELP = `ninthtool, a reproducible behaviour probe for WebMCP
 
   node bin/ninthtool.mjs [url] [options]
 
@@ -194,7 +194,7 @@ const BAR = '-'.repeat(78);
 function printReport(result, transcript, only) {
   const chosen = only ? result.findings.filter((f) => f.id === only) : result.findings;
   console.log(BAR);
-  console.log('ninthtool, a behavioural conformance suite for WebMCP');
+  console.log('ninthtool, a reproducible behaviour probe for WebMCP');
   console.log(BAR);
   console.log(`subject : ${result.environment.url || 'unknown'}`);
   console.log(`browser : ${result.environment.userAgent || 'unknown'}`);

@@ -221,7 +221,7 @@ The [W3C draft](https://webmachinelearning.github.io/webmcp/) flags the first of
 *"Support more granular errors than “UnknownError”, based on each failure case."* Five of the twenty
 rows measure the declarative half, whose section in that draft currently reads, in full:
 *"This section is entirely a TODO. For now, refer to the Declarative API explainer"*. This suite is
-what a conformance pass over that half looks like while it is being written.
+what probing that half looks like while it is being written.
 
 | # | What a page needs to do | WebMCP today |
 |---|---|---|
@@ -424,7 +424,7 @@ Sponsor's and Devpost's call, not ours. What follows is the material they would 
 |  | ClaimReady | Ninth Tool |
 |---|---|---|
 | Who uses it | a person making an insurance claim, and their agent | a developer who ships a WebMCP page |
-| What it does | first notice of loss on an insurer's page: policy rules, requirements, a filed claim | runs a behavioural conformance catalogue against a WebMCP tool surface |
+| What it does | first notice of loss on an insurer's page: policy rules, requirements, a filed claim | runs a behavioural probe catalogue against a WebMCP tool surface |
 | The workflow | fill a claim draft, satisfy insurer requirements, file it | point it at a page, read which of its promises hold |
 | The interface | a claim desk | a report, and a command line runner |
 | The value | the claim is right before it is filed | the page does not lie to an agent |

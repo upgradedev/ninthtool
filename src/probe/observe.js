@@ -911,7 +911,19 @@ export async function observeAll(ctx, options = {}) {
       for (const tool of tools) {
         if (tool.schemaError) { bad.push(`${tool.name}: schema did not parse, ${tool.schemaError}`); continue; }
         if (!tool.schema || typeof tool.schema !== 'object') { bad.push(`${tool.name}: no schema`); continue; }
-        if (tool.schema.type !== 'object') bad.push(`${tool.name}: schema type is ${JSON.stringify(tool.schema.type)}, not object`);
+        if (tool.schema.type !== 'object') { bad.push(`${tool.name}: schema type is ${JSON.stringify(tool.schema.type)}, not object`); continue; }
+        /*
+         * A SCHEMA CAN SAY object AND STILL CARRY NOTHING A CONSUMER CAN READ.
+         *
+         * `type` was the only thing checked, so `{type: 'object', properties: 'not-an-object'}`
+         * counted as a readable object schema and P2 passed. Every consumer of this schema, this
+         * probe included, then reads `.properties` and gets a string. Declaring the container and
+         * filling it with the wrong thing is exactly the class of defect this row exists to find.
+         */
+        const properties = tool.schema.properties;
+        if (properties !== undefined && (typeof properties !== 'object' || properties === null || Array.isArray(properties))) {
+          bad.push(`${tool.name}: properties is ${Array.isArray(properties) ? 'an array' : JSON.stringify(properties)}, not an object`);
+        }
       }
       return { toolCount: tools.length, unusableSchemas: bad };
     });

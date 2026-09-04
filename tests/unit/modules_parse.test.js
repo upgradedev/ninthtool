@@ -50,7 +50,7 @@ const ROOT = path.resolve(
 // 63 since tests/unit/ui_reading.test.js was added for the reading surface: the index, the fold and
 // the command in the blocker. The count is exact rather than a floor, so adding a module without
 // noticing fails here.
-const EXPECTED_MODULES = 66;
+const EXPECTED_MODULES = 68;
 
 /** Every `.js` and `.mjs` under the root, chosen by path, never by searching file contents. */
 function everyModule(dir = '', found = []) {
