@@ -101,6 +101,14 @@ One of the two oracle weaknesses behind those retractions is now closed. The oth
 
 The protocol was written and committed before any page ran, the failure is published in `evidence/impact/results.md`, and the primary metric was not changed afterwards to make it read better.
 
+**Three rows still fail open, found by an external review of this code and reproduced before publishing.** They are listed here rather than fixed quietly on the last night, because a probe that hides its own fail-open oracles has no business reporting anyone else's:
+
+* **P4** decides provenance with `t.fromThisDocument === false`. A tool whose provenance cannot be read is neither true nor false, so it falls out of the filter and the row reports *all tools were registered by this document*. Unknown is counted as ours.
+* **P3** walks only the top level of a schema's `properties`. A nested parameter with no description is never visited, so it passes.
+* **D1** listens for a `toolchange` event without correlating it to the tool that should have caused it, so an unrelated event satisfies the row.
+
+A fourth, **P2**, held whenever `type` was `object` and checked nothing else, so `properties: "not-an-object"` counted as a readable schema. That one is closed, with a test that was watched failing first.
+
 Three files sit below the coverage floor on their own. The gate names them instead of hiding them inside the average.
 
 **The demo video was recorded earlier and two of its numbers have since moved.** It says line coverage is ninety seven point eight and that four files sit below the floor. Both were true at the commit it was recorded against. A test added afterwards, closing a defect where six rows printed a command a reader could not run, moved them to **98.51** and **three**. The video was not recut; the README carries the same correction with the command that reproduces either number.

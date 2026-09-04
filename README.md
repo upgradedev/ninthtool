@@ -487,6 +487,25 @@ documentation promised and is reported as a divergence.
 rather than summarised, so the thirteen failures, five passes, one by-design row and one
 inconclusive row reproduce from a checkout without a browser at all.
 
+### Three rows still fail open, and here they are
+
+Found by an external review and reproduced against this tree before being written down. Each is the
+same shape: something unreadable or unchecked is counted as a pass.
+
+| row | the fail-open | where |
+|---|---|---|
+| **P4** | provenance is decided with `t.fromThisDocument === false`. A tool whose provenance cannot be read is neither `true` nor `false`, so it drops out of the filter and the row reports *all tools were registered by this document* | `src/probe/observe.js`, the `P4` step |
+| **P3** | only the top level of `schema.properties` is walked, so a nested parameter with no description is never visited | `src/probe/observe.js`, the `P3` step |
+| **D1** | a `toolchange` event is counted without being correlated to the tool that should have caused it | `src/probe/observe.js` |
+
+A fourth, **P2**, held whenever `type` was `object` and checked nothing else, so a schema declaring
+`properties: "not-an-object"` counted as readable. That one is closed, and
+`tests/unit/p2_schema_shape.test.js` was watched failing before it was trusted.
+
+These are published rather than fixed on the last night of a deadline, because rushing an oracle is
+how a false pass becomes a false failure. A probe that hides its own fail-open rules has no business
+reporting anyone else's.
+
 ### The demo video is frozen at an earlier commit, and two numbers have moved since
 
 The video was recorded against `ea29ab94`, which is what its `frozenSha` records and what the
