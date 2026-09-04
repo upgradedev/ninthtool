@@ -112,7 +112,7 @@ export const MAY_ABSTAIN = Object.freeze({
 
 /** The sentence that must appear, word for word, on the live page and in the README. */
 export const FLAGSHIP = "Ninth Tool executes your page's WebMCP tools in the browser and shows which "
-  + 'promises the standard silently drops, with the command that reproduces each one.';
+  + 'promises the browser silently drops, with the command that reproduces each one.';
 
 /** Every mandatory row must pass. There is no partial credit on a mandatory row. */
 export const MANDATORY_PASS_RATE = 1.0;

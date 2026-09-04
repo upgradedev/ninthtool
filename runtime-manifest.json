@@ -7,11 +7,11 @@
  "files": {
   "assets/styles.css": "fa541b162af604178fb403b97aca5ddcb9c533c736d821b122e6bb3c33a30020",
   "fixtures/subject.html": "4472026a06f36a27e7293848c43b6991261428dc40783834f3337984db871ba6",
-  "index.html": "8b19698a9b8ad446761833a72f511b221416f0fdbaa1019ac5dfef113c0f318c",
+  "index.html": "e24eaa30c411a72a03f1b1ded83fb6154420b3bc188887de2dacc3ba18cbe44e",
   "src/judge/behaviours.js": "65404364ea252420e59029c7a315bd985f8cb2b3df2e07da5dc06b1c6c154ee0",
   "src/judge/verdict.js": "70eac38b310949989828edd3ef8138bcc434804df53746634746bcc77e9aacdb",
   "src/probe/fixture_identity.js": "82d182d01c8a5d6d4654990b0975a8c7e5f2c33bd88be4640849b8f48d577307",
-  "src/probe/observe.js": "b6ec94e4e9368310849e8a87c9191db859730f4390cc61f4c1799f202435c204",
+  "src/probe/observe.js": "4e72a16cfbd645c135d62180f18ee1dcf9dedf7dc85b995c8df149a723bca8cb",
   "src/probe/steps.js": "ce12cf53217a323532f258c41ceef0635464769c578092bf624acacd40edc045",
   "src/ui/app.js": "f59d0fb0d9f86185ddc834eb0015fe74edb932bf297ad1b09f75afea0fbeb761"
  }

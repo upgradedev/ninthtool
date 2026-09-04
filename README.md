@@ -1,6 +1,6 @@
 # Ninth Tool
 
-**Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the standard
+**Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the browser
 silently drops, with the command that reproduces each one.**
 
 Named for the tool that has to disappear. A conditional tool appears when the state that justifies
@@ -221,7 +221,7 @@ The [W3C draft](https://webmachinelearning.github.io/webmcp/) flags the first of
 *"Support more granular errors than “UnknownError”, based on each failure case."* Five of the twenty
 rows measure the declarative half, whose section in that draft currently reads, in full:
 *"This section is entirely a TODO. For now, refer to the Declarative API explainer"*. This suite is
-what a conformance pass over that half looks like while it is being written.
+what probing that half looks like while it is being written.
 
 | # | What a page needs to do | WebMCP today |
 |---|---|---|
@@ -424,7 +424,7 @@ Sponsor's and Devpost's call, not ours. What follows is the material they would 
 |  | ClaimReady | Ninth Tool |
 |---|---|---|
 | Who uses it | a person making an insurance claim, and their agent | a developer who ships a WebMCP page |
-| What it does | first notice of loss on an insurer's page: policy rules, requirements, a filed claim | runs a behavioural conformance catalogue against a WebMCP tool surface |
+| What it does | first notice of loss on an insurer's page: policy rules, requirements, a filed claim | runs a behavioural probe catalogue against a WebMCP tool surface |
 | The workflow | fill a claim draft, satisfy insurer requirements, file it | point it at a page, read which of its promises hold |
 | The interface | a claim desk | a report, and a command line runner |
 | The value | the claim is right before it is filed | the page does not lie to an agent |
@@ -486,6 +486,25 @@ documentation promised and is reported as a divergence.
 `tests/support/transcripts.mjs` holds the transcript that browser actually produced, transcribed
 rather than summarised, so the thirteen failures, five passes, one by-design row and one
 inconclusive row reproduce from a checkout without a browser at all.
+
+### Three rows still fail open, and here they are
+
+Found by an external review and reproduced against this tree before being written down. Each is the
+same shape: something unreadable or unchecked is counted as a pass.
+
+| row | the fail-open | where |
+|---|---|---|
+| **P4** | provenance is decided with `t.fromThisDocument === false`. A tool whose provenance cannot be read is neither `true` nor `false`, so it drops out of the filter and the row reports *all tools were registered by this document* | `src/probe/observe.js`, the `P4` step |
+| **P3** | only the top level of `schema.properties` is walked, so a nested parameter with no description is never visited | `src/probe/observe.js`, the `P3` step |
+| **D1** | a `toolchange` event is counted without being correlated to the tool that should have caused it | `src/probe/observe.js` |
+
+A fourth, **P2**, held whenever `type` was `object` and checked nothing else, so a schema declaring
+`properties: "not-an-object"` counted as readable. That one is closed, and
+`tests/unit/p2_schema_shape.test.js` was watched failing before it was trusted.
+
+These are published rather than fixed on the last night of a deadline, because rushing an oracle is
+how a false pass becomes a false failure. A probe that hides its own fail-open rules has no business
+reporting anyone else's.
 
 ### The demo video is frozen at an earlier commit, and two numbers have moved since
 

@@ -10,7 +10,7 @@ metadata and this file. `scripts/readiness_config.mjs` holds the one copy the ga
 
 ## Inspiration
 
-Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the standard
+Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the browser
 silently drops, with the command that reproduces each one.
 
 I was adding WebMCP to a page, writing the shape I knew from building MCP servers. I marked a tool
@@ -142,8 +142,8 @@ moved one of them: P6 settled on one page and abstained on the other three, and 
 four. So the reach this bought is one row on one page, not two rows. Two findings it did report were then checked against those pages' own source and
 retracted as defects in this tool, with the handler lines cited: one page had rejected the missing
 argument at its first line, and on the other this tool's own control call was as malformed as the
-one it meant to break. That is the thing worth reading. A conformance suite that runs against
-strangers' pages will produce false findings, and the useful question is whether it catches them and
+one it meant to break. That is the thing worth reading. Any suite that runs against pages it does not
+own will produce false findings, and the useful question is whether it catches them and
 publishes the retraction beside the claim, with the handler cited, in the same generated file. It
 did. One of the two weaknesses behind it is now closed: the row refuses to score a tool whose schema
 declares a constraint this suite cannot satisfy, so it can no longer blame a page for a call that was

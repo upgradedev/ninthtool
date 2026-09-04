@@ -1,4 +1,4 @@
-# Ninth Tool: Behavioural Conformance Suite for WebMCP
+# Ninth Tool: A Reproducible Behaviour Probe for WebMCP
 
 Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the browser silently drops, with the command that reproduces each one.
 
@@ -100,6 +100,14 @@ That is the thing worth reading. Any suite that runs against pages it does not o
 One of the two oracle weaknesses behind those retractions is now closed. The other stays open on purpose: the obvious fix was built, measured against a copy of the tree, and it turned this suite's own flagship true positive into an abstention. That measurement is published rather than the fix.
 
 The protocol was written and committed before any page ran, the failure is published in `evidence/impact/results.md`, and the primary metric was not changed afterwards to make it read better.
+
+**Three rows still fail open, found by an external review of this code and reproduced before publishing.** They are listed here rather than fixed quietly on the last night, because a probe that hides its own fail-open oracles has no business reporting anyone else's:
+
+* **P4** decides provenance with `t.fromThisDocument === false`. A tool whose provenance cannot be read is neither true nor false, so it falls out of the filter and the row reports *all tools were registered by this document*. Unknown is counted as ours.
+* **P3** walks only the top level of a schema's `properties`. A nested parameter with no description is never visited, so it passes.
+* **D1** listens for a `toolchange` event without correlating it to the tool that should have caused it, so an unrelated event satisfies the row.
+
+A fourth, **P2**, held whenever `type` was `object` and checked nothing else, so `properties: "not-an-object"` counted as a readable schema. That one is closed, with a test that was watched failing first.
 
 Three files sit below the coverage floor on their own. The gate names them instead of hiding them inside the average.
 

@@ -76,7 +76,7 @@
   </div>
   <div class="badges">
     <span class="badge">OpenAI WebMCP 2026</span>
-    <span class="badge on">524 / 524 tests passed</span>
+    <span class="badge on">every rule ships a failing proof</span>
     <span class="badge acc">20 behaviours &middot; 19 settled</span>
   </div>
 </header>
@@ -143,7 +143,7 @@
     </div>
     <div class="item">
       <b>Every rule ships a mutation</b>
-      <p>Each rule is paired with an input that proves it can go red. A gate never watched failing is not a gate.</p>
+      <p>Each rule is paired with an input that proves it can stop passing, as a failure or an honest abstention. A gate never watched failing is not a gate.</p>
     </div>
     <div class="item">
       <b>Honest abstention</b>
@@ -157,9 +157,9 @@
 </div>
 
 <footer>
-  <div>Ninth Tool &middot; Behavioural conformance suite for WebMCP &middot; not the first, see docs/prior-art.md &middot; MIT &middot; upgradedev.github.io/ninthtool</div>
+  <div>Ninth Tool &middot; A reproducible behaviour probe for WebMCP &middot; not a conformance suite, see docs/prior-art.md &middot; MIT &middot; upgradedev.github.io/ninthtool</div>
   <div class="stats">
-    Line coverage, counting each file once: <b>98.51%</b> across <b>54 files</b><br>
-    Unit tests: <b>524 passing</b> &middot; Runtime dependencies: <b>0</b>
+    Coverage floor <b>85%</b> per file, and every file under it is <b>named</b>, not averaged away<br>
+    Counts live in the run, not in this picture &middot; Runtime dependencies: <b>0</b>
   </div>
 </footer>
