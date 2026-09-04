@@ -283,15 +283,15 @@ npx --yes https://github.com/upgradedev/ninthtool/tarball/main https://your-page
 It has no dependencies, so there is nothing to resolve and nothing to audit before it runs. Node 20
 or later, and a Chromium browser with WebMCP enabled.
 
-That is the tarball URL rather than the tidier `npx github:upgradedev/ninthtool`, and the reason is
-measured rather than stylistic: on npm 10.8.2 the shorthand fails with
-`GitFetcher requires an Arborist constructor to pack a tarball`. The end to end job tries the
-shorthand first on every run, so the day npm fixes it this README gets shorter.
+That is the tarball URL rather than the tidier `npx github:upgradedev/ninthtool`, because npm 10.8.2
+fails on the shorthand with `GitFetcher requires an Arborist constructor to pack a tarball`.
 
-**The CI end to end job runs this exact line on a clean machine with no checkout**, and asserts the
-help text is the shipped one, that a bad `--fail-on` still exits 2 before launching anything, and
-that `--behaviour A1` reports one behaviour tested. The command here has been executed rather than
-written down.
+**The CI end to end job starts on a clean machine with no checkout.** It downloads the exact commit
+tarball with `curl`, verifies the archive identity, builds the package described by its own
+`package.json`, then executes that local package with npm in offline mode. It asserts that the help
+text is the shipped one, that a bad `--fail-on` exits 2 before launching anything, and that
+`--behaviour A1` reports one behaviour tested. This separates GitHub download reachability from
+npm's remote GitFetcher while still exercising the bytes and package a reader receives.
 
 From a checkout, with no arguments and no separate terminal. It starts a loopback server, launches
 your Chrome with the feature enabled in a throwaway profile, drives this page and prints the report.

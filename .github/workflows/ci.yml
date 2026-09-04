@@ -139,13 +139,12 @@ jobs:
         run: node scripts/check_style.mjs --selftest
 
   e2e:
-    name: The command the README gives, on a clean machine
+    name: The downloaded package, on a clean machine
     runs-on: ubuntu-latest
     steps:
-      # NO CHECKOUT ON PURPOSE. The point of this job is to run what a reader runs: one line, no
-      # clone, nothing built here. A checkout would let a file that `files` does not pack pass
-      # unnoticed, which is exactly the failure this exists to catch, and it would land on whoever
-      # ran the one command the README tells them to run.
+      # NO CHECKOUT ON PURPOSE. The point is to fetch the exact commit, pack only what package.json
+      # declares, and execute that package offline. A checkout would let a file that `files` does
+      # not pack pass unnoticed, which is exactly the failure this exists to catch.
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -159,39 +158,46 @@ jobs:
             echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Which install form actually works
+      - name: Download the exact commit and build its package locally
         id: form
+        shell: bash
         run: |
+          set -euo pipefail
           SHA="${{ steps.ref.outputs.sha }}"
+          URL="https://github.com/upgradedev/ninthtool/tarball/$SHA"
           echo "npm $(npm --version), node $(node --version)"
-          try () {
-            echo "--- trying: $1"
-            if timeout 240 npx --yes "$1" --help > help.txt 2>err.txt; then
-              if grep -q "reproducible behaviour probe for WebMCP" help.txt; then
-                echo "WORKS: $1"; echo "spec=$1" >> "$GITHUB_OUTPUT"; return 0
-              fi
-              echo "ran but the help text was not ours"
-            fi
-            sed -n '1,4p' err.txt || true
-            return 1
+          curl --fail --location --silent --show-error \
+            --retry 3 --retry-all-errors --connect-timeout 15 --max-time 120 \
+            "$URL" --output source.tgz
+          test -s source.tgz
+          ROOT=$(tar -tzf source.tgz | sed -n '1s:/$::p')
+          EXPECTED="upgradedev-ninthtool-${SHA:0:7}"
+          [ "$ROOT" = "$EXPECTED" ] || {
+            echo "archive root $ROOT does not identify $EXPECTED"
+            exit 1
           }
-          try "github:upgradedev/ninthtool#$SHA" && exit 0
-          try "https://github.com/upgradedev/ninthtool/tarball/$SHA" && exit 0
-          try "git+https://github.com/upgradedev/ninthtool.git#$SHA" && exit 0
-          echo "no install form worked, so the README cannot promise one"
-          exit 1
+          mkdir source
+          tar -xzf source.tgz -C source --strip-components=1
+          test -f source/package.json
+          PACKED=$(npm pack ./source --pack-destination . --silent)
+          test -n "$PACKED"
+          test -s "$PACKED"
+          echo "spec=./$PACKED" >> "$GITHUB_OUTPUT"
+          echo "WORKS: downloaded $URL and packed $PACKED"
 
       - name: It installs and starts
         run: |
           set -e
+          SPEC="${{ steps.form.outputs.spec }}"
+          npm exec --offline --yes --package="$SPEC" -- ninthtool --help > help.txt
           grep -q "reproducible behaviour probe for WebMCP" help.txt
           grep -q -- "--allow-fixture-forms" help.txt
-          echo "the bin resolved, every import loaded, and the help text is the shipped one."
+          echo "the downloaded commit packed, the bin resolved, and every import loaded."
 
       - name: It refuses bad arguments before launching anything
         run: |
           set +e
-          npx --yes "${{ steps.form.outputs.spec }}" --fail-on wrong > out.txt 2>&1
+          npm exec --offline --yes --package="${{ steps.form.outputs.spec }}" -- ninthtool --fail-on wrong > out.txt 2>&1
           code=$?
           set -e
           [ "$code" = "2" ] || { echo "expected exit 2 for a bad --fail-on, got $code"; cat out.txt; exit 1; }
@@ -215,7 +221,8 @@ jobs:
           # A scoped A1 run against the live page is COMPLETE, so the documented code is 0. If it
           # ever is not, that is the gate doing its job rather than something to route around.
           set +e
-          npx --yes "${{ steps.form.outputs.spec }}"             https://upgradedev.github.io/ninthtool/ --behaviour A1 > audit.txt 2>&1
+          npm exec --offline --yes --package="${{ steps.form.outputs.spec }}" -- ninthtool \
+            https://upgradedev.github.io/ninthtool/ --behaviour A1 > audit.txt 2>&1
           code=$?
           set -e
           cat audit.txt
