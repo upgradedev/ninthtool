@@ -7,7 +7,7 @@
  "files": {
   "assets/styles.css": "fa541b162af604178fb403b97aca5ddcb9c533c736d821b122e6bb3c33a30020",
   "fixtures/subject.html": "4472026a06f36a27e7293848c43b6991261428dc40783834f3337984db871ba6",
-  "index.html": "8b19698a9b8ad446761833a72f511b221416f0fdbaa1019ac5dfef113c0f318c",
+  "index.html": "e2efd65cedc9095b01d68feaa7707450f6bf0a90ce25c44d8293ca3f88a64d6f",
   "src/judge/behaviours.js": "65404364ea252420e59029c7a315bd985f8cb2b3df2e07da5dc06b1c6c154ee0",
   "src/judge/verdict.js": "70eac38b310949989828edd3ef8138bcc434804df53746634746bcc77e9aacdb",
   "src/probe/fixture_identity.js": "82d182d01c8a5d6d4654990b0975a8c7e5f2c33bd88be4640849b8f48d577307",

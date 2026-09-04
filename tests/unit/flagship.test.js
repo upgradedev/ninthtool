@@ -27,7 +27,7 @@ const flat = (s) => s.replace(/\s+/g, ' ').trim();
  * If this needs to change, change it HERE and the test will tell you which files disagree.
  */
 const FLAGSHIP = "Ninth Tool executes your page's WebMCP tools in the browser and shows which "
-  + 'promises the standard silently drops, with the command that reproduces each one.';
+  + 'promises the browser silently drops, with the command that reproduces each one.';
 
 test('the flagship sentence is 25 words or fewer and carries no em dash', () => {
   const words = FLAGSHIP.split(/\s+/).filter(Boolean);

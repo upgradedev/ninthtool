@@ -1,6 +1,6 @@
 # Ninth Tool
 
-**Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the standard
+**Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the browser
 silently drops, with the command that reproduces each one.**
 
 Named for the tool that has to disappear. A conditional tool appears when the state that justifies

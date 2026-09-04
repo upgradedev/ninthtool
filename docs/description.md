@@ -10,7 +10,7 @@ metadata and this file. `scripts/readiness_config.mjs` holds the one copy the ga
 
 ## Inspiration
 
-Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the standard
+Ninth Tool executes your page's WebMCP tools in the browser and shows which promises the browser
 silently drops, with the command that reproduces each one.
 
 I was adding WebMCP to a page, writing the shape I knew from building MCP servers. I marked a tool
